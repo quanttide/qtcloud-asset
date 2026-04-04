@@ -1,0 +1,28 @@
+# 假设的契约描述文件 asset_contract.yaml (版本 0.0.1)
+schema_version: "0.0.1"
+kind: "second_brain" # 可以是 novel, project, api_spec 等
+
+metadata:
+  name: "创始人日志"
+  default_namespace: "quanttide"
+
+storage:
+  # 定义同步目标，解耦具体实现
+  targets:
+    - name: "github_primary"
+      type: "git"
+      endpoint: "https://github.com/xxx/yyy"
+      branch: "main"
+    - name: "feishu_backup"
+      type: "feishu"
+      endpoint: "feishu_doc_id_xxx"
+  
+structure:
+  # 抽象的目录规范，不再是本地路径，而是逻辑命名空间
+  namespaces:
+    - "inbox"
+    - "projects"
+    - "archive"
+  file_conventions:
+    naming: "{date}-{slug}.md"
+    required_frontmatter: ["created", "tags"]
