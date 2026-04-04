@@ -4,17 +4,11 @@
 
 ### 目标
 
-把现实需求翻译成 DSL 语法，对齐 `examples` 和 `tests/fixtures`。
+把现实需求翻译成 DSL 语法，对齐 `examples`、`tests/fixtures` 和文档设计，提炼通用代码结构，为 CLI 做准备。
 
 ### 待办
 
-1. 提取现有脚本需求
-   - 分析 `backup_product_journal.py` 的输入/输出/触发条件
-   - 分析 `generate_product_roadmap.py` 的转换逻辑
-2. 编写 DSL 示例
-   - 将上述需求转换为 `tests/fixtures/*.yaml` 文件
-   - 验证 ISDL 结构（assets, transforms, triggers）的表达能力
-3. 实现最小解析器
-   - 读取 YAML 契约
-   - 校验 Schema 合法性
-   - 模拟执行转换步骤
+1. 提取需求：分析现有脚本的输入/输出/触发条件/转换逻辑
+2. 编写 DSL：将需求转换为 `tests/fixtures/*.yaml`，验证 ISDL 结构表达能力
+3. 实现解析器：读取 YAML 契约，校验 Schema，模拟执行转换
+4. 重构代码：对齐 `docs/prd` 和 `docs/add` 设计，提炼通用结构，为 CLI 做准备
