@@ -21,7 +21,7 @@ import requests
 import yaml
 
 CONTRACTS_FILE = Path(__file__).parent.parent / "contracts.yaml"
-OLLAMA_URL = "http://localhost:11434"
+LLM_URL = "http://localhost:11434"
 
 
 def load_contract(name: str) -> dict:
@@ -58,9 +58,9 @@ def get_transform_params(contract: dict) -> dict:
     return transform.get("params", {})
 
 
-def call_ollama(prompt: str, system: str, model: str) -> str:
-    """调用本地 Ollama 模型"""
-    url = f"{OLLAMA_URL}/api/generate"
+def call_llm(prompt: str, system: str, model: str) -> str:
+    """调用本地 LLM 模型"""
+    url = f"{LLM_URL}/api/generate"
     payload = {
         "model": model,
         "prompt": prompt,
@@ -98,15 +98,15 @@ def load_product_journal(journal_base: Path, slug: str, product: str) -> str:
 
 
 def generate_blueprint(journal_base: Path, slug: str, product: str, contract: dict) -> str:
-    """调用 Ollama 生成产品蓝图"""
+    """调用 LLM 生成产品蓝图"""
     params = get_transform_params(contract)
     model = params.get("model", "qwen2.5-coder:3b")
     system_prompt = params.get("system_prompt", "")
     
     journal_content = load_product_journal(journal_base, slug, product)
     prompt = f"以下是产品日志内容，请生成工作蓝图：\n\n{journal_content}"
-    print(f"  正在调用 Ollama ({model}) 生成 {product} 蓝图...")
-    return call_ollama(prompt, system_prompt, model)
+    print(f"  正在调用 LLM ({model}) 生成 {product} 蓝图...")
+    return call_llm(prompt, system_prompt, model)
 
 
 def main():
