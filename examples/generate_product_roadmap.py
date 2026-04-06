@@ -14,62 +14,24 @@
     contracts.yaml - 契约配置
 """
 
+import subprocess
 import sys
 from pathlib import Path
 
-import requests
-import yaml
-
 CONTRACTS_FILE = Path(__file__).parent.parent / "contracts.yaml"
-LLM_URL = "http://localhost:11434"
-
-
-def load_contract(name: str) -> dict:
-    """从 contracts.yaml 加载契约配置"""
-    if not CONTRACTS_FILE.exists():
-        print(f"错误: 找不到契约配置文件 {CONTRACTS_FILE}")
-        sys.exit(1)
-
-    with open(CONTRACTS_FILE, encoding="utf-8") as f:
-        data = yaml.safe_load(f)
-
-    contracts = data.get("contracts", {})
-    if name not in contracts:
-        print(f"错误: 找不到契约 {name}")
-        print(f"可用契约: {', '.join(contracts.keys())}")
-        sys.exit(1)
-
-    return contracts[name]
-
-
-def get_paths(contract: dict) -> dict:
-    """从契约配置获取路径"""
-    return contract.get("paths", {})
-
-
-def get_transform(contract: dict) -> dict:
-    """从契约配置获取 transform"""
-    return contract.get("transform", {})
-
-
-def get_transform_params(contract: dict) -> dict:
-    """从契约配置获取 transform 参数"""
-    transform = get_transform(contract)
-    return transform.get("params", {})
 
 
 def call_llm(prompt: str, system: str, model: str) -> str:
-    """调用本地 LLM 模型"""
-    url = f"{LLM_URL}/api/generate"
-    payload = {
-        "model": model,
-        "prompt": prompt,
-        "system": system,
-        "stream": False,
-    }
-    resp = requests.post(url, json=payload, timeout=300)
-    resp.raise_for_status()
-    return resp.json().get("response", "")
+    """调用 LLM CLI"""
+    result = subprocess.run(
+        ["llm", "-m", model, "-s", system, prompt],
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        print(f"LLM 错误: {result.stderr}")
+        sys.exit(1)
+    return result.stdout
     """调用本地 Ollama 模型"""
     url = f"{OLLAMA_URL}/api/generate"
     payload = {
