@@ -13,3 +13,33 @@
 2. 模块化设计：功能模块化，便于扩展和维护
 3. 通用化抽象：通过抽象概念和通用规则实现通用性和可复用性
 4. Schema演进管理：平台定义一套中间标准Schema（ISDL - 统一数字资产描述语言），版本控制的是ISDL而非底层存储
+
+## 脚本到引擎的演进
+
+当前两个脚本验证了核心架构点：
+
+| 脚本 | 验证的架构点 |
+|------|-------------|
+| `generate_product_roadmap.py` | AI transform 适配器 |
+| `backup_product_journal.py` | local_fs 适配器 + 归档流程 |
+
+### 演进路径
+
+**Step 1: 契约驱动**
+- transform 定义从 YAML 而非硬编码
+- 脚本从 `contracts.yaml` 读取完整 transform 配置
+
+**Step 2: 抽取通用引擎**
+```
+读取契约 → 遍历文件 → 执行 transform → 写入 → 记录日志
+```
+抽取为 `engine.py`
+
+**Step 3: 适配器抽象**
+- `LocalFSAdapter`
+- `FeishuAdapter`
+- `GithubAdapter`
+
+**Step 4: 事件溯源**
+- 每个执行步骤记录结构化事件
+- 可通过回放事件重建状态
