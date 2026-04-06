@@ -20,68 +20,8 @@ from pathlib import Path
 import requests
 import yaml
 
-CONTRACTS_FILE = Path(__file__).parent / "contracts.yaml"
+CONTRACTS_FILE = Path(__file__).parent.parent / "contracts.yaml"
 OLLAMA_URL = "http://localhost:11434"
-MODEL = "qwen2.5-coder:3b"
-
-SYSTEM_PROMPT = """你是一个产品蓝图分析师。请根据产品日志内容，生成结构化的产品工作蓝图。
-
-严格遵循以下要求：
-1. 不使用粗体、表格、emoji 等装饰
-2. 使用纯列表和编号结构
-3. 内容简洁，去除冗余描述
-4. 使用中文输出
-
-输出格式：
-
-# 产品名称蓝图
-
-## 产品定位
-
-- 核心定位描述
-- 关键价值点
-
-## 核心设计
-
-### 原子定义
-
-1. 核心概念定义
-2. 关键规则
-
-### 功能设计
-
-- 功能1：描述
-- 功能2：描述
-
-## 数据处理流程
-
-- 数据流转描述
-- 关键处理节点
-
-## 关键洞察
-
-### 主题1
-
-- 洞察点
-
-### 主题2
-
-- 洞察点
-
-## 架构原则
-
-- 原则1
-- 原则2
-
-## 验证方向
-
-- 验证点1
-- 验证点2
-
-## 困惑与挑战
-
-1. 挑战1
-2. 挑战2"""
 
 
 def load_contract(name: str) -> dict:
@@ -107,7 +47,29 @@ def get_paths(contract: dict) -> dict:
     return contract.get("paths", {})
 
 
-def call_ollama(prompt: str, system: str, model: str = MODEL) -> str:
+def get_transform(contract: dict) -> dict:
+    """从契约配置获取 transform"""
+    return contract.get("transform", {})
+
+
+def get_transform_params(contract: dict) -> dict:
+    """从契约配置获取 transform 参数"""
+    transform = get_transform(contract)
+    return transform.get("params", {})
+
+
+def call_ollama(prompt: str, system: str, model: str) -> str:
+    """调用本地 Ollama 模型"""
+    url = f"{OLLAMA_URL}/api/generate"
+    payload = {
+        "model": model,
+        "prompt": prompt,
+        "system": system,
+        "stream": False,
+    }
+    resp = requests.post(url, json=payload, timeout=300)
+    resp.raise_for_status()
+    return resp.json().get("response", "")
     """调用本地 Ollama 模型"""
     url = f"{OLLAMA_URL}/api/generate"
     payload = {
@@ -135,19 +97,23 @@ def load_product_journal(journal_base: Path, slug: str, product: str) -> str:
     return "\n\n---\n\n".join(contents)
 
 
-def generate_blueprint(slug: str, product: str) -> str:
+def generate_blueprint(journal_base: Path, slug: str, product: str, contract: dict) -> str:
     """调用 Ollama 生成产品蓝图"""
-    journal_content = load_product_journal(slug, product)
+    params = get_transform_params(contract)
+    model = params.get("model", "qwen2.5-coder:3b")
+    system_prompt = params.get("system_prompt", "")
+    
+    journal_content = load_product_journal(journal_base, slug, product)
     prompt = f"以下是产品日志内容，请生成工作蓝图：\n\n{journal_content}"
-    print(f"  正在调用 Ollama ({MODEL}) 生成 {product} 蓝图...")
-    return call_ollama(prompt, SYSTEM_PROMPT)
+    print(f"  正在调用 Ollama ({model}) 生成 {product} 蓝图...")
+    return call_ollama(prompt, system_prompt, model)
 
 
 def main():
     contract_name = (
         sys.argv[1]
         if len(sys.argv) > 1 and not sys.argv[1].startswith("--")
-        else "feishu_to_github"
+        else "generate_roadmap"
     )
     slug = (
         sys.argv[2]
@@ -158,6 +124,7 @@ def main():
 
     contract = load_contract(contract_name)
     paths = get_paths(contract)
+    transform = get_transform(contract)
 
     journal_base = Path(paths.get("journal", "docs/journal"))
     roadmap_base = Path(paths.get("roadmap", "docs/roadmap"))
@@ -178,7 +145,7 @@ def main():
     output_dir.mkdir(parents=True, exist_ok=True)
 
     for product in products:
-        blueprint = generate_blueprint(slug, product)
+        blueprint = generate_blueprint(journal_base, slug, product, contract)
         if not blueprint.strip():
             print(f"  警告: {product} 生成结果为空，跳过")
             continue

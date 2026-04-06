@@ -33,7 +33,65 @@ contracts:
       roadmap: docs/roadmap
       archive: docs/archive/journal
 
-  # 产品日志归档
+  # 产品日志生成路线图
+  generate_roadmap:
+    name: 产品日志生成路线图
+    version: 1
+    asset:
+      platform: local
+      type: markdown
+      schema:
+        required:
+          - content
+    transform:
+      name: 日志转蓝图
+      input: journal
+      output: roadmap
+      action: journal_to_roadmap
+      params:
+        model: qwen2.5-coder:3b
+        system_prompt: |
+          你是一个产品蓝图分析师。请根据产品日志内容，生成结构化的产品工作蓝图。
+          严格遵循以下要求：
+          1. 不使用粗体、表格、emoji 等装饰
+          2. 使用纯列表和编号结构
+          3. 内容简洁，去除冗余描述
+          4. 使用中文输出
+        output_format: |
+          # 产品名称蓝图
+
+          ## 产品定位
+          - 核心定位描述
+          - 关键价值点
+
+          ## 核心设计
+          1. 核心概念定义
+          2. 关键规则
+
+          ## 功能设计
+          - 功能1：描述
+          - 功能2：描述
+
+          ## 关键洞察
+          - 洞察点
+
+          ## 验证方向
+          - 验证点1
+          - 验证点2
+
+          ## 困惑与挑战
+          1. 挑战1
+          2. 挑战2
+    trigger: manual
+    lifecycle:
+      initial: draft
+      states:
+        - draft
+        - active
+        - archived
+    paths:
+      journal: /home/zhangguo/repos/quanttide-founder/docs/journal
+      roadmap: docs/roadmap
   journal_backup:
     name: 产品日志归档
     version: 1
