@@ -114,5 +114,5 @@ contracts:
         - active
         - archived
     paths:
-      journal: docs/journal
+      journal: /home/zhangguo/repos/quanttide-founder/docs/journal
       archive: docs/archive/journal

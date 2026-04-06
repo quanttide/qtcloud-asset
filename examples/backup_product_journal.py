@@ -19,7 +19,7 @@ from pathlib import Path
 
 import yaml
 
-CONTRACTS_FILE = Path(__file__).parent / "contracts.yaml"
+CONTRACTS_FILE = Path(__file__).parent.parent / "contracts.yaml"
 
 
 def load_contract(name: str) -> dict:
