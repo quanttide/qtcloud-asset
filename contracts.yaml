@@ -1,0 +1,60 @@
+# ISDL Lite v1.0 契约配置
+# 数字资产云工作流定义
+
+contracts:
+  # 飞书文档同步到 GitHub
+  feishu_to_github:
+    name: 飞书文档同步到GitHub
+    version: 1
+    asset:
+      platform: feishu
+      type: document
+      schema:
+        required:
+          - content
+          - title
+    transform:
+      name: 转Markdown
+      input: feishu.document
+      output: github.markdown
+      action: feishu_to_markdown
+      params:
+        extract_frontmatter: true
+        strip_styles: true
+    trigger: manual
+    lifecycle:
+      initial: draft
+      states:
+        - draft
+        - active
+        - archived
+    paths:
+      journal: docs/journal
+      roadmap: docs/roadmap
+      archive: docs/archive/journal
+
+  # 产品日志归档
+  journal_backup:
+    name: 产品日志归档
+    version: 1
+    asset:
+      platform: local
+      type: markdown
+      schema:
+        required:
+          - content
+    transform:
+      name: 归档移动
+      input: journal
+      output: archive
+      action: move_to_archive
+    trigger: manual
+    lifecycle:
+      initial: draft
+      states:
+        - draft
+        - active
+        - archived
+    paths:
+      journal: docs/journal
+      archive: docs/archive/journal
