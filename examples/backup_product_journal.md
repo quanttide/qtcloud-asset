@@ -1,53 +1,19 @@
-# 归档产品日志流程
+# 产品日志归档原型验证
 
-将已处理的产品日志从工作区移动到归档站，保持工作区整洁。
+## 验证目标
 
-## 前置条件
+逐步验证本地文件系统适配器和归档流程在契约驱动架构中的可行性。
 
-- 产品日志位于 `docs/journal/product/<product-name>/` 目录下
-- 归档目标目录 `docs/archive/journal/product/<product-name>/` 已存在
-- 日志内容已提炼到路线图（`docs/roadmap/product/<product-name>.md`）
+## 当前状态
 
-## 流程
+脚本实现了日志移动、目录清理的基础流程。验证了归档操作的业务价值，工作区保持整洁，归档站保留历史。但尚未采用契约配置，归档逻辑硬编码在脚本中。尚未引入状态管理，没有生命周期状态流转。尚未增加审计日志，没有事件溯源记录。
 
-### 1. 确认已提炼
+## 下一步重构
 
-确保日志中的核心想法已总结到对应的产品路线图中。
+引入状态管理，为归档操作增加生命周期状态。归档前检查日志是否已提炼，满足条件则进入可归档状态。归档执行后记录事件日志，包含操作时间、输入输出路径、执行结果。
 
-### 2. 移动文件
+重构后验证状态管理是否能够控制归档时机，事件日志是否能够追溯归档操作。发现问题则调整状态机设计。
 
-将 `docs/journal/product/<product-name>/` 下的所有 `.md` 文件移动到 `docs/archive/journal/product/<product-name>/`。
+## 验证标准
 
-### 3. 清理空目录
-
-如果 `docs/journal/product/<product-name>/` 目录已空，删除该目录。
-
-## 手动操作示例
-
-```bash
-# 移动文件
-mv docs/journal/product/<product-name>/*.md docs/archive/journal/product/<product-name>/
-
-# 删除空目录
-rmdir docs/journal/product/<product-name>
-```
-
-## 归档结构
-
-归档站保持与 journal 相同的目录结构：
-
-```
-docs/archive/journal/product/
-├── qtcloud-think/
-│   ├── 2026-03-15.md
-│   ├── 2026-03-31.md
-│   └── 2026-04-04.md
-├── qtadmin/
-└── ...
-```
-
-## 注意事项
-
-- 归档后不轻易删除文件
-- 保持归档目录结构与源模块一致
-- 归档前确认路线图已更新
+重构成功意味着归档操作通过状态条件控制执行时机，每一步归档操作都有事件日志记录，能够通过事件回放重建归档状态。
