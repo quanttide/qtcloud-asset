@@ -8,7 +8,7 @@
 |------|------|------|
 | 验证指南 | CONTRIBUTING.md | 重构工作流和原则 |
 | 演进路线 | ROADMAP.md | 验证路径和阶段目标 |
-| AI 转换验证 | transform/generate_product_roadmap.md | 当前状态和下一步 |
+| AI 转换验证 | roadmap/generate_product_roadmap.md | 当前状态和下一步 |
 | 归档验证 | archive/backup_product_journal.md | 当前状态和下一步 |
 | 文档格式 | docs/CONTRIBUTING.md | Markdown 写作规范 |
 
@@ -17,7 +17,7 @@
 | 任务 | 查看文档 |
 |------|---------|
 | 执行重构 | ROADMAP.md |
-| 了解验证标准 | transform/generate_product_roadmap.md 或 archive/backup_product_journal.md |
+| 了解验证标准 | roadmap/generate_product_roadmap.md 或 archive/backup_product_journal.md |
 | 编写验证文档 | docs/CONTRIBUTING.md |
 
 ## 协作原则
