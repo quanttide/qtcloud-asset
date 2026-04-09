@@ -1,0 +1,19 @@
+[project]
+name = "qtcloud-asset-provider"
+version = "0.1.0"
+description = "量潮数字资产云 Provider"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi",
+    "pyyaml",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "pytest-cov",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
