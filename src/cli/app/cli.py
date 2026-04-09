@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import typer
 
-from src.cli.app.services.planner import resolve_workflow, print_workflow_summary
-from src.cli.app.repositories.file_operator import archive_product
+from src.cli.app.planner import resolve_workflow, print_workflow_summary
+from src.cli.app.file_operator import archive_product
 
 app = typer.Typer(help="数字资产云 CLI")
 
