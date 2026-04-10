@@ -1,0 +1,156 @@
+# 量潮数字资产云 — 专用契约
+# 模块定位：数字资产管理基础设施层（契约定义 + 归档执行引擎）
+# 参考：docs/add/contract.md
+
+# ── 资产组成 ──────────────────────────────────────────
+
+assets:
+  # 商业需求文档
+  brd:
+    name: 商业需求文档
+    type: docs
+    category: brd
+    path: docs/brd
+    description: 创始人知识库迁移痛点、业务场景、成功标准
+
+  # 产品需求文档
+  prd:
+    name: 产品需求文档
+    type: docs
+    category: prd
+    path: docs/prd
+    description: 产品定位、数字资产边界、契约定义、工作流设计
+
+  # 架构设计文档
+  add:
+    name: 架构设计文档
+    type: docs
+    category: add
+    path: docs/add
+    description: CLI 三层架构、契约技术规范、ISDL DSL 设计
+
+  # 质量保证文档
+  qa:
+    name: 质量保证文档
+    type: docs
+    category: qa
+    path: docs/qa
+    description: 架构决策记录（Q001-Q008）
+
+  # 用户文档
+  user_docs:
+    name: 用户文档
+    type: docs
+    category: user
+    path: docs/user
+    description: 安装、快速开始、配置参考、归档命令详解
+
+  # CLI 设计文档
+  cli_docs:
+    name: CLI 设计文档
+    type: docs
+    category: cli_docs
+    path: src/cli/docs
+    description: cli.py、planner.py、file_operator.py 的设计文档
+
+  # CLI 实现代码
+  cli_code:
+    name: CLI 实现代码
+    type: code
+    category: cli
+    path: src/cli/app
+    description: >
+      三层解耦架构：
+      - cli.py（入口层）
+      - planner.py（配置层）
+      - file_operator.py（操作层）
+
+  # CLI 测试
+  cli_tests:
+    name: CLI 测试代码
+    type: code
+    category: cli_tests
+    path: src/cli/tests
+    description: planner 和 file_operator 的单元测试
+
+  # Provider 占位
+  provider_stub:
+    name: Provider 占位
+    type: code
+    category: provider
+    path: src/provider
+    description: 服务端模式已搁置（QA 决策 Q006），保留目录作为命名空间占位符
+    status: placeholder
+
+  # 集成测试 fixtures
+  fixtures:
+    name: 集成测试夹具
+    type: code
+    category: fixtures
+    path: tests/fixtures
+    description: ISDL 工作流示例、契约模板
+
+  # 示例与原型验证
+  examples:
+    name: 示例与原型验证
+    type: experiment
+    category: examples
+    path: examples
+    description: >
+      归档流程验证（examples/archive/）
+      AI 路线图生成验证（examples/roadmap/）
+
+  # 根文档
+  root_docs:
+    name: 根目录文档
+    type: docs
+    category: root
+    path: .
+    description: README、ROADMAP、文档目录导航
+
+# ── 操作定义 ──────────────────────────────────────────
+
+operations:
+  # 产品日志归档
+  archive_journal:
+    name: 产品日志归档
+    description: >
+      将 examples/archive/sample/journal 中的产品日志
+      移动到 examples/archive/sample/archive
+    contract_file: examples/archive/sample/contracts.yaml
+    contracts:
+      - name: test_archive
+        slug: product
+        pattern: "*.md"
+
+  # 契约配置归档
+  archive_contracts:
+    name: 契约配置归档
+    description: >
+      将 src/cli/contracts.yaml 中定义的契约路径
+      从 journal 移动到 archive
+    contract_file: src/cli/contracts.yaml
+    contracts:
+      - name: journal_backup
+        slug: product
+        pattern: "*.md"
+
+  # 运行测试
+  run_tests:
+    name: 运行测试
+    description: 执行 CLI 单元和集成测试
+    commands:
+      unit:
+        - cd src/cli && uv run pytest -v
+      integration:
+        - cd src/cli && uv run pytest tests/ -v
+      all:
+        - cd src/cli && uv run pytest -v
+
+  # 代码质量检查
+  lint:
+    name: 代码质量检查
+    description: Ruff 检查和格式化
+    commands:
+      - cd src/cli && ruff check .
+      - cd src/cli && ruff format . --check
