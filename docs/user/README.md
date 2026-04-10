@@ -23,9 +23,9 @@
 
 ### 操作步骤
 
-1. 在 Zed 中打开 `qtcloud-asset` 项目
-2. 按 `Cmd+K`（Mac）或 `Ctrl+K`（Windows）打开 AI 对话框
-3. 输入指令，例如"帮我预览归档"
+1. 打开终端，进入项目目录
+2. 运行 `python -m src.cli.app.cli archive -n` 预览归档
+3. 确认无误后，运行 `python -m src.cli.app.cli archive` 执行归档
 
 ### AI 工作逻辑
 

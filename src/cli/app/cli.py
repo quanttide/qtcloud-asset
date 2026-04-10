@@ -47,10 +47,10 @@ def archive(
                 label = f"归档 {len(result.moved)} 个文件"
                 if result.source_removed:
                     label += "，已删除空源目录"
-                typer.secho(f"  ✓ {task.product}: {label}", fg=typer.colors.GREEN)
+                typer.echo(f"  [OK] {task.product}: {label}")
             success.append(task.product)
         else:
-            typer.secho(f"  ✗ {task.product}: {result.error}", fg=typer.colors.RED, err=True)
+            typer.echo(f"  [FAIL] {task.product}: {result.error}", err=True)
             skipped.append(task.product)
 
     total = len(workflow.tasks)
