@@ -1,34 +1,38 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 import typer
 
-from src.cli.app.planner import resolve_workflow, print_workflow_summary
+from src.cli.app.planner import resolve_workflow_simple, print_workflow_summary
 from src.cli.app.file_operator import archive_product
 
-app = typer.Typer(help="数字资产云 CLI")
+app = typer.Typer(help="量潮数字资产云 CLI")
 
 
 @app.command()
-def archive(
-    contract: str = typer.Argument("journal_backup", help="契约名称"),
-    slug: str = typer.Argument("product", help="产品标识"),
-    product: str | None = typer.Option(None, "-p", "--product", help="指定产品"),
-    pattern: str = typer.Option("*.md", "--pattern", help="文件匹配模式"),
-    dry_run: bool = typer.Option(False, "-n", "--dry-run", help="仅预览"),
+def run(
+    input: Path = typer.Option(..., "-i", "--input", help="数据源目录", exists=True, file_okay=False),
+    contract: str = typer.Option(..., "-c", "--contract", help="契约名称"),
+    output: Path = typer.Option(..., "-o", "--output", help="输出目标目录", file_okay=False),
+    pattern: str = typer.Option("*.md", "-p", "--pattern", help="文件匹配模式"),
+    dry_run: bool = typer.Option(False, "-n", "--dry-run", help="预览模式"),
+    verbose: bool = typer.Option(False, "-v", "--verbose", help="详细输出"),
 ) -> None:
-    """归档产品日志：从 journal 移动到 archive"""
+    """数据转换：输入 → 契约(转换) → 输出"""
     try:
-        workflow = resolve_workflow(
+        workflow = resolve_workflow_simple(
             contract_name=contract,
-            slug=slug,
-            product=product,
+            input_dir=input,
+            output_dir=output,
             pattern=pattern,
         )
     except (FileNotFoundError, KeyError) as e:
         typer.secho(f"错误: {e}", fg=typer.colors.RED, err=True)
         raise typer.Exit(1)
 
-    print_workflow_summary(workflow, dry_run=dry_run)
+    if verbose:
+        print_workflow_summary(workflow, dry_run=dry_run)
 
     success, skipped = [], []
 
@@ -56,9 +60,6 @@ def archive(
     total = len(workflow.tasks)
     suffix = f"，{len(skipped)} 跳过" if skipped else ""
     typer.echo(f"\n完成: {len(success)}/{total} 成功{suffix}")
-
-    if not dry_run:
-        typer.echo("提示: 请在 journal 和 archive 子模块中分别提交更改")
 
     raise typer.Exit(0 if not skipped else 1)
 
