@@ -7,7 +7,7 @@
 assets:
   # 商业需求文档
   brd:
-    name: 商业需求文档
+    title: 商业需求文档
     type: docs
     category: brd
     path: docs/brd
@@ -15,7 +15,7 @@ assets:
 
   # 产品需求文档
   prd:
-    name: 产品需求文档
+    title: 产品需求文档
     type: docs
     category: prd
     path: docs/prd
@@ -23,7 +23,7 @@ assets:
 
   # 架构设计文档
   add:
-    name: 架构设计文档
+    title: 架构设计文档
     type: docs
     category: add
     path: docs/add
@@ -31,7 +31,7 @@ assets:
 
   # 质量保证文档
   qa:
-    name: 质量保证文档
+    title: 质量保证文档
     type: docs
     category: qa
     path: docs/qa
@@ -39,7 +39,7 @@ assets:
 
   # 用户文档
   user_docs:
-    name: 用户文档
+    title: 用户文档
     type: docs
     category: user
     path: docs/user
@@ -47,7 +47,7 @@ assets:
 
   # CLI 设计文档
   cli_docs:
-    name: CLI 设计文档
+    title: CLI 设计文档
     type: docs
     category: cli_docs
     path: src/cli/docs
@@ -55,7 +55,7 @@ assets:
 
   # CLI 实现代码
   cli_code:
-    name: CLI 实现代码
+    title: CLI 实现代码
     type: code
     category: cli
     path: src/cli/app
@@ -67,7 +67,7 @@ assets:
 
   # CLI 测试
   cli_tests:
-    name: CLI 测试代码
+    title: CLI 测试代码
     type: code
     category: cli_tests
     path: src/cli/tests
@@ -75,7 +75,7 @@ assets:
 
   # Provider 占位
   provider_stub:
-    name: Provider 占位
+    title: Provider 占位
     type: code
     category: provider
     path: src/provider
@@ -84,7 +84,7 @@ assets:
 
   # 集成测试 fixtures
   fixtures:
-    name: 集成测试夹具
+    title: 集成测试夹具
     type: code
     category: fixtures
     path: tests/fixtures
@@ -92,7 +92,7 @@ assets:
 
   # 示例与原型验证
   examples:
-    name: 示例与原型验证
+    title: 示例与原型验证
     type: experiment
     category: examples
     path: examples
@@ -102,7 +102,7 @@ assets:
 
   # 根文档
   root_docs:
-    name: 根目录文档
+    title: 根目录文档
     type: docs
     category: root
     path: .
@@ -113,7 +113,7 @@ assets:
 operations:
   # 产品日志归档
   archive_journal:
-    name: 产品日志归档
+    title: 产品日志归档
     description: >
       将 examples/archive/sample/journal 中的产品日志
       移动到 examples/archive/sample/archive
@@ -125,7 +125,7 @@ operations:
 
   # 契约配置归档
   archive_contracts:
-    name: 契约配置归档
+    title: 契约配置归档
     description: >
       将 src/cli/contracts.yaml 中定义的契约路径
       从 journal 移动到 archive
@@ -137,7 +137,7 @@ operations:
 
   # 运行测试
   run_tests:
-    name: 运行测试
+    title: 运行测试
     description: 执行 CLI 单元和集成测试
     commands:
       unit:
@@ -149,7 +149,7 @@ operations:
 
   # 代码质量检查
   lint:
-    name: 代码质量检查
+    title: 代码质量检查
     description: Ruff 检查和格式化
     commands:
       - cd src/cli && ruff check .
