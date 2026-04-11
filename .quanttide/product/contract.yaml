@@ -1,0 +1,65 @@
+# 量潮数字资产云 — 产品内部契约
+# 回答：这个产品已经确定要做哪些功能
+
+# ── 核心功能 ──────────────────────────────────────────
+
+features:
+  asset_contract:
+    title: 数字资产契约
+    status: validating
+    description: >
+      契约定义、解析与执行引擎。
+      将隐性工作流转化为显性的、可版本控制的数字资产契约。
+    provides:
+      - 契约声明式定义（assets + operations）
+      - YAML 契约文件加载与解析
+      - 契约驱动的路径映射与归档
+      - 契约生命周期状态机（V2.0 规划）
+    components:
+      - src/cli/app/planner.py     # 配置层：契约 → 工作流
+      - src/cli/app/file_operator.py  # 操作层：文件移动、回滚
+      - src/cli/app/cli.py         # 入口层：Typer CLI
+    config_files:
+      - src/cli/contracts.yaml
+      - .quanttide/asset/contract.yaml
+
+  asset_workflow:
+    title: 数字资产工作流
+    status: planning
+    description: >
+      基于 ISDL（统一数字资产描述语言）的跨平台转换引擎。
+      当源资产满足条件时，自动触发转换规则生成目标资产。
+    provides:
+      - 资产声明（assets）
+      - 转换规则（transforms）
+      - 触发器（triggers）
+      - 生命周期治理（lifecycle）
+    components: []  # 原型阶段，尚未实现
+    fixtures:
+      - tests/fixtures/workflow.yaml
+
+  asset_discovery:
+    title: 数字资产发现
+    status: planning
+    description: >
+      自动扫描和注册数字资产，识别资产间的依赖关系。
+    provides:
+      - 资产扫描与注册
+      - 资产关系抽取
+      - 资产目录构建
+    components: []  # 规划阶段
+
+# ── 不在范围内 ────────────────────────────────────────
+
+out_of_scope:
+  - title: 服务端 API（Provider）
+    reason: 已搁置（QA 决策 Q006），当前以 CLI 工具形态运行
+    see: src/provider/  # 仅保留目录占位
+
+  - title: 跨平台适配器（飞书/GitHub 等）
+    reason: V2.0 规划，当前仅支持本地文件系统
+    see: docs/add/workflow.md
+
+  - title: 内容寻址与 CID 计算
+    reason: V2.0 规划，当前契约版本由人工管理
+    see: docs/add/contract.md#v20-规划契约即证据
