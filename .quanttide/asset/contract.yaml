@@ -117,6 +117,14 @@ assets:
     path: .
     description: README、ROADMAP、文档目录导航
 
+  # 阿里云基础设施代码
+  aliyun_iac:
+    title: 阿里云基础设施代码
+    type: config
+    category: iac
+    path: manifests/iac
+    description: ECS、OSS、VPC 等基础设施定义
+
 # ── 操作定义 ──────────────────────────────────────────
 
 operations:
