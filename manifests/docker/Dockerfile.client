@@ -1,0 +1,17 @@
+# 客户端 - Flutter Web 应用
+FROM ghcr.io/cirruslabs/flutter:3.24.5 AS builder
+
+WORKDIR /app
+COPY src/studio/ .
+
+RUN flutter pub get && flutter build web --release
+
+# 轻量 HTTP 服务器托管静态文件
+FROM python:3.11-alpine
+
+WORKDIR /app
+COPY --from=builder /app/build/web ./web
+
+EXPOSE 8080
+
+CMD ["python", "-m", "http.server", "8080", "--directory", "web"]

@@ -1,39 +1,24 @@
-version: '3.8'
+version: "3.8"
 
 services:
-  studio:
+  # 客户端 - Flutter Web 应用
+  client:
     build:
       context: ..
-      dockerfile: manifests/docker/Dockerfile
+      dockerfile: manifests/docker/Dockerfile.client
     ports:
-      - "8080:80"
+      - "8080:8080"
     restart: unless-stopped
-    networks:
-      - app-network
 
-  # 后端服务（预留）
-  # backend:
-  #   build:
-  #     context: ..
-  #     dockerfile: manifests/docker/Dockerfile.backend
-  #   ports:
-  #     - "8081:8080"
-  #   environment:
-  #     - ALIBABA_CLOUD_ACCESS_KEY_ID=${ALIBABA_CLOUD_ACCESS_KEY_ID}
-  #     - ALIBABA_CLOUD_ACCESS_KEY_SECRET=${ALIBABA_CLOUD_ACCESS_KEY_SECRET}
-  #   depends_on:
-  #     - redis
-  #   networks:
-  #     - app-network
-
-  # Redis 缓存（预留）
-  # redis:
-  #   image: redis:alpine
-  #   ports:
-  #     - "6379:6379"
-  #   networks:
-  #     - app-network
-
-networks:
-  app-network:
-    driver: bridge
+  # 服务端 - FastAPI
+  server:
+    build:
+      context: ..
+      dockerfile: manifests/docker/Dockerfile.server
+    ports:
+      - "9000:9000"
+    environment:
+      - ALIBABA_CLOUD_ACCESS_KEY_ID=${ALIBABA_CLOUD_ACCESS_KEY_ID}
+      - ALIBABA_CLOUD_ACCESS_KEY_SECRET=${ALIBABA_CLOUD_ACCESS_KEY_SECRET}
+      - OSS_BUCKET=${OSS_BUCKET}
+    restart: unless-stopped
