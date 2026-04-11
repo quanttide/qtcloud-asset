@@ -38,16 +38,9 @@ module "oss" {
 module "fc" {
   source = "./modules/fc"
 
-  service_name = "${var.project_name}-service"
+  service_name  = "${var.project_name}-service"
   function_name = "${var.project_name}-fn"
-  region       = var.region
-}
-
-module "api_gateway" {
-  source = "./modules/api-gateway"
-
-  group_name = "${var.project_name}-api"
-  region     = var.region
+  region        = var.region
 }
 
 module "trigger" {

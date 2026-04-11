@@ -2,14 +2,14 @@
 
 ## 概述
 
-使用 Terraform 管理阿里云 FaaS 资源（函数计算、API 网关、OSS 等）。
+使用 Terraform 管理阿里云 FaaS 资源（函数计算、OSS 等）。
 
 ## 架构
 
 ```
-API 网关 → 函数计算（FC）→ OSS 存储
-                ↓
-           触发器（HTTP/OSS/定时）
+函数计算（FC）→ OSS 存储
+      ↓
+ 触发器（HTTP/OSS/定时）
 ```
 
 ## 快速开始
@@ -41,7 +41,6 @@ terraform destroy
 | 模块 | 描述 |
 |------|------|
 | `modules/fc/` | 函数计算服务和函数 |
-| `modules/api-gateway/` | API 网关配置 |
 | `modules/trigger/` | 触发器（HTTP/OSS/定时） |
 | `modules/oss/` | 对象存储桶 |
 | `modules/vpc/` | 专有网络（函数计算网络配置） |
