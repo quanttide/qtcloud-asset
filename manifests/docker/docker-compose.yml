@@ -2,19 +2,19 @@ version: "3.8"
 
 services:
   # 客户端 - Flutter Web 应用
-  client:
+  studio:
     build:
       context: ..
-      dockerfile: manifests/docker/Dockerfile.client
+      dockerfile: manifests/docker/Dockerfile.studio
     ports:
       - "8080:8080"
     restart: unless-stopped
 
   # 服务端 - FastAPI
-  server:
+  provider:
     build:
       context: ..
-      dockerfile: manifests/docker/Dockerfile.server
+      dockerfile: manifests/docker/Dockerfile.provider
     ports:
       - "9000:9000"
     environment:
