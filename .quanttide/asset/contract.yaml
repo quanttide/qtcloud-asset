@@ -21,6 +21,14 @@ assets:
     path: docs/prd
     description: 产品定位、数字资产边界、契约定义、工作流设计
 
+  # 交互设计文档
+  ixd:
+    title: 交互设计文档
+    type: docs
+    category: ixd
+    path: docs/ixd
+    description: 设计原则、核心界面、交互流程
+
   # 架构设计文档
   add:
     title: 架构设计文档
@@ -99,6 +107,7 @@ assets:
     description: >
       归档流程验证（examples/archive/）
       AI 路线图生成验证（examples/roadmap/）
+      文档工作流可视化（examples/studio/）
 
   # 根文档
   root_docs:
