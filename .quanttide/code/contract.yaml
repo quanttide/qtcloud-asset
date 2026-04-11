@@ -1,0 +1,61 @@
+# 量潮数字资产云 — 代码契约
+# 模块定位：编程规范、依赖管理、调用关系、质量门禁
+
+# ── 编程规范 ──────────────────────────────────────────
+
+standards:
+  studio:
+    language: dart
+    style: effective_dart
+    analyzer: flutter analyze
+    formatter: dart format
+
+  provider:
+    language: python
+    style: pep8
+    linter: ruff check
+    formatter: ruff format
+
+  cli:
+    language: python
+    style: pep8
+    linter: ruff check
+    formatter: ruff format
+
+# ── 模块依赖 ──────────────────────────────────────────
+
+dependencies:
+  studio:
+    framework: flutter 3.24.5
+    state_management: riverpod
+    routing: go_router
+
+  provider:
+    framework: fastapi
+    runtime: uv + python 3.11
+    cloud_sdk:
+      - aliyun-fc2
+      - aliyun-oss2
+
+  cli:
+    runtime: uv + python 3.11
+    cli_framework: click
+
+# ── 调用关系 ──────────────────────────────────────────
+
+call_graph:
+  studio → provider: HTTP REST API
+  cli → provider: HTTP REST API
+  provider → aliyun: FC, OSS, VPC
+
+# ── 质量门禁 ──────────────────────────────────────────
+
+quality:
+  tests:
+    studio: flutter test
+    provider: uv run pytest
+    cli: uv run pytest
+
+  coverage_min: 80
+
+  blocked_on_fail: true
