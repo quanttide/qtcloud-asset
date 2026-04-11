@@ -35,11 +35,25 @@ module "oss" {
   region      = var.region
 }
 
-module "ecs" {
-  source = "./modules/ecs"
+module "fc" {
+  source = "./modules/fc"
 
-  instance_name = "${var.project_name}-server"
-  vpc_id        = module.vpc.vpc_id
-  vswitch_id    = module.vpc.vswitch_id
+  service_name = "${var.project_name}-service"
+  function_name = "${var.project_name}-fn"
+  region       = var.region
+}
+
+module "api_gateway" {
+  source = "./modules/api-gateway"
+
+  group_name = "${var.project_name}-api"
+  region     = var.region
+}
+
+module "trigger" {
+  source = "./modules/trigger"
+
+  function_name = module.fc.function_name
+  service_name  = module.fc.service_name
   region        = var.region
 }

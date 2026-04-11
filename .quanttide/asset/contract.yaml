@@ -123,7 +123,7 @@ assets:
     type: config
     category: iac
     path: manifests/iac
-    description: ECS、OSS、VPC 等基础设施定义
+    description: 函数计算（FC）、API 网关、OSS、VPC 等基础设施定义
 
 # ── 操作定义 ──────────────────────────────────────────
 
