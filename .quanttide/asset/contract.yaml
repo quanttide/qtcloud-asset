@@ -81,14 +81,29 @@ assets:
     path: src/cli/tests
     description: planner 和 file_operator 的单元测试
 
-  # Provider 占位
-  provider_stub:
-    title: Provider 占位
+  # Studio 客户端
+  studio:
+    title: Studio 客户端
+    type: code
+    category: studio
+    path: src/studio
+    description: Flutter Web 应用，数字资产可视化管理界面
+
+  # Provider 服务端
+  provider:
+    title: Provider 服务端
     type: code
     category: provider
     path: src/provider
-    description: 服务端模式已搁置（QA 决策 Q006），保留目录作为命名空间占位符
-    status: placeholder
+    description: FastAPI 服务，对接阿里云函数计算和 OSS
+
+  # Docker 部署配置
+  docker_manifests:
+    title: Docker 部署配置
+    type: config
+    category: docker
+    path: manifests/docker
+    description: Studio 和 Provider 的 Dockerfile 及 docker-compose 编排
 
   # 集成测试 fixtures
   fixtures:
@@ -123,7 +138,7 @@ assets:
     type: config
     category: iac
     path: manifests/iac
-    description: 函数计算（FC）、API 网关、OSS、VPC 等基础设施定义
+    description: 函数计算（FC）、OSS、VPC、触发器等基础设施定义
 
 # ── 操作定义 ──────────────────────────────────────────
 
