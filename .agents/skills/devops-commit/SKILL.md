@@ -1,6 +1,6 @@
 ---
-name: commit
-description: Git 提交技能，用于提交代码变更时。
+name: devops-commit
+description: Git 提交技能，用于提交代码变更时，包括主仓库和子模块提交。
 ---
 
 # Git 提交技能
