@@ -1,0 +1,28 @@
+# Flutter
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.pub-cache/
+.pub/
+build/
+
+# IDE
+.vscode/
+.idea/
+*.iml
+
+# Git
+.git/
+.gitignore
+
+# 文档
+docs/
+*.md
+LICENSE
+
+# 其他
+manifests/iac/
+examples/
+tests/
+src/cli/
+src/provider/
