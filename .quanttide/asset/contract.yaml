@@ -140,49 +140,31 @@ assets:
     path: manifests/iac
     description: 函数计算（FC）、OSS、VPC、触发器等基础设施定义
 
-# ── 操作定义 ──────────────────────────────────────────
+# ── 技能定义 ──────────────────────────────────────────
 
-operations:
+skills:
   # 产品日志归档
-  archive_journal:
+  archive-journal:
     title: 产品日志归档
-    description: >
-      将 examples/archive/sample/journal 中的产品日志
-      移动到 examples/archive/sample/archive
-    contract_file: examples/archive/sample/contracts.yaml
-    contracts:
-      - name: test_archive
-        slug: product
-        pattern: "*.md"
+    description: 将 examples/archive/sample/journal 中的产品日志移动到 archive
+    domain: ops
+    commands:
+      - mv examples/archive/sample/journal/*.md examples/archive/sample/archive/
 
   # 契约配置归档
-  archive_contracts:
+  archive-contracts:
     title: 契约配置归档
-    description: >
-      将 src/cli/contracts.yaml 中定义的契约路径
-      从 journal 移动到 archive
-    contract_file: src/cli/contracts.yaml
-    contracts:
-      - name: journal_backup
-        slug: product
-        pattern: "*.md"
+    description: 将 src/cli/contracts.yaml 中定义的契约路径从 journal 移动到 archive
+    domain: ops
 
   # 运行测试
-  run_tests:
+  test:
     title: 运行测试
     description: 执行 CLI 单元和集成测试
-    commands:
-      unit:
-        - cd src/cli && uv run pytest -v
-      integration:
-        - cd src/cli && uv run pytest tests/ -v
-      all:
-        - cd src/cli && uv run pytest -v
+    domain: devops
 
   # 代码质量检查
   lint:
     title: 代码质量检查
     description: Ruff 检查和格式化
-    commands:
-      - cd src/cli && ruff check .
-      - cd src/cli && ruff format . --check
+    domain: devops
