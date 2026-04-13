@@ -9,79 +9,86 @@ from typing import Any
 import yaml
 
 
-def find_contract_dir(start: Path | None = None) -> Path:
-    """向上查找包含 .quanttide/asset/contract.yaml 的目录。
+class Contract:
+    """数字资产契约。
 
-    Args:
-        start: 起始目录，默认为当前工作目录
-
-    Returns:
-        契约目录路径
-
-    Raises:
-        FileNotFoundError: 未找到契约目录
+    自动向上查找 .quanttide/asset/contract.yaml 并加载配置。
     """
-    current = start or Path.cwd()
-    for parent in [current, *current.parents]:
-        contract = parent / ".quanttide" / "asset" / "contract.yaml"
-        if contract.exists():
-            return parent
-    raise FileNotFoundError(
-        f"未找到契约目录，请确保存在 .quanttide/asset/contract.yaml"
-    )
 
+    CONTRACT_PATH = Path(".quanttide") / "asset" / "contract.yaml"
 
-def load_contract(root: Path | None = None) -> dict[str, Any]:
-    """加载契约配置。
+    def __init__(self, root: Path | None = None) -> None:
+        self.root = root or self.find_root()
+        self.path = self.root / self.CONTRACT_PATH
+        self.data = self._load()
 
-    Args:
-        root: 项目根目录，默认自动查找
+    @staticmethod
+    def find_root(start: Path | None = None) -> Path:
+        """向上查找包含契约文件的目录。
 
-    Returns:
-        契约字典
-    """
-    root = root or find_contract_dir()
-    path = root / ".quanttide" / "asset" / "contract.yaml"
-    with open(path, encoding="utf-8") as f:
-        data = yaml.safe_load(f)
-    return data or {}
+        Args:
+            start: 起始目录，默认为当前工作目录
 
+        Returns:
+            契约根目录
 
-def get_skill(contract: dict, name: str) -> dict:
-    """从契约中获取指定技能配置。
+        Raises:
+            FileNotFoundError: 未找到契约文件
+        """
+        current = start or Path.cwd()
+        for parent in [current, *current.parents]:
+            if (parent / Contract.CONTRACT_PATH).exists():
+                return parent
+        raise FileNotFoundError(f"未找到契约文件 {Contract.CONTRACT_PATH}")
 
-    Args:
-        contract: 契约字典
-        name: 技能名称
+    def _load(self) -> dict[str, Any]:
+        """加载契约 YAML 文件。"""
+        if not self.path.exists():
+            raise FileNotFoundError(f"契约文件不存在: {self.path}")
+        with open(self.path, encoding="utf-8") as f:
+            data = yaml.safe_load(f)
+        return data or {}
 
-    Returns:
-        技能配置
+    @property
+    def assets(self) -> dict[str, Any]:
+        """返回所有资产定义。"""
+        return self.data.get("assets", {})
 
-    Raises:
-        KeyError: 技能不存在
-    """
-    skills = contract.get("skills", {})
-    if name not in skills:
-        available = ", ".join(skills.keys()) or "(空)"
-        raise KeyError(f"找不到技能 '{name}'，可用: {available}")
-    return skills[name]
+    @property
+    def skills(self) -> dict[str, Any]:
+        """返回所有技能定义。"""
+        return self.data.get("skills", {})
 
+    def get_skill(self, name: str) -> dict[str, Any]:
+        """获取指定技能配置。
 
-def get_asset(contract: dict, name: str) -> dict:
-    """从契约中获取指定资产配置。
+        Args:
+            name: 技能名称
 
-    Args:
-        contract: 契约字典
-        name: 资产名称
+        Returns:
+            技能配置字典
 
-    Returns:
-        资产配置
+        Raises:
+            KeyError: 技能不存在
+        """
+        if name not in self.skills:
+            available = ", ".join(self.skills.keys()) or "(空)"
+            raise KeyError(f"找不到技能 '{name}'，可用: {available}")
+        return self.skills[name]
 
-    Raises:
-        KeyError: 资产不存在
-    """
-    assets = contract.get("assets", {})
-    if name not in assets:
-        available = ", ".join(assets.keys()) or "(空)"
-        raise KeyError(f"找不到资产 '{name}'，可用: {available}")
-    return assets[name]
+    def get_asset(self, name: str) -> dict[str, Any]:
+        """获取指定资产配置。
+
+        Args:
+            name: 资产名称
+
+        Returns:
+            资产配置字典
+
+        Raises:
+            KeyError: 资产不存在
+        """
+        if name not in self.assets:
+            available = ", ".join(self.assets.keys()) or "(空)"
+            raise KeyError(f"找不到资产 '{name}'，可用: {available}")
+        return self.assets[name]

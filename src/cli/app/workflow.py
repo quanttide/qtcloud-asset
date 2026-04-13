@@ -6,7 +6,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from .contract import find_contract_dir, get_skill, load_contract
+from .contract import Contract
 
 
 @dataclass
@@ -53,9 +53,9 @@ def resolve_workflow(
         pattern: 文件匹配模式，优先使用技能配置中的 pattern
         contract_root: 契约根目录，默认自动查找
     """
-    root = contract_root or find_contract_dir()
-    contract = load_contract(root)
-    skill = get_skill(contract, skill_name)
+    root = contract_root or Contract.find_root()
+    contract = Contract(root)
+    skill = contract.get_skill(skill_name)
 
     # 优先使用技能配置中的 pattern
     effective_pattern = pattern or skill.get("transform", {}).get("pattern", "*.md")
