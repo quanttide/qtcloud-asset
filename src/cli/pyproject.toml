@@ -6,6 +6,7 @@ requires-python = ">=3.12"
 dependencies = [
     "typer",
     "pyyaml",
+    "pydantic",
 ]
 
 [project.optional-dependencies]
