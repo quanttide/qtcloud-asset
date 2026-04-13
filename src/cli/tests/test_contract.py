@@ -6,7 +6,7 @@ from __future__ import annotations
 import pytest
 import yaml
 
-from app.contract import Asset, Contract, Skill, Transform
+from app.contract import AssetConfig, Contract, SkillConfig
 
 
 class TestContract:
@@ -14,7 +14,7 @@ class TestContract:
         root = tmp_path / "project"
         (root / ".quanttide" / "asset").mkdir(parents=True)
         (root / ".quanttide" / "asset" / "contract.yaml").write_text(
-            "skills:\n  test:\n    title: Test\n"
+            "skills:\n  test:\n    version: '1.0'\n"
         )
         assert Contract.find_root(root) == root
 
@@ -22,7 +22,7 @@ class TestContract:
         root = tmp_path / "project"
         (root / ".quanttide" / "asset").mkdir(parents=True)
         (root / ".quanttide" / "asset" / "contract.yaml").write_text(
-            "skills:\n  test:\n    title: Test\n"
+            "skills:\n  test:\n    version: '1.0'\n"
         )
         subdir = root / "src" / "cli"
         subdir.mkdir(parents=True)
@@ -36,7 +36,7 @@ class TestContract:
         root = tmp_path / "project"
         (root / ".quanttide" / "asset").mkdir(parents=True)
         (root / ".quanttide" / "asset" / "contract.yaml").write_text(
-            "skills:\n  archive:\n    title: Archive\n    transform:\n      pattern: '*.md'\n"
+            "skills:\n  archive:\n    version: '1.0'\n    entrypoint: archive\n"
         )
         contract = Contract(root)
         assert "archive" in contract.config.skills
@@ -50,26 +50,19 @@ class TestContract:
         (root / ".quanttide" / "asset").mkdir(parents=True)
         (root / ".quanttide" / "asset" / "contract.yaml").write_text(
             yaml.dump(
-                {
-                    "skills": {
-                        "archive": {
-                            "title": "Archive",
-                            "transform": {"pattern": "*.md"},
-                        }
-                    }
-                }
+                {"skills": {"archive": {"version": "1.0", "entrypoint": "archive"}}}
             )
         )
         contract = Contract(root)
         skill = contract.get_skill("archive")
-        assert skill.title == "Archive"
-        assert skill.transform.pattern == "*.md"
+        assert skill.version == "1.0"
+        assert skill.entrypoint == "archive"
 
     def test_raises_on_missing_skill(self, tmp_path):
         root = tmp_path / "project"
         (root / ".quanttide" / "asset").mkdir(parents=True)
         (root / ".quanttide" / "asset" / "contract.yaml").write_text(
-            yaml.dump({"skills": {"existing": {"title": "Existing"}}})
+            yaml.dump({"skills": {"existing": {"version": "1.0"}}})
         )
         contract = Contract(root)
         with pytest.raises(KeyError) as exc_info:
@@ -80,39 +73,17 @@ class TestContract:
         root = tmp_path / "project"
         (root / ".quanttide" / "asset").mkdir(parents=True)
         (root / ".quanttide" / "asset" / "contract.yaml").write_text(
-            yaml.dump(
-                {
-                    "assets": {
-                        "docs": {
-                            "title": "Docs",
-                            "type": "docs",
-                            "category": "doc",
-                            "path": "docs/",
-                        }
-                    }
-                }
-            )
+            yaml.dump({"assets": {"docs": {"type": "docs", "provider": "local"}}})
         )
         contract = Contract(root)
         asset = contract.get_asset("docs")
-        assert asset.title == "Docs"
+        assert asset.type == "docs"
 
     def test_raises_on_missing_asset(self, tmp_path):
         root = tmp_path / "project"
         (root / ".quanttide" / "asset").mkdir(parents=True)
         (root / ".quanttide" / "asset" / "contract.yaml").write_text(
-            yaml.dump(
-                {
-                    "assets": {
-                        "existing": {
-                            "title": "Existing",
-                            "type": "docs",
-                            "category": "doc",
-                            "path": "e/",
-                        }
-                    }
-                }
-            )
+            yaml.dump({"assets": {"existing": {"type": "docs", "provider": "local"}}})
         )
         contract = Contract(root)
         with pytest.raises(KeyError) as exc_info:
@@ -121,20 +92,25 @@ class TestContract:
 
 
 class TestModels:
-    def test_asset_model(self):
-        asset = Asset(
-            title="Docs", type="docs", category="doc", path="docs/", description="Test"
-        )
-        assert asset.title == "Docs"
-        assert asset.description == "Test"
+    def test_asset_config(self):
+        asset = AssetConfig(type="docs", provider="local", metadata={"key": "value"})
+        assert asset.type == "docs"
+        assert asset.provider == "local"
+        assert asset.metadata == {"key": "value"}
 
-    def test_skill_model(self):
-        skill = Skill(
-            title="Archive", description="Test", transform=Transform(pattern="*.txt")
-        )
-        assert skill.title == "Archive"
-        assert skill.transform.pattern == "*.txt"
+    def test_skill_config(self):
+        skill = SkillConfig(version="2.0", entrypoint="main", params={"verbose": True})
+        assert skill.version == "2.0"
+        assert skill.entrypoint == "main"
+        assert skill.params == {"verbose": True}
 
-    def test_skill_default_transform(self):
-        skill = Skill(title="Test")
-        assert skill.transform.pattern == "*.md"
+    def test_skill_default_values(self):
+        skill = SkillConfig()
+        assert skill.version == "1.0"
+        assert skill.entrypoint == ""
+        assert skill.params == {}
+
+    def test_frozen_models(self):
+        skill = SkillConfig()
+        with pytest.raises(Exception):  # pydantic raises ValidationError or similar
+            skill.version = "2.0"

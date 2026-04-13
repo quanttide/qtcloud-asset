@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import pytest
 import yaml
+
 from app.workflow import (
     ArchiveTask,
     Workflow,
@@ -52,8 +53,8 @@ class TestResolveWorkflow:
                 {
                     "skills": {
                         "archive": {
-                            "title": "Archive",
-                            "transform": {"pattern": "*.md"},
+                            "version": "1.0",
+                            "params": {"pattern": "*.md"},
                         }
                     }
                 }

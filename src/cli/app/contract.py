@@ -7,46 +7,41 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
-class Asset(BaseModel):
-    """资产定义。"""
+class SkillConfig(BaseModel):
+    """技能配置。"""
 
     model_config = ConfigDict(frozen=True)
 
-    title: str
+    version: str = "1.0"
+    entrypoint: str = ""
+    params: dict[str, Any] = Field(default_factory=dict)
+
+
+class AssetConfig(BaseModel):
+    """资产配置。"""
+
+    model_config = ConfigDict(frozen=True)
+
     type: str
-    category: str
-    path: str
-    description: str = ""
-
-
-class Transform(BaseModel):
-    """转换配置。"""
-
-    model_config = ConfigDict(frozen=True)
-
-    pattern: str = "*.md"
-
-
-class Skill(BaseModel):
-    """技能定义。"""
-
-    model_config = ConfigDict(frozen=True)
-
-    title: str
-    description: str = ""
-    transform: Transform = Field(default_factory=Transform)
+    provider: str = ""
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 class ContractSchema(BaseModel):
-    """契约 Schema。"""
+    """契约配置的强类型定义。"""
 
     model_config = ConfigDict(frozen=True)
 
-    assets: dict[str, Asset] = Field(default_factory=dict)
-    skills: dict[str, Skill] = Field(default_factory=dict)
+    assets: dict[str, AssetConfig] = Field(default_factory=dict)
+    skills: dict[str, SkillConfig] = Field(default_factory=dict)
+
+    @model_validator(mode="after")
+    def validate_logic(self) -> ContractSchema:
+        # 跨字段校验逻辑
+        return self
 
 
 class Contract:
@@ -84,14 +79,14 @@ class Contract:
             raw: dict[str, Any] = yaml.safe_load(f) or {}
         return ContractSchema.model_validate(raw)
 
-    def get_skill(self, name: str) -> Skill:
+    def get_skill(self, name: str) -> SkillConfig:
         """获取指定技能配置。"""
         if name not in self.config.skills:
             available = ", ".join(self.config.skills.keys()) or "(空)"
             raise KeyError(f"找不到技能 '{name}'，可用: {available}")
         return self.config.skills[name]
 
-    def get_asset(self, name: str) -> Asset:
+    def get_asset(self, name: str) -> AssetConfig:
         """获取指定资产配置。"""
         if name not in self.config.assets:
             available = ", ".join(self.config.assets.keys()) or "(空)"

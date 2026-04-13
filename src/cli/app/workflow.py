@@ -58,7 +58,7 @@ def resolve_workflow(
     skill = contract.get_skill(skill_name)
 
     # 优先使用技能配置中的 pattern
-    effective_pattern = pattern or skill.transform.pattern
+    effective_pattern = pattern or skill.params.get("pattern", "*.md")
 
     products = _get_products(input_dir)
 
