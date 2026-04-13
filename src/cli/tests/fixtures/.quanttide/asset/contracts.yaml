@@ -1,0 +1,13 @@
+contracts:
+  test_archive:
+    name: 测试归档
+    version: 1
+    paths:
+      journal: examples/archive/sample/journal
+      archive: examples/archive/archive
+  journal_backup:
+    name: 产品日志归档
+    version: 1
+    paths:
+      journal: docs/journal
+      archive: docs/archive/journal
