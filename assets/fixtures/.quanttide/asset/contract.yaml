@@ -1,0 +1,188 @@
+# 量潮科技工作手册系统 — 数字资产契约
+# 模块定位：多仓架构管理数字资产
+# 分类依据：程序型记忆九宫格模型 + 陈述型记忆九宫格模型
+# 参考：docs/gallery/asset/memory_model.md
+
+# ── 资产组成 ──────────────────────────────────────────
+
+# 按记忆模型组织，与 .gitmodules 对齐
+
+assets:
+  # ── 程序型记忆 ──
+
+  # 宪法层：最高约束力
+  bylaw:
+    title: 工作章程
+    type: docs
+    category: constitution
+    audience: human
+    path: docs/bylaw
+    description: 量潮科技企业章程，最高约束力
+
+  specification:
+    title: 工程标准
+    type: docs
+    category: constitution
+    audience: ai
+    path: docs/specification
+    description: 量潮科技工程标准规范
+
+  # 法律层：中等约束力
+  handbook:
+    title: 工作手册
+    type: docs
+    category: law
+    audience: human
+    path: docs/handbook
+    description: 量潮科技工作手册系统
+
+  gallery:
+    title: 工作案例
+    type: docs
+    category: law
+    audience: ai
+    path: docs/gallery
+    description: 企业实体案例展示框架
+
+  qtadmin:
+    title: qtadmin
+    type: app
+    category: law
+    audience: engine
+    path: apps/qtadmin
+    description: 量潮管理后台
+
+  qtcloud_data:
+    title: qtcloud-data
+    type: app
+    category: law
+    audience: engine
+    path: apps/qtcloud-data
+    description: 量潮数据云
+
+  qtcloud_asset:
+    title: qtcloud-asset
+    type: app
+    category: law
+    audience: engine
+    path: apps/qtcloud-asset
+    description: 量潮数字资产云
+
+  # 法理层：低约束力
+  tutorial:
+    title: 工作教程
+    type: docs
+    category: principle
+    audience: human
+    path: docs/tutorial
+    description: 量潮科技工作教程
+
+  essay:
+    title: 工作札记
+    type: docs
+    category: principle
+    audience: ai
+    path: docs/essay
+    description: 量潮科技工作札记
+
+  # ── 陈述型记忆 ──
+
+  # 过去
+  archive:
+    title: 工作归档
+    type: docs
+    category: declarative
+    type_dim: event
+    time_dim: past
+    path: docs/archive
+    description: 量潮科技历史文档归档
+
+  report:
+    title: 工作报告
+    type: docs
+    category: declarative
+    type_dim: semantic
+    time_dim: past
+    path: docs/report
+    description: 量潮科技工作报告
+
+  story:
+    title: 品牌故事
+    type: docs
+    category: declarative
+    type_dim: self
+    time_dim: past
+    path: docs/story
+    description: 量潮科技品牌故事
+
+  # 现在
+  journal:
+    title: 工作日志
+    type: docs
+    category: declarative
+    type_dim: event
+    time_dim: present
+    path: docs/journal
+    description: 量潮科技工作日志
+
+  profile:
+    title: 工作简介
+    type: docs
+    category: declarative
+    type_dim: semantic
+    time_dim: present
+    path: docs/profile
+    description: 量潮科技工作简介
+
+  brochure:
+    title: 宣传册
+    type: docs
+    category: declarative
+    type_dim: self
+    time_dim: present
+    path: docs/vision
+    description: 量潮科技宣传资料
+
+  # 未来
+  roadmap:
+    title: 工作蓝图
+    type: docs
+    category: declarative
+    type_dim: event
+    time_dim: future
+    path: docs/roadmap
+    description: 量潮科技工作蓝图
+
+  context:
+    title: 工作语境
+    type: docs
+    category: declarative
+    type_dim: semantic
+    time_dim: future
+    path: docs/context
+    description: 量潮科技工作语境
+
+  vision:
+    title: 工作愿景
+    type: docs
+    category: declarative
+    type_dim: self
+    time_dim: future
+    path: docs/vision
+    description: 量潮科技愿景与使命
+
+  # 静态资源
+  library:
+    title: 图书馆
+    type: asset
+    category: static
+    path: assets/library
+    description: 静态资源，采集公开资料作为参考源
+
+  # ── 本地资源（非子模块） ──
+  skills:
+    title: 技能
+    type: config
+    category: skill
+    path: .agents/skills
+    description: AI Agent 可复用技能
