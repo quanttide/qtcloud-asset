@@ -1,11 +1,13 @@
+#!/usr/bin/env python3
+"""操作层测试"""
+
 from __future__ import annotations
 
 import tempfile
 from pathlib import Path
 
 import pytest
-
-from src.provider.app.repositories.file_operator import (
+from app.file_operator import (
     ArchiveResult,
     archive_product,
 )
