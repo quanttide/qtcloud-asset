@@ -5,7 +5,7 @@ from pathlib import Path
 import typer
 
 from .file_operator import archive_product
-from .planner import print_workflow_summary, resolve_workflow
+from .workflow import print_workflow_summary, resolve_workflow
 
 app = typer.Typer(help="量潮数字资产云 CLI")
 
