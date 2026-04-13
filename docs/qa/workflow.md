@@ -1,64 +1,71 @@
-# 治理工作流
+# 治理工作流质量保证
 
-需求来源：`BRD` 提到创始人需要简单的命令行工具管理知识库归档
-核心契约：`src/cli/contracts.yaml`
+将每一项 QA 拆解为「准则 — 判定 — 证据」。
 
-## 一个命令就能归档
+## 归档业务完整性
 
-- 验收点：`qtcloud-asset archive` 执行后，journal 文件移动到 archive，源目录清空
-- 验证资产：`src/cli/tests/test_planner.py`、`src/cli/tests/test_file_operator.py`
-- 状态：✅ 通过
+准则：一个命令完成整个归档周期，不留下烂摊子。
 
-## 执行前先预览
+### 命令可用性判定
 
-- 验收点：`--dry-run` 只显示预览，不移动文件
-- 验证资产：`src/cli/tests/test_file_operator.py::test_dry_run`
-- 状态：✅ 通过
+- 现实需求：一个命令就能归档
+- 判定标准：`qtcloud-asset archive` 执行后，journal 文件移动到 archive，源目录清空
+- 存证：`src/cli/tests/test_planner.py`、`src/cli/tests/test_file_operator.py`
+- 状态：✅ 符合
 
-## 确保「移动」而非「复制」
+### 预览模式判定
 
-- 验收点：执行归档后，源目录文件被删除，目标目录出现相同文件
-- 验证资产：`examples/archive/sample/journal/` → `examples/archive/sample/archive/`
-- 状态：✅ 通过
+- 现实需求：执行前先预览，不误操作
+- 判定标准：`--dry-run` 只显示预览，不移动文件
+- 存证：`src/cli/tests/test_file_operator.py::test_dry_run`
+- 状态：✅ 符合
 
-## 处理重名冲突
+## 异常处理完备性
 
-- 验收点：若 archive 已存在同名文件，跳过不覆盖
-- 验证资产：`src/cli/tests/test_file_operator.py::test_skip_existing`
-- 状态：✅ 通过
+准则：边界条件全部覆盖，不崩溃。
 
-## 空源目录自动清理
+### 契约不存在判定
 
-- 验收点：所有文件移动成功后，空源目录被删除
-- 验证资产：`src/cli/tests/test_file_operator.py::test_clean_empty_dir`
-- 状态：✅ 通过
+- 现实需求：契约不存在时报错
+- 判定标准：指定不存在的契约名称时，CLI 输出错误信息并退出
+- 存证：`tests/cli/test_archive.py`
+- 状态：✅ 符合
 
-## 无匹配文件时跳过
+### journal 目录不存在判定
 
-- 验收点：journal 目录存在但无匹配文件时，不报错，标记为 skipped
-- 验证资产：`src/cli/tests/test_file_operator.py::test_no_matching_files`
-- 状态：✅ 通过
+- 现实需求：journal 目录不存在时报错
+- 判定标准：journal 目录不存在时，CLI 输出错误信息并退出
+- 存证：`tests/cli/test_archive.py`
+- 状态：✅ 符合
 
-## 目标目录不存在时自动创建
+### 无匹配文件判定
 
-- 验收点：archive 目录不存在时，自动创建（含父目录）
-- 验证资产：`src/cli/app/file_operator.py`（`mkdir parents=True`）
-- 状态：✅ 通过
+- 现实需求：journal 目录存在但无匹配文件时，不报错
+- 判定标准：执行归档后返回 skipped 标记，不退出
+- 存证：`src/cli/tests/test_file_operator.py::test_no_matching_files`
+- 状态：✅ 符合
 
-## 契约不存在时报错
+## 数据安全性
 
-- 验收点：指定不存在的契约名称时，CLI 输出错误信息并退出
-- 验证资产：`tests/cli/test_archive.py`
-- 状态：✅ 通过
+准则：归档过程中出问题能回退，不丢文件。
 
-## journal 目录不存在时报错
+### 重名冲突判定
 
-- 验收点：journal 目录不存在时，CLI 输出错误信息并退出
-- 验证资产：`tests/cli/test_archive.py`
-- 状态：✅ 通过
+- 现实需求：处理重名冲突，不覆盖已有文件
+- 判定标准：若 archive 已存在同名文件，跳过不覆盖
+- 存证：`src/cli/tests/test_file_operator.py::test_skip_existing`
+- 状态：✅ 符合
 
-## 失败时自动回滚
+### 失败回滚判定
 
-- 验收点：移动文件失败时，已移动的文件退回源目录
-- 验证资产：`src/cli/tests/test_file_operator.py::test_rollback_on_failure`
-- 状态：✅ 通过
+- 现实需求：失败时自动回滚，不丢文件
+- 判定标准：移动文件失败时，已移动的文件退回源目录
+- 存证：`src/cli/tests/test_file_operator.py::test_rollback_on_failure`
+- 状态：✅ 符合
+
+### 空目录清理判定
+
+- 现实需求：归档后清理空源目录
+- 判定标准：所有文件移动成功后，空源目录被删除
+- 存证：`src/cli/tests/test_file_operator.py::test_clean_empty_dir`
+- 状态：✅ 符合
