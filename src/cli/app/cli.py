@@ -4,25 +4,31 @@ from pathlib import Path
 
 import typer
 
-from src.cli.app.planner import resolve_workflow_simple, print_workflow_summary
-from src.cli.app.file_operator import archive_product
+from .file_operator import archive_product
+from .planner import print_workflow_summary, resolve_workflow
 
 app = typer.Typer(help="量潮数字资产云 CLI")
 
 
 @app.command()
 def run(
-    input: Path = typer.Option(..., "-i", "--input", help="数据源目录", exists=True, file_okay=False),
-    contract: str = typer.Option(..., "-c", "--contract", help="契约名称"),
-    output: Path = typer.Option(..., "-o", "--output", help="输出目标目录", file_okay=False),
-    pattern: str = typer.Option("*.md", "-p", "--pattern", help="文件匹配模式"),
+    input: Path = typer.Option(
+        ..., "-i", "--input", help="数据源目录", exists=True, file_okay=False
+    ),
+    skill: str = typer.Option(..., "-s", "--skill", help="技能名称"),
+    output: Path = typer.Option(
+        ..., "-o", "--output", help="输出目标目录", file_okay=False
+    ),
+    pattern: str = typer.Option(
+        None, "-p", "--pattern", help="文件匹配模式（覆盖契约配置）"
+    ),
     dry_run: bool = typer.Option(False, "-n", "--dry-run", help="预览模式"),
     verbose: bool = typer.Option(False, "-v", "--verbose", help="详细输出"),
 ) -> None:
     """数据转换：输入 → 契约(转换) → 输出"""
     try:
-        workflow = resolve_workflow_simple(
-            contract_name=contract,
+        workflow = resolve_workflow(
+            skill_name=skill,
             input_dir=input,
             output_dir=output,
             pattern=pattern,

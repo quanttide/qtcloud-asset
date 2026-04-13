@@ -1,5 +1,0 @@
-contracts:
-  archive:
-    name: "归档"
-    transform:
-      pattern: "*.md"
