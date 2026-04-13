@@ -10,5 +10,5 @@
 
 | 清单 | 说明 | 状态 |
 |:---|:---|:---|
-| [Q001-Archive](./Q001-Archive.md) | 归档业务检查清单 | ✅ |
+| [Q001-Workflow](./Q001-Workflow.md) | 治理工作流检查清单 | ✅ |
 | [Q002-Contract](./Q002-Contract.md) | 契约体系检查清单 | ⏸️ |
