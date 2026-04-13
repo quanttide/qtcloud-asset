@@ -1,27 +1,13 @@
 # 质量保证
 
-> 数字资产云的质量治理体系，定义质量指标、准入/准出标准和自动化检查。
+> QA 的本质是"交付承诺"——BRD 说我要这个，QA 说我证了这个。
 
 ## 目录
 
-| 文档 | 说明 |
-|------|------|
-| [metrics.md](./metrics.md) | 质量指标体系与准入门槛 |
-| [skill-review.md](./skill-review.md) | Skill 审查规范与 CI 集成 |
-
-## 质量维度
-
-| 维度 | 指标 | 负责人 |
-|------|------|--------|
-| 代码质量 | 测试覆盖率、lint 通过率 | 开发 |
-| 文档质量 | 完整性、一致性、格式合规 | 文档 |
-| 契约质量 | 资产可达率、技能成功率 | 架构 |
-
-## 产品阶段与准入门槛
-
-| 阶段 | 门槛 |
-|------|------|
-| **placeholder**（占位） | 仅有目录结构，无代码 |
-| **exploring**（探索） | 原型验证，测试覆盖 ≥ 50%，lint 无 error |
-| **validating**（验证） | 测试覆盖 ≥ 80%，Skill 审查通过，契约可解析 |
-| **released**（发布） | 测试覆盖 ≥ 90%，全量 Skill 审查通过，契约 diff 无异常 |
+| 清单 | 说明 | 状态 |
+|------|------|------|
+| [Q001-CLI.md](./Q001-CLI.md) | CLI 工具链的 Checklist | ✅ |
+| [Q002-Archive.md](./Q002-Archive.md) | 归档逻辑的 Checklist | ✅ |
+| [Q003-Contract.md](./Q003-Contract.md) | 契约体系的 Checklist | ⏸️ |
+| [Q004-Aliyun.md](./Q004-Aliyun.md) | 阿里云基础设施的 Checklist | ⏸️ |
+| [Q005-Skill.md](./Q005-Skill.md) | Skill 审查的 Checklist | ✅ |

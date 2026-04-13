@@ -2,18 +2,21 @@
 
 ## 模块定位
 
-质量保证文档是数字资产云的质量治理体系的一部分，定义质量指标、准入/准出标准和自动化检查。
+质量保证文档是数字资产云的质量治理体系，以"需求-验证"对照清单的形式证明资产契约被履行。
 
 ## 资产定义
 
 | 资产 | 类型 | 分类 | 路径 | 描述 |
 |------|------|------|------|------|
-| 质量保证文档索引 | docs | qa | docs/qa/index.md | 质量治理体系导航 |
-| 架构决策记录 | docs | qa | docs/qa/decisions.md | Q001-Q008 实现范围决策 |
-| 质量指标体系 | docs | qa | docs/qa/metrics.md | 量化指标与阶段门槛 |
-| Skill 审查规范 | docs | qa | docs/qa/skill-review.md | 审查规则与 CI 集成 |
+| QA 索引 | docs | qa | docs/qa/index.md | 质量总览，列出所有 Checklist |
+| CLI 清单 | docs | qa | docs/qa/Q001-CLI.md | CLI 工具链的 Checklist |
+| 归档清单 | docs | qa | docs/qa/Q002-Archive.md | 归档逻辑的 Checklist |
+| 契约清单 | docs | qa | docs/qa/Q003-Contract.md | 契约体系的 Checklist |
+| 阿里云清单 | docs | qa | docs/qa/Q004-Aliyun.md | 阿里云基础设施的 Checklist |
+| Skill 清单 | docs | qa | docs/qa/Q005-Skill.md | Skill 审查的 Checklist |
 
 ## 相关文档
 
+- [架构决策记录](../add/decisions.md) — Q001-Q008 实现范围决策
 - [Skill 审查器设计](../../examples/skill/docs/skill_reviewer.md)
 - [产品路线图](../../ROADMAP.md)
