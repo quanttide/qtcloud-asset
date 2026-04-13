@@ -110,7 +110,7 @@ assets:
     title: 集成测试夹具
     type: code
     category: fixtures
-    path: tests/fixtures
+    path: assets/fixtures
     description: ISDL 工作流示例、契约模板
 
   # 示例与原型验证

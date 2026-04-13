@@ -1,24 +1,24 @@
 # 样例资产契约
-# 用于演示和测试的简化契约
+# 用于演示和测试的简化契约，根目录为 assets/fixtures/
 
 assets:
   journal:
-    title: 工作日志
+    title: 样例日志
     type: docs
     category: journal
     path: docs/journal
-    description: 产品工作日志
+    description: 样例产品工作日志
 
   archive:
-    title: 工作归档
+    title: 样例归档
     type: docs
     category: archive
     path: docs/archive
-    description: 已归档的历史日志
+    description: 已归档的样例历史日志
 
 skills:
   archive-journal:
     title: 日志归档
-    description: 将 journal 中的日志移动到 archive
+    description: 将 fixtures/docs/journal 中的日志移动到 fixtures/docs/archive
     transform:
       pattern: "*.md"
