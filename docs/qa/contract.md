@@ -1,4 +1,4 @@
-# Q003 契约体系
+# 契约体系
 
 需求来源：`PRD/Contract` 定义契约为「声明式资产地图」，不管理文件列表
 核心契约：`.quanttide/asset/contract.yaml`
