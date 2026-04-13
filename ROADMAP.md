@@ -1,17 +1,31 @@
 # 数字资产云路线图
 
-## Phase 2: DSL 语法与引擎原型（当前阶段）
+## Phase 2: 契约体系与质量治理（当前阶段）
 
-### 目标
+### 目标 1 — 重新设计数字资产契约
 
-把现实需求翻译成 DSL 语法，对齐 `examples`、`tests/fixtures` 和文档设计，提炼通用代码结构，为 CLI 做准备。
+当前契约是简单的路径映射（`journal → archive`），需要演进为**声明式资产地图**：
+
+- [ ] **统一契约 Schema** — 定义 `assets`（资产组成）和 `skills`（操作技能）的标准结构，对齐主仓库 `.quanttide/asset/contract.yaml` 的 `type`/`category` 分层
+- [ ] **契约解析器** — 读取 `.quanttide/asset/contract.yaml`，扫描资产目录，生成资产清单（类似 `git ls-files` + YAML 声明的交集）
+- [ ] **Skill 执行引擎** — CLI 支持 `qtcloud-asset execute --skill=archive-journal`，从契约中读取 `skills.*.commands` 并执行
+- [ ] **契约验证** — 检查契约中声明的资产路径是否存在、是否可访问，输出验证报告
+- [ ] **契约 diff** — 对比契约版本差异，显示资产增减、技能变更
+
+### 目标 2 — 重新设计质量控制文档
+
+当前 QA 文档是架构决策记录（Q001-Q008），需要建立**完整的质量治理体系**：
+
+- [ ] **质量指标体系** — 定义代码质量（测试覆盖率、lint 通过率）、文档质量（完整性、一致性）、契约质量（资产可达率、技能成功率）
+- [ ] **准入/准出标准** — 每个功能从 exploring → validating → released 的明确门槛
+- [ ] **自动化质量检查** — 集成 Skill 审查器（`skill_reviewer.py`）到 CI，自动检查 SKILL.md 完整性
+- [ ] **质量报告** — 定期生成质量报告，包含各维度评分和趋势
+- [ ] **契约质量关联** — 资产成熟度评分与契约执行成功率联动
 
 ### 待办
 
-1. 提取需求：分析现有脚本的输入/输出/触发条件/转换逻辑
-2. 编写 DSL：将需求转换为 `tests/fixtures/*.yaml`，验证 ISDL 结构表达能力
-3. 实现解析器：读取 YAML 契约，校验 Schema，模拟执行转换
-4. 重构代码：对齐 `docs/prd` 和 `docs/add` 设计，提炼通用结构，为 CLI 做准备
-
-5. 继续写数字资产契约：直到 sample 里的契约和 .quanttide 里的契约格式一致
-6. 重新设计 CLI：只需要一个参数调用 contract 里的特定 operation，`.quanttide/asset/contract.yaml` 作为契约默认路径，降低工程难度。在契约里写 input 和 output，风格类似 `qtcloud-asset execute --operation=archive`
+1. 分析现有契约结构，设计统一 Schema
+2. 实现契约解析器（扫描 + 验证 + 报告）
+3. 重构 CLI 为 Skill 驱动模式
+4. 设计质量控制文档体系
+5. 集成质量检查到 CI/CD
