@@ -6,7 +6,6 @@
 
 | 文档 | 说明 |
 |------|------|
-| [decisions.md](./decisions.md) | 架构决策记录（Q001-Q008） |
 | [metrics.md](./metrics.md) | 质量指标体系与准入门槛 |
 | [skill-review.md](./skill-review.md) | Skill 审查规范与 CI 集成 |
 
