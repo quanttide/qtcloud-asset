@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="zh-CN">
+    <head>
+        <meta charset="UTF-8" />
+        <title>QuantTide：成果与逻辑的对齐界面</title>
+        <script src="https://cdn.tailwindcss.com"></script>
+        <style>
+            body {
+                background: #fff;
+                color: #000;
+                font-family: ui-monospace, monospace;
+            }
+            .view-split {
+                display: grid;
+                grid-template-columns: 1fr 1px 1fr;
+                min-height: 100vh;
+            }
+            .perspective-label {
+                font-size: 10px;
+                font-weight: 900;
+                letter-spacing: 0.2em;
+                padding: 40px;
+            }
+            .connector-line {
+                background: #eee;
+                position: relative;
+            }
+            .sync-node {
+                position: absolute;
+                left: 50%;
+                transform: translateX(-50%);
+                background: #000;
+                color: #fff;
+                padding: 4px 12px;
+                border-radius: 20px;
+                font-size: 10px;
+                white-space: nowrap;
+                cursor: pointer;
+            }
+            .user-view {
+                background: #fff;
+            }
+            .dev-view {
+                background: #fafafa;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="view-split">
+            <div class="user-view relative">
+                <div class="perspective-label text-blue-600">
+                    FOR USER / 最终用户<br />目标：使用功能 & 解决问题
+                </div>
+
+                <div class="p-10 space-y-20">
+                    <section>
+                        <h2 class="text-2xl font-black mb-4">
+                            01. 我要用这个 APP 干活
+                        </h2>
+                        <div class="border-2 border-black p-6 rounded-lg">
+                            <p class="text-sm text-gray-500 mb-4 italic">
+                                “我不需要知道你们怎么写的，我只需要点击这里，帮我把数据洗干净。”
+                            </p>
+                            <button
+                                class="bg-black text-white px-8 py-3 font-bold hover:bg-gray-800 transition"
+                            >
+                                执行数据清洗 (Run)
+                            </button>
+                        </div>
+                    </section>
+
+                    <section>
+                        <h2 class="text-2xl font-black mb-4">
+                            02. 我看不懂，我要看手册
+                        </h2>
+                        <div class="border-b border-black pb-4">
+                            <a href="#" class="text-sm underline font-bold"
+                                >查看用户文档 (User Doc)</a
+                            >
+                            <p class="text-[10px] text-gray-400 mt-1">
+                                最近更新：2026-04-14
+                            </p>
+                        </div>
+                    </section>
+                </div>
+            </div>
+
+            <div class="connector-line">
+                <div class="sync-node" style="top: 200px">意图对齐 (PRD)</div>
+                <div class="sync-node" style="top: 400px">体验对齐 (IXD)</div>
+                <div class="sync-node" style="top: 600px">质量对齐 (QA)</div>
+            </div>
+
+            <div class="dev-view relative">
+                <div class="perspective-label text-gray-400">
+                    FOR DEV / 开发团队<br />目标：维护逻辑 & 转移理解
+                </div>
+
+                <div class="p-10 space-y-20">
+                    <section>
+                        <h2
+                            class="text-xl font-bold text-gray-800 mb-4 opacity-50 italic"
+                        >
+                            # 维护资产逻辑
+                        </h2>
+                        <ul class="space-y-6">
+                            <li class="border-l-4 border-black pl-4">
+                                <div class="text-[10px] font-bold">
+                                    BRD / PRD (作者: PM)
+                                </div>
+                                <div class="text-xs text-gray-500 mt-1 italic">
+                                    “这是左侧‘功能按钮’的逻辑源头，改动它会触发
+                                    CLI 重新同步。”
+                                </div>
+                            </li>
+                            <li class="border-l-4 border-gray-300 pl-4">
+                                <div
+                                    class="text-[10px] font-bold text-gray-400"
+                                >
+                                    IXD / 原型 (作者: 设计师)
+                                </div>
+                                <div class="text-xs text-gray-500 mt-1">
+                                    “如果用户在左侧用得不爽，去这里修补交互状态机。”
+                                </div>
+                            </li>
+                            <li class="border-l-4 border-green-600 pl-4">
+                                <div
+                                    class="text-[10px] font-bold text-green-700"
+                                >
+                                    CODE / CLI (作者: 工程师)
+                                </div>
+                                <div class="text-xs text-gray-500 mt-1">
+                                    “左侧点击按钮后跑的每一行代码，都在这里维护。”
+                                </div>
+                            </li>
+                        </ul>
+                    </section>
+                </div>
+            </div>
+        </div>
+
+        <div
+            class="fixed bottom-0 left-0 w-full p-4 bg-black text-white text-[10px] flex justify-between uppercase tracking-widest opacity-90"
+        >
+            <div>用户视角：使用即终点 (Endpoint)</div>
+            <div class="font-black">GUI 是认知的传递器，CLI 是逻辑的执行器</div>
+            <div>团队视角：维护即起点 (Source)</div>
+        </div>
+    </body>
+</html>

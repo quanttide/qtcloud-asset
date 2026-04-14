@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="zh-CN">
+    <head>
+        <meta charset="UTF-8" />
+        <title>QuantTide：认知转移中心</title>
+        <script src="https://cdn.tailwindcss.com"></script>
+        <style>
+            body {
+                background: #fcfcfc;
+                color: #333;
+                font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
+            }
+            .cognitive-bridge {
+                border-left: 4px solid #e5e5e5;
+                transition: all 0.5s;
+            }
+            .active-bridge {
+                border-left-color: #000;
+                background: #f9f9f9;
+            }
+            .meta-text {
+                font-size: 10px;
+                color: #999;
+                letter-spacing: 0.1em;
+            }
+        </style>
+    </head>
+    <body class="p-12">
+        <header class="max-w-4xl mx-auto mb-20">
+            <div class="meta-text uppercase mb-2">
+                Cognitive Transfer Protocol
+            </div>
+            <h1 class="text-3xl font-light tracking-tight text-black">
+                为什么我们要维护这些资产？
+            </h1>
+            <p class="mt-4 text-gray-500 max-w-xl leading-relaxed">
+                这个界面不是为了让你“运行程序”，而是为了让你确认：<br />
+                <span
+                    class="text-black font-semibold underline decoration-1 italic"
+                    >“此时此刻，我们对这门生意的理解是否一致？”</span
+                >
+            </p>
+        </header>
+
+        <div class="max-w-4xl mx-auto space-y-16">
+            <section class="cognitive-bridge pl-8 py-4 active-bridge">
+                <h2 class="text-sm font-bold mb-4 flex items-center gap-2">
+                    <span class="w-2 h-2 bg-blue-500 rounded-full"></span>
+                    BRD / USER 资产：利益相关者的契约
+                </h2>
+                <div class="grid grid-cols-2 gap-8">
+                    <div>
+                        <h3
+                            class="text-xs font-bold text-gray-400 mb-2 uppercase"
+                        >
+                            维护它的意义
+                        </h3>
+                        <p class="text-xs leading-relaxed text-gray-600">
+                            让**需求方**（老板/客户）能把模糊的欲望具象化，让**开发团队**不再猜测意图。
+                        </p>
+                    </div>
+                    <div>
+                        <h3
+                            class="text-xs font-bold text-gray-400 mb-2 uppercase"
+                        >
+                            理解转移路径
+                        </h3>
+                        <p
+                            class="text-xs leading-relaxed text-gray-600 font-mono italic"
+                        >
+                            需求方(脑) -> PRD(资产) -> 开发(脑)
+                        </p>
+                    </div>
+                </div>
+            </section>
+
+            <section class="cognitive-bridge pl-8 py-4">
+                <h2 class="text-sm font-bold mb-4 flex items-center gap-2">
+                    <span class="w-2 h-2 bg-emerald-500 rounded-full"></span>
+                    ADD / CODE 资产：技术实现的边界
+                </h2>
+                <div class="grid grid-cols-2 gap-8">
+                    <div>
+                        <h3
+                            class="text-xs font-bold text-gray-400 mb-2 uppercase"
+                        >
+                            维护它的意义
+                        </h3>
+                        <p class="text-xs leading-relaxed text-gray-600">
+                            确保“想的”和“做的”是一回事。通过 CLI
+                            自动化，把人类容易犯错的“手工翻译”降到最低。
+                        </p>
+                    </div>
+                    <div>
+                        <h3
+                            class="text-xs font-bold text-gray-400 mb-2 uppercase"
+                        >
+                            理解转移路径
+                        </h3>
+                        <p
+                            class="text-xs leading-relaxed text-gray-600 font-mono italic"
+                        >
+                            架构定义(资产) -> CLI(工具) -> Provider(现实)
+                        </p>
+                    </div>
+                </div>
+            </section>
+
+            <section class="cognitive-bridge pl-8 py-4">
+                <h2 class="text-sm font-bold mb-4 flex items-center gap-2">
+                    <span class="w-2 h-2 bg-rose-500 rounded-full"></span>
+                    DOC / FIXTURES 资产：价值的交付证明
+                </h2>
+                <div class="grid grid-cols-2 gap-8">
+                    <div>
+                        <h3
+                            class="text-xs font-bold text-gray-400 mb-2 uppercase"
+                        >
+                            维护它的意义
+                        </h3>
+                        <p class="text-xs leading-relaxed text-gray-600">
+                            让**用户**知道怎么用。这是“认知转移”的最后一公里，没有它，资产就是一堆死代码。
+                        </p>
+                    </div>
+                    <div>
+                        <h3
+                            class="text-xs font-bold text-gray-400 mb-2 uppercase"
+                        >
+                            理解转移路径
+                        </h3>
+                        <p
+                            class="text-xs leading-relaxed text-gray-600 font-mono italic"
+                        >
+                            产品(现实) -> 文档(资产) -> 用户(脑)
+                        </p>
+                    </div>
+                </div>
+            </section>
+        </div>
+
+        <div class="max-w-4xl mx-auto mt-32 pt-8 border-t border-gray-100">
+            <div class="bg-gray-50 p-8 rounded-lg">
+                <h4
+                    class="text-xs font-bold mb-6 text-gray-400 uppercase tracking-widest text-center"
+                >
+                    执行委会议的“全图”策略
+                </h4>
+                <div
+                    class="grid grid-cols-1 md:grid-cols-3 gap-8 text-[11px] leading-relaxed"
+                >
+                    <div class="space-y-2">
+                        <div class="font-bold text-black">对于参会人：</div>
+                        <p>
+                            他们不需要知道命令行怎么跑，他们需要看到 GUI
+                            上的**资产状态**，从而确信：项目没有偏离轨道。
+                        </p>
+                    </div>
+                    <div class="space-y-2">
+                        <div class="font-bold text-black">对于未来接手者：</div>
+                        <p>
+                            GUI
+                            是他们的“导游”。通过查看资产间的逻辑连线，他们能继承我们现在的**模糊理解**，并使其精确。
+                        </p>
+                    </div>
+                    <div class="space-y-2">
+                        <div class="font-bold text-black">对于我们：</div>
+                        <p>
+                            GUI
+                            是**“理解的防腐剂”**。它强迫我们将那些存在脑子里的灵感，固化为可沉淀、可转移的数字资产。
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </body>
+</html>
