@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="zh-CN">
+    <head>
+        <meta charset="UTF-8" />
+        <title>QuantTide 资产流转协议 (极简工作流)</title>
+        <script src="https://cdn.tailwindcss.com"></script>
+        <style>
+            body {
+                font-family:
+                    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+                    monospace;
+                background: #fff;
+                color: #000;
+            }
+            table {
+                border-collapse: collapse;
+                width: 100%;
+            }
+            th {
+                text-align: left;
+                padding: 12px;
+                border-bottom: 2px solid #000;
+                font-size: 10px;
+                text-transform: uppercase;
+                color: #666;
+            }
+            td {
+                padding: 16px 12px;
+                border-bottom: 1px solid #eee;
+                vertical-align: top;
+            }
+            .flow-arrow {
+                color: #d1d5db;
+                font-size: 14px;
+                text-align: center;
+                width: 40px;
+            }
+            .role-box {
+                font-weight: bold;
+                font-size: 12px;
+            }
+            .asset-name {
+                font-weight: 800;
+                font-size: 14px;
+                letter-spacing: -0.02em;
+            }
+        </style>
+    </head>
+    <body class="p-8 md:p-16">
+        <header class="max-w-5xl mx-auto mb-12">
+            <h1 class="text-2xl font-black italic">
+                ASSET WORKFLOW
+                <span class="font-normal text-gray-400">1.0</span>
+            </h1>
+            <p class="text-[11px] text-gray-500 mt-2">
+                新人指引：请按从上到下的顺序执行维护。每一行的“作者”必须阅读上一行的“资产”后再进行“维护”。
+            </p>
+        </header>
+
+        <div class="max-w-5xl mx-auto">
+            <table>
+                <thead>
+                    <tr>
+                        <th width="50">顺序</th>
+                        <th width="220">数字资产 (维护对象)</th>
+                        <th width="150">作者 (维护者)</th>
+                        <th width="150">读者 (阅读者)</th>
+                        <th>维护动作 (核心交付)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td class="text-gray-400 text-xs">01</td>
+                        <td class="asset-name">BRD / PRD</td>
+                        <td class="role-box text-blue-600">产品经理</td>
+                        <td class="text-xs text-gray-500">全体成员</td>
+                        <td class="text-[11px] leading-relaxed">
+                            定义业务逻辑与功能范围。作为所有后续资产的**唯一意图源**。
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="text-gray-400 text-xs text-center">↓</td>
+                        <td class="asset-name text-gray-300">---</td>
+                        <td
+                            colspan="3"
+                            class="text-[10px] text-gray-400 italic font-light"
+                        >
+                            意图拆解阶段
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="text-gray-400 text-xs">02</td>
+                        <td class="asset-name">ADD / IXD</td>
+                        <td class="role-box text-amber-600">架构师 / 设计师</td>
+                        <td class="text-xs text-gray-500">工程师, QA</td>
+                        <td class="text-[11px] leading-relaxed">
+                            将 PRD 翻译为数据契约 (Schema)
+                            与交互状态机。确定“怎么做”。
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="text-gray-400 text-xs text-center">↓</td>
+                        <td class="asset-name text-gray-300">---</td>
+                        <td
+                            colspan="3"
+                            class="text-[10px] text-gray-400 italic font-light"
+                        >
+                            自动化转换阶段 (CLI / Studio)
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="text-gray-400 text-xs">03</td>
+                        <td class="asset-name text-green-700">
+                            Provider / CLI
+                        </td>
+                        <td class="role-box text-green-700">工程师</td>
+                        <td class="text-xs text-gray-500">QA, 文档, 用户</td>
+                        <td class="text-[11px] leading-relaxed">
+                            通过工具同步
+                            PRD/ADD。实现具体的业务逻辑。**严禁跳过蓝图直接改代码。**
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="text-gray-400 text-xs text-center">↓</td>
+                        <td class="asset-name text-gray-300">---</td>
+                        <td
+                            colspan="3"
+                            class="text-[10px] text-gray-400 italic font-light"
+                        >
+                            验证与交付阶段
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="text-gray-400 text-xs">04</td>
+                        <td class="asset-name">Fixtures / Doc</td>
+                        <td class="role-box text-purple-600">QA / 文档师</td>
+                        <td class="text-xs text-gray-500 font-bold underline">
+                            最终用户
+                        </td>
+                        <td class="text-[11px] leading-relaxed">
+                            基于 PRD/IXD
+                            编写测试固件与手册。确保交付物可感知、可验证。
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <div
+                class="mt-16 p-6 border border-black bg-gray-50 flex justify-between items-center"
+            >
+                <div>
+                    <span class="text-xs font-black uppercase tracking-widest"
+                        >Feedback Loop</span
+                    >
+                    <p class="text-[10px] text-gray-500 mt-1 italic">
+                        用户反馈路径：用户 → 运行日志/反馈 → 产品经理 →
+                        [回到步骤 01]
+                    </p>
+                </div>
+                <div class="text-[10px] text-right text-gray-400">
+                    QuantTide Collaborative Framework<br />
+                    2026 Edition
+                </div>
+            </div>
+        </div>
+    </body>
+</html>

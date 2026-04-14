@@ -1,0 +1,252 @@
+<!doctype html>
+<html lang="zh-CN">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>QuantTide 协作全景总控台</title>
+        <script src="https://cdn.tailwindcss.com"></script>
+        <style>
+            .workflow-grid {
+                display: grid;
+                grid-template-columns: 250px 1fr 250px;
+                gap: 20px;
+            }
+            .role-tag {
+                font-size: 0.65rem;
+                padding: 2px 6px;
+                border-radius: 4px;
+                font-weight: bold;
+                text-transform: uppercase;
+            }
+            .bg-pm {
+                background: #0ea5e9;
+                color: white;
+            }
+            .bg-arch {
+                background: #f59e0b;
+                color: white;
+            }
+            .bg-eng {
+                background: #10b981;
+                color: white;
+            }
+            .bg-des {
+                background: #ec4899;
+                color: white;
+            }
+            .bg-qa {
+                background: #8b5cf6;
+                color: white;
+            }
+            .bg-doc {
+                background: #f43f5e;
+                color: white;
+            }
+
+            .connector {
+                border-left: 2px dashed #334155;
+                margin-left: 20px;
+                padding-left: 20px;
+                position: relative;
+            }
+            .connector::before {
+                content: "↓";
+                position: absolute;
+                left: -7px;
+                top: 0;
+                color: #475569;
+            }
+        </style>
+    </head>
+    <body class="bg-slate-950 text-slate-300 p-8 font-sans">
+        <header class="mb-10 border-b border-slate-800 pb-6">
+            <h1 class="text-3xl font-black text-white tracking-tighter">
+                资产协作总览看板
+                <span class="text-slate-500 text-lg font-normal"
+                    >/ Asset Sync Map</span
+                >
+            </h1>
+            <p class="text-slate-500 mt-2">
+                新人手册：一页看懂谁在“读”什么，谁在“写”什么。
+            </p>
+        </header>
+
+        <div class="max-w-7xl mx-auto space-y-6">
+            <div
+                class="grid grid-cols-12 gap-4 px-6 py-3 bg-slate-900 rounded-t-xl text-xs font-bold uppercase tracking-widest text-slate-500 border border-slate-800"
+            >
+                <div class="col-span-2">维护资产 (Write)</div>
+                <div class="col-span-2 text-center">主要维护者</div>
+                <div class="col-span-5">维护动作与工具 (Action & Tools)</div>
+                <div class="col-span-3">谁在阅读/依赖 (Read By)</div>
+            </div>
+
+            <div class="space-y-4">
+                <div
+                    class="grid grid-cols-12 gap-4 px-6 py-8 bg-slate-900/40 border border-slate-800 rounded-xl items-center hover:bg-slate-900/60 transition"
+                >
+                    <div class="col-span-2 text-white font-bold text-lg">
+                        BRD / PRD<br /><span
+                            class="text-[10px] text-sky-500 font-mono"
+                            >业务需求与蓝图</span
+                        >
+                    </div>
+                    <div class="col-span-2 flex justify-center">
+                        <span class="role-tag bg-pm">产品经理 PM</span>
+                    </div>
+                    <div class="col-span-5 text-sm text-slate-400">
+                        <p>● 调研用户需求，定义原子化功能点</p>
+                        <p>● 维护功能规格说明书，确保逻辑无死角</p>
+                        <p class="mt-2 text-[10px] font-mono text-slate-600">
+                            TOOL: Notion / Feishu / Jira
+                        </p>
+                    </div>
+                    <div class="col-span-3 flex flex-wrap gap-2">
+                        <span class="role-tag border border-arch">架构师</span>
+                        <span class="role-tag border border-des">设计师</span>
+                        <span class="role-tag border border-eng">工程师</span>
+                    </div>
+                </div>
+
+                <div
+                    class="grid grid-cols-12 gap-4 px-6 py-8 bg-slate-900/40 border border-slate-800 rounded-xl items-center"
+                >
+                    <div class="col-span-2 text-white font-bold text-lg">
+                        IXD Asset<br /><span
+                            class="text-[10px] text-pink-500 font-mono"
+                            >交互状态机</span
+                        >
+                    </div>
+                    <div class="col-span-2 flex justify-center">
+                        <span class="role-tag bg-des">设计师 DES</span>
+                    </div>
+                    <div class="col-span-5 text-sm text-slate-400">
+                        <p>● 依据 PRD 设计交互链路与 UI 组件</p>
+                        <p>● 维护视觉规范与交互状态逻辑</p>
+                        <p class="mt-2 text-[10px] font-mono text-slate-600">
+                            TOOL: Figma / MasterGo
+                        </p>
+                    </div>
+                    <div class="col-span-3 flex flex-wrap gap-2">
+                        <span class="role-tag border border-eng">工程师</span>
+                        <span class="role-tag border border-doc">文档师</span>
+                    </div>
+                </div>
+
+                <div
+                    class="grid grid-cols-12 gap-4 px-6 py-8 bg-slate-900/40 border border-slate-800 rounded-xl items-center"
+                >
+                    <div class="col-span-2 text-white font-bold text-lg">
+                        ADD / Schema<br /><span
+                            class="text-[10px] text-amber-500 font-mono"
+                            >架构设计协议</span
+                        >
+                    </div>
+                    <div class="col-span-2 flex justify-center">
+                        <span class="role-tag bg-arch">架构师 ARCH</span>
+                    </div>
+                    <div class="col-span-5 text-sm text-slate-400">
+                        <p>● 将 PRD 翻译为技术模型与接口定义</p>
+                        <p>● 维护数据契约，确保跨模块通信稳固</p>
+                        <p class="mt-2 text-[10px] font-mono text-slate-600">
+                            TOOL: CLI / Protobuf / JSON Schema
+                        </p>
+                    </div>
+                    <div class="col-span-3 flex flex-wrap gap-2">
+                        <span class="role-tag border border-eng">工程师</span>
+                        <span class="role-tag border border-qa">质量QA</span>
+                    </div>
+                </div>
+
+                <div
+                    class="grid grid-cols-12 gap-4 px-6 py-8 bg-slate-900/40 border border-slate-800 rounded-xl items-center"
+                >
+                    <div class="col-span-2 text-white font-bold text-lg">
+                        Provider / Code<br /><span
+                            class="text-[10px] text-emerald-500 font-mono"
+                            >运行时代码资产</span
+                        >
+                    </div>
+                    <div class="col-span-2 flex justify-center">
+                        <span class="role-tag bg-eng">工程师 ENG</span>
+                    </div>
+                    <div class="col-span-5 text-sm text-slate-400">
+                        <p>● 使用 CLI/Studio 同步 ADD/PRD 到代码</p>
+                        <p>● 填充具体业务逻辑，实现资产自动化</p>
+                        <p class="mt-2 text-[10px] font-mono text-slate-600">
+                            TOOL: VS Code / Studio CLI / Git
+                        </p>
+                    </div>
+                    <div class="col-span-3 flex flex-wrap gap-2">
+                        <span class="role-tag border border-qa">质量QA</span>
+                        <span class="role-tag border border-user"
+                            >最终用户</span
+                        >
+                    </div>
+                </div>
+
+                <div
+                    class="grid grid-cols-12 gap-4 px-6 py-8 bg-slate-900/40 border border-slate-800 rounded-xl items-center"
+                >
+                    <div class="col-span-2 text-white font-bold text-lg">
+                        QA / Fixtures<br /><span
+                            class="text-[10px] text-purple-500 font-mono"
+                            >测试固件与质量</span
+                        >
+                    </div>
+                    <div class="col-span-2 flex justify-center">
+                        <span class="role-tag bg-qa">质量 QA</span>
+                    </div>
+                    <div class="col-span-5 text-sm text-slate-400">
+                        <p>● 编写 Fixtures 数据模拟各种极端场景</p>
+                        <p>● 验证代码实现是否符合 PRD 的最初意图</p>
+                        <p class="mt-2 text-[10px] font-mono text-slate-600">
+                            TOOL: Automated Test Runner / Mock Data
+                        </p>
+                    </div>
+                    <div class="col-span-3 flex flex-wrap gap-2">
+                        <span class="role-tag border border-pm">产品经理</span>
+                        <span class="role-tag border border-eng">工程师</span>
+                    </div>
+                </div>
+
+                <div
+                    class="grid grid-cols-12 gap-4 px-6 py-8 bg-slate-900/40 border border-slate-800 rounded-xl items-center"
+                >
+                    <div class="col-span-2 text-white font-bold text-lg">
+                        User Doc<br /><span
+                            class="text-[10px] text-rose-500 font-mono"
+                            >用户手册与帮助</span
+                        >
+                    </div>
+                    <div class="col-span-2 flex justify-center">
+                        <span class="role-tag bg-doc">文档师 WRITER</span>
+                    </div>
+                    <div class="col-span-5 text-sm text-slate-400">
+                        <p>● 将技术语言转化为人类语言</p>
+                        <p>● 观察 IXD 和 PRD 的变动同步更新手册</p>
+                        <p class="mt-2 text-[10px] font-mono text-slate-600">
+                            TOOL: Markdown / Help Center
+                        </p>
+                    </div>
+                    <div class="col-span-3 flex flex-wrap gap-2">
+                        <span class="role-tag border border-white"
+                            >最终用户</span
+                        >
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <footer class="mt-12 pt-8 border-t border-slate-800 text-center">
+            <div
+                class="inline-block p-4 bg-slate-900 rounded-lg border border-slate-800"
+            >
+                <p class="text-xs text-slate-500 font-mono">
+                    [ 核心逻辑 ] 所有的维护动作都是为了
+                    **保持资产同步**。当左侧任何一环变动，右侧对应的角色必须立即响应。
+                </p>
+            </div>
+        </footer>
+    </body>
+</html>
