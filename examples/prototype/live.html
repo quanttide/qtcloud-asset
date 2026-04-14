@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="zh-CN">
+    <head>
+        <meta charset="UTF-8" />
+        <title>QuantTide 元工具：资产共识态势感知</title>
+        <script src="https://cdn.tailwindcss.com"></script>
+        <style>
+            body {
+                background: #000;
+                color: #fff;
+                font-family: ui-monospace, monospace;
+            }
+            .logic-gate {
+                border: 1px solid #333;
+                transition: all 0.3s;
+            }
+            .logic-gate:hover {
+                border-color: #555;
+                background: #0a0a0a;
+            }
+            .status-pulse {
+                width: 8px;
+                height: 8px;
+                border-radius: 50%;
+                display: inline-block;
+            }
+            .online {
+                background: #00ff88;
+                box-shadow: 0 0 10px #00ff88;
+            }
+            .desync {
+                background: #ff3366;
+                box-shadow: 0 0 10px #ff3366;
+                animation: pulse 1s infinite;
+            }
+            @keyframes pulse {
+                0% {
+                    opacity: 1;
+                }
+                50% {
+                    opacity: 0.3;
+                }
+                100% {
+                    opacity: 1;
+                }
+            }
+            .flow-line {
+                width: 2px;
+                height: 40px;
+                background: linear-gradient(to bottom, #333, #111);
+                margin: 0 auto;
+            }
+        </style>
+    </head>
+    <body class="p-10 flex flex-col items-center">
+        <header class="mb-16 text-center">
+            <h1 class="text-xs tracking-[0.5em] text-gray-500 uppercase">
+                QuantTide Meta-Tooling
+            </h1>
+            <div class="text-2xl font-black mt-2 tracking-tighter">
+                共识态势看板
+                <span class="text-gray-600 font-light"
+                    >/ Consensus Perception</span
+                >
+            </div>
+        </header>
+
+        <div class="w-full max-w-4xl space-y-2">
+            <div
+                class="logic-gate p-6 rounded-sm flex items-center justify-between"
+            >
+                <div class="flex items-center gap-4">
+                    <div class="status-pulse online"></div>
+                    <div>
+                        <div class="text-xs text-gray-500">ROOT / 根源</div>
+                        <div class="text-sm font-bold">
+                            BRD & PRD (意图资产)
+                        </div>
+                    </div>
+                </div>
+                <div class="text-right">
+                    <div class="text-[10px] text-gray-500">MAINTAINER</div>
+                    <div class="text-xs uppercase">产品经理 PM</div>
+                </div>
+            </div>
+
+            <div class="flow-line"></div>
+
+            <div
+                class="logic-gate p-6 rounded-sm flex items-center justify-between"
+            >
+                <div class="flex items-center gap-4">
+                    <div class="status-pulse online"></div>
+                    <div>
+                        <div class="text-xs text-gray-500">CONTRACT / 契约</div>
+                        <div class="text-sm font-bold">
+                            ADD & IXD (定义资产)
+                        </div>
+                    </div>
+                </div>
+                <div class="text-right">
+                    <div class="text-[10px] text-gray-500">TRANSLATORS</div>
+                    <div class="text-xs uppercase">架构师 / 设计师</div>
+                </div>
+            </div>
+
+            <div class="flow-line"></div>
+
+            <div
+                class="logic-gate p-6 rounded-sm bg-red-950/10 border-red-900/30 flex items-center justify-between"
+            >
+                <div class="flex items-center gap-4">
+                    <div class="status-pulse desync"></div>
+                    <div>
+                        <div
+                            class="text-xs text-red-500 font-bold uppercase tracking-widest"
+                        >
+                            Desync Warning / 失步警告
+                        </div>
+                        <div class="text-sm font-bold text-red-100">
+                            PROVIDER & CODE (实现资产)
+                        </div>
+                        <div class="text-[10px] text-red-400 mt-1 italic">
+                            检测到代码逻辑与 [PRD #104] 契约不一致
+                        </div>
+                    </div>
+                </div>
+                <div class="text-right">
+                    <div class="text-[10px] text-red-500">OPERATOR</div>
+                    <div class="text-xs uppercase">工程师 ENG</div>
+                </div>
+            </div>
+
+            <div class="flow-line"></div>
+
+            <div
+                class="logic-gate p-6 rounded-sm flex items-center justify-between opacity-50"
+            >
+                <div class="flex items-center gap-4">
+                    <div class="w-2 h-2 rounded-full bg-gray-800"></div>
+                    <div>
+                        <div class="text-xs text-gray-500">
+                            VERIFICATION / 验证
+                        </div>
+                        <div class="text-sm font-bold">
+                            FIXTURES & DOC (验证资产)
+                        </div>
+                    </div>
+                </div>
+                <div class="text-right">
+                    <div class="text-[10px] text-gray-500">AUDITORS</div>
+                    <div class="text-xs uppercase">QA / 文档师</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="mt-20 max-w-xl text-center">
+            <div
+                class="text-[10px] text-gray-600 font-bold uppercase mb-4 tracking-[0.2em]"
+            >
+                The Missing Piece / 缺失的拼图
+            </div>
+            <p class="text-xs text-gray-400 leading-relaxed font-light">
+                缺陷不在于谁维护了什么，而在于
+                <span class="text-white">“谁也不知道谁已经落后了”</span>。
+                <br /><br />
+                真正的元工具不该只展示工作流，而应该是一个
+                **“资产失步报警器”**。 当 PM 改了
+                PRD，代码层级自动闪红；当工程师用 CLI 同步了代码，QA 的 Fixtures
+                自动变为待审核。
+            </p>
+            <div class="mt-8 flex justify-center gap-8">
+                <div class="text-center">
+                    <div class="text-lg font-bold">READ</div>
+                    <div class="text-[10px] text-gray-600 uppercase">
+                        获取共识
+                    </div>
+                </div>
+                <div class="text-gray-800 text-2xl self-center">×</div>
+                <div class="text-center text-cyan-500">
+                    <div class="text-lg font-bold">WRITE</div>
+                    <div class="text-[10px] uppercase">更新共识</div>
+                </div>
+            </div>
+        </div>
+    </body>
+</html>
