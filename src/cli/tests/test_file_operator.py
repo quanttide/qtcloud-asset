@@ -5,10 +5,12 @@ from __future__ import annotations
 
 import tempfile
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 from app.file_operator import (
     ArchiveResult,
+    _rollback,
     archive_product,
 )
 
@@ -108,3 +110,91 @@ class TestArchiveProduct:
         result = archive_product(src, dst, pattern="*.md")
         assert result.source_removed is True
         assert not src.exists()
+
+    def test_handles_failed_file_move(self, tmp_path):
+        src = tmp_path / "src"
+        dst = tmp_path / "dst"
+        src.mkdir()
+        dst.mkdir()
+        (src / "file1.md").write_text("content1")
+        (src / "file2.md").write_text("content2")
+
+        with patch("app.file_operator._move_file", side_effect=OSError("mocked error")):
+            result = archive_product(src, dst, pattern="*.md")
+
+        assert result.ok is False
+        assert len(result.failed) > 0
+
+    def test_dst_creation_failure(self, tmp_path):
+        src = tmp_path / "src"
+        src.mkdir()
+        (src / "file.md").write_text("content")
+        dst = tmp_path / "dst"
+
+        with patch("pathlib.Path.mkdir", side_effect=OSError("mocked error")):
+            result = archive_product(src, dst, pattern="*.md")
+
+        assert result.error is not None
+        assert "无法创建" in result.error
+
+
+class TestRollback:
+    def test_rollback_returns_empty_when_no_moved_files(self, tmp_path):
+        src = tmp_path / "src"
+        dst = tmp_path / "dst"
+        src.mkdir()
+        dst.mkdir()
+        rolled = _rollback(src, dst, [])
+        assert rolled == []
+
+    def test_rollback_restores_files(self, tmp_path):
+        src = tmp_path / "src"
+        dst = tmp_path / "dst"
+        src.mkdir()
+        dst.mkdir()
+        (dst / "file1.md").write_text("content1")
+        (dst / "file2.md").write_text("content2")
+
+        rolled = _rollback(src, dst, ["file1.md", "file2.md"])
+
+        assert "file1.md" in rolled
+        assert "file2.md" in rolled
+        assert (src / "file1.md").exists()
+        assert not (dst / "file1.md").exists()
+
+    def test_rollback_handles_missing_dst_file(self, tmp_path):
+        src = tmp_path / "src"
+        dst = tmp_path / "dst"
+        src.mkdir()
+        dst.mkdir()
+
+        rolled = _rollback(src, dst, ["nonexistent.md"])
+
+        assert rolled == []
+
+    def test_rollback_continues_on_error(self, tmp_path):
+        src = tmp_path / "src"
+        dst = tmp_path / "dst"
+        src.mkdir()
+        dst.mkdir()
+        (dst / "file1.md").write_text("content1")
+
+        with patch("shutil.copy2", side_effect=OSError("mocked error")):
+            rolled = _rollback(src, dst, ["file1.md"])
+
+        assert rolled == []
+
+
+class TestCleanupErrors:
+    def test_src_cleanup_fails_gracefully(self, tmp_path):
+        src = tmp_path / "src"
+        dst = tmp_path / "dst"
+        src.mkdir()
+        (src / "file1.md").write_text("content1")
+        dst.mkdir()
+
+        with patch("pathlib.Path.rmdir", side_effect=OSError("mocked error")):
+            result = archive_product(src, dst, pattern="*.md")
+
+        assert result.ok is True
+        assert result.source_removed is False

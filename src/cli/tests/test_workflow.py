@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 import yaml
 
@@ -10,6 +12,7 @@ from app.workflow import (
     ArchiveTask,
     Workflow,
     _get_products,
+    print_workflow_summary,
     resolve_workflow,
 )
 
@@ -121,3 +124,56 @@ class TestResolveWorkflow:
                 output_dir=contract_and_input["output"],
                 contract_root=contract_and_input["root"],
             )
+
+    def test_default_pattern_when_not_in_skill_params(self, tmp_path):
+        root = tmp_path / "project"
+        contract_dir = root / ".quanttide" / "asset"
+        contract_dir.mkdir(parents=True)
+        (contract_dir / "contract.yaml").write_text(
+            yaml.dump({"skills": {"archive": {"version": "1.0"}}})
+        )
+
+        input_dir = root / "input"
+        input_dir.mkdir()
+        (input_dir / "product1").mkdir()
+
+        output_dir = root / "output"
+        output_dir.mkdir()
+
+        workflow = resolve_workflow(
+            skill_name="archive",
+            input_dir=input_dir,
+            output_dir=output_dir,
+            contract_root=root,
+        )
+        assert workflow.pattern == "*.md"
+
+
+class TestPrintWorkflowSummary:
+    def test_prints_execution_mode(self, capsys):
+        workflow = Workflow(
+            name="archive",
+            pattern="*.md",
+            tasks=[
+                ArchiveTask("p1", Path("/a"), Path("/b")),
+            ],
+        )
+        print_workflow_summary(workflow)
+        captured = capsys.readouterr()
+        assert (
+            "[执行]" in captured.out
+            or "技能" in captured.out
+            or "archive" in captured.out
+        )
+
+    def test_prints_dry_run_mode(self, capsys):
+        workflow = Workflow(
+            name="archive",
+            pattern="*.md",
+            tasks=[
+                ArchiveTask("p1", Path("/a"), Path("/b")),
+            ],
+        )
+        print_workflow_summary(workflow, dry_run=True)
+        captured = capsys.readouterr()
+        assert "[预览]" in captured.out or "archive" in captured.out
