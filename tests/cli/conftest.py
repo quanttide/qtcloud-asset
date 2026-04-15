@@ -10,7 +10,7 @@ import pytest
 @pytest.fixture
 def fixtures_root() -> Path:
     """返回 assets/fixtures 目录"""
-    return Path(__file__).parents[3] / "assets" / "fixtures"
+    return Path(__file__).parents[2] / "assets" / "fixtures"
 
 
 @pytest.fixture
