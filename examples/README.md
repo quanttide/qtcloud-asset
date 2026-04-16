@@ -1,11 +1,29 @@
-# 原型验证
+# 示例与原型验证
 
-本目录作为契约驱动架构的演进实验场，通过迭代重构验证设计可行性。
+本目录包含示例项目和原型验证脚本。
 
 ## 目录结构
 
-examples/ 包含原型脚本和验证文档，按标准资产分类管理。roadmap/ 目录存放路线图生成验证相关脚本和文档。archive/ 目录存放归档流程验证相关脚本和文档。CONTRIBUTING.md 说明验证工作流和重构原则。AGENTS.md 提供文档导航和协作指南。ROADMAP.md 记录验证演进路径。
+| 目录 | 用途 |
+|------|------|
+| `demo/` | CLI 工具演示项目（独立数据） |
+| `archive/` | 归档流程原型验证 |
+| `roadmap/` | 路线图生成原型验证 |
+| `prototype/` | 原型页面演示 |
+
+## 数据隔离原则
+
+- `examples/demo/` — 演示示例，使用独立虚构数据
+- `assets/fixtures/` — 测试夹具，仅供自动化测试使用
 
 ## 快速开始
 
-运行 roadmap/generate_product_roadmap.py 生成产品路线图，验证 AI 转换能力。运行 archive/backup_product_journal.py 归档产品日志，验证文件系统操作能力。查看 ROADMAP.md 了解下一步重构方向。
+### 演示项目
+
+查看 `demo/README.md` 了解 CLI 归档功能演示。
+
+### 原型验证
+
+运行 `archive/backup_product_journal.py` 归档产品日志。
+
+运行 `roadmap/generate_product_roadmap.py` 生成产品路线图。

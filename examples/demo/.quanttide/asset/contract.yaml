@@ -1,0 +1,9 @@
+# 量潮数字资产云 — 演示项目契约
+
+skills:
+  archive-notes:
+    title: 笔记归档
+    description: 将 journal/my-notes 中的笔记移动到 archive/my-notes
+    version: "1.0"
+    params:
+      pattern: "*.md"
