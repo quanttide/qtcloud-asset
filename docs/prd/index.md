@@ -15,6 +15,7 @@
 | 资产估值报告 | pricing.md | Must | 无形资产缺乏定价依据 |
 | 定价数据整合 | pricing.md | Should | 定价数据分散难整合 |
 | 契约执行引擎 | workflow.md | Must | 治理操作自动化 |
+| 原子技能编排 | skill-composition.md | Must | 治理场景硬编码、难以灵活组合 |
 
 ## 已验证能力
 
