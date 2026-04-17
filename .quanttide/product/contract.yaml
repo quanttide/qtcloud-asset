@@ -49,6 +49,19 @@ features:
       - 资产目录构建
     components: []  # 规划阶段
 
+  ai_execution_review:
+    title: AI 执行审核契约
+    status: validating
+    description: >
+      定义 AI 执行操作前的审核规则，防止误操作导致资产损失。
+      AI 在执行高风险操作前需列出操作清单，等待用户确认。
+    provides:
+      - 需要审核的操作清单（删除、Git 强制操作、安全操作等）
+      - 不需要审核的操作清单（读取、写文档、运行测试等）
+      - 执行规范（列出操作、等待确认、执行反馈）
+    config_files:
+      - .quanttide/ai/contract.yaml
+
 # ── 不在范围内 ────────────────────────────────────────
 
 out_of_scope:

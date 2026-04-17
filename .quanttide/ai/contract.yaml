@@ -1,0 +1,139 @@
+# AI 执行审核契约
+# 定位：AI 执行操作前的审核规则，防止误操作导致资产损失
+# 读取方式：每次对话开始时自动读取本文件
+
+# ── 需要审核的操作 ──────────────────────────────────
+
+review_required:
+  # 文件操作
+  file_operations:
+    - 删除文件或目录
+    - 批量重命名文件
+    - 批量替换文件内容
+    - 清空目录
+    - 移动文件到回收站之外的位置
+
+  # Git 操作
+  git_operations:
+    - git push 推送到远程
+    - 删除分支（本地或远程）
+    - git force push
+    - git reset --hard
+    - git rebase -i
+    - 修改已提交的 commit 记录
+
+  # 网络与远程操作
+  remote_operations:
+    - 修改远程仓库设置
+    - 添加或修改 remote URL
+
+  # 安全相关操作
+  security_operations:
+    - 执行外部脚本
+    - pip install / npm install 等依赖安装
+    - 修改 .env、credentials、secrets 等敏感配置
+    - 添加或修改 API Key、Token
+    - 暴露敏感文件
+
+  # 环境操作
+  environment_operations:
+    - 删除 Docker 容器或镜像
+    - 修改环境变量
+    - 删除数据库记录
+    - 清空缓存
+
+  # CI/CD 操作
+  cicd_operations:
+    - 修改 CI/CD 配置文件
+    - 触发生产环境部署
+    - 修改生产环境配置
+    - 修改权限配置
+
+  # 契约与规则文件
+  contract_operations:
+    - 修改 .quanttide/ 目录下的任何契约文件
+    - 修改 .agents/ 目录下的任何技能文件
+    - 修改 AGENTS.md 文件
+
+  # 破坏性操作
+  destructive_operations:
+    - rm -rf 或等效删除命令
+    - DROP DATABASE
+    - 格式化操作
+
+# ── 不需要审核的操作 ─────────────────────────────────
+
+no_review_required:
+  # 读取操作
+  read_operations:
+    - 查看文件内容
+    - 查看 Git 日志
+    - 查看目录结构
+    - 查看环境变量（不修改）
+    - 运行只读命令
+
+  # 编写与创建操作
+  write_operations:
+    - 创建新文件
+    - 修改现有文件（不涉及敏感操作）
+    - 写文档
+    - 写测试代码
+
+  # 代码执行
+  code_execution:
+    - 运行测试（pytest、flutter test 等）
+    - 运行代码检查（ruff、flake8、lint）
+    - 运行格式化（ruff format、dart format）
+    - 构建项目（不涉及部署）
+
+  # Git 协作操作（安全范围内）
+  safe_git_operations:
+    - git add
+    - git commit（不在远程的分支上）
+    - git checkout、git switch
+    - git branch（创建本地分支）
+    - git pull（默认分支）
+    - git merge（不涉及 force）
+
+  # 开发环境操作
+  dev_operations:
+    - 创建 Docker 容器
+    - docker compose up/down
+    - 创建临时测试文件
+    - 启动开发服务器
+
+# ── 执行规范 ─────────────────────────────────────────
+
+specifications:
+  # 1. 自动读取契约
+  auto_read:
+    - 每次对话开始时，AI 必须读取本契约文件
+    - 理解当前对话中涉及的操作是否需要审核
+
+  # 2. 列出将执行的操作
+  list_operations:
+    - 在执行任何操作前，在对话最后列出将执行的操作清单
+    - 格式：使用清晰的列表，标注每个操作的风险等级
+    - 示例：
+      ```
+      我将执行以下操作：
+      1. 删除文件 X（需审核）
+      2. 创建文件 Y（无需审核）
+      ```
+
+  # 3. 等待确认
+  wait_for_confirmation:
+    - 对于需要审核的操作，列出后等待用户确认
+    - 用户明确回复"可以执行"或"同意"后，才执行该操作
+    - 用户回复"取消"或"不执行"，则不执行
+
+  # 4. 执行反馈
+  execution_feedback:
+    - 操作完成后，简要报告执行结果
+    - 如有失败，说明失败原因
+
+# ── 契约版本 ─────────────────────────────────────────
+
+version: "1.0"
+updated: "2026-04-17"
+owner: "创始人"
