@@ -1,0 +1,27 @@
+# 技能：验收结果
+
+id: verify
+name: 验收结果
+description: 验证操作是否成功完成
+
+input:
+  check: string           # 验证类型
+  expected: any          # 期望值
+  actual: any            # 实际值
+
+output:
+  passed: boolean        # 是否通过
+  message: string        # 验证结果消息
+  details: object        # 详细信息
+
+example:
+  input:
+    check: "count_match"
+    expected: 3
+    actual: 3
+  output:
+    passed: true
+    message: "文件数量验证通过"
+    details:
+      expected: 3
+      actual: 3

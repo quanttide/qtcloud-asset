@@ -1,0 +1,45 @@
+# 工作流：迁移
+
+workflow:
+  name: 迁移
+  description: 将数据从一个位置迁移到另一个位置
+
+  # 工作流公式：列举文件 → 复制文件 → 验证 → 清理
+  formula: list_files → copy_files → verify
+
+skills:
+  - id: list_files
+    name: 列举文件
+    description: 列出需要迁移的文件
+    params:
+      source: data/journal
+      pattern: "*.md"
+
+  - id: copy_files
+    name: 复制文件
+    description: 将文件复制到目标位置
+    params:
+      source: data/journal
+      destination: data/archive
+      preserve: true
+
+  - id: verify
+    name: 验收结果
+    description: 验证文件数量和内容完整性
+    params:
+      check: integrity
+      source: data/journal
+      destination: data/archive
+
+execution:
+  mode: sync
+  continue_on_error: true
+  rollback_on_fail: false
+
+example:
+  input:
+    source: data/journal
+    destination: data/archive
+  output:
+    copied_count: 5
+    verified: true

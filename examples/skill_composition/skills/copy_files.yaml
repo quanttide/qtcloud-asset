@@ -1,0 +1,25 @@
+# 技能：复制文件
+
+id: copy_files
+name: 复制文件
+description: 将文件从源目录复制到目标目录
+
+input:
+  source: string      # 源目录路径
+  destination: string # 目标目录路径
+  files: array        # 要复制的文件列表（可选，默认复制全部）
+  preserve: boolean   # 是否保留元数据（默认 true）
+
+output:
+  copied: array      # 成功复制的文件列表
+  failed: array      # 复制失败的文件列表
+  count: number       # 成功数量
+
+example:
+  input:
+    source: "data/journal"
+    destination: "data/backup"
+  output:
+    copied: ["2026-04-01.md", "2026-04-02.md"]
+    failed: []
+    count: 2

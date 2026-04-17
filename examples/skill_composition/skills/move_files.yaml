@@ -1,0 +1,24 @@
+# 技能：移动文件
+
+id: move_files
+name: 移动文件
+description: 将文件从源目录移动到目标目录
+
+input:
+  source: string      # 源目录路径
+  destination: string # 目标目录路径
+  files: array        # 要移动的文件列表（可选，默认移动全部）
+
+output:
+  moved: array        # 成功移动的文件列表
+  failed: array       # 移动失败的文件列表
+  count: number        # 成功数量
+
+example:
+  input:
+    source: "data/journal"
+    destination: "data/archive"
+  output:
+    moved: ["2026-04-01.md", "2026-04-02.md"]
+    failed: []
+    count: 2

@@ -1,0 +1,47 @@
+# 原子技能编排示例 — 契约配置
+
+assets:
+  skills:
+    title: 原子技能库
+    type: config
+    path: skills/
+    description: 系统提供的原子技能定义
+
+  workflows:
+    title: 工作流配置
+    type: config
+    path: workflows/
+    description: 用户定义的工作流配置
+
+  journal:
+    title: 日志数据
+    type: data
+    path: data/journal/
+    description: 待处理的日志文件
+
+  archive:
+    title: 归档数据
+    type: data
+    path: data/archive/
+    description: 归档后的文件存放目录
+
+skills:
+  list_files:
+    title: 列举文件
+    description: 列出目录下匹配的文件
+
+  move_files:
+    title: 移动文件
+    description: 将文件移动到目标目录
+
+  copy_files:
+    title: 复制文件
+    description: 将文件复制到目标目录
+
+  verify:
+    title: 验收结果
+    description: 验证操作是否成功
+
+  compress:
+    title: 压缩文件
+    description: 将文件压缩为 ZIP

@@ -1,0 +1,43 @@
+# 工作流：归档
+
+workflow:
+  name: 归档
+  description: 将日志文件从 journal 目录归档到 archive 目录
+
+  # 工作流公式：列举文件 → 移动文件 → 验收结果
+  formula: list_files → move_files → verify
+
+skills:
+  - id: list_files
+    name: 列举文件
+    description: 列出 journal 目录下所有 Markdown 文件
+    params:
+      source: data/journal
+      pattern: "*.md"
+
+  - id: move_files
+    name: 移动文件
+    description: 将匹配的文件移动到 archive 目录
+    params:
+      source: data/journal
+      destination: data/archive
+
+  - id: verify
+    name: 验收结果
+    description: 验证文件已成功移动到目标目录
+    params:
+      check: destination_files_exist
+      source: data/journal
+      destination: data/archive
+
+execution:
+  mode: sync          # 同步执行
+  continue_on_error: false  # 遇错停止
+  rollback_on_fail: true    # 失败时回滚
+
+example:
+  input:
+    source: data/journal
+  output:
+    moved_count: 3
+    verified: true

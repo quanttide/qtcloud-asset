@@ -1,0 +1,21 @@
+# 技能：列举文件
+
+id: list_files
+name: 列举文件
+description: 列出目录下所有匹配的文件
+
+input:
+  source: string  # 源目录路径
+  pattern: string  # 文件匹配模式，如 "*.md"
+
+output:
+  files: array    # 匹配的文件列表
+  count: number    # 文件数量
+
+example:
+  input:
+    source: "data/journal"
+    pattern: "*.md"
+  output:
+    files: ["2026-04-01.md", "2026-04-02.md"]
+    count: 2

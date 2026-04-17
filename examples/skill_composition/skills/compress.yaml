@@ -1,0 +1,25 @@
+# 技能：压缩文件
+
+id: compress
+name: 压缩文件
+description: 将文件或目录压缩为 ZIP 格式
+
+input:
+  source: string      # 源文件或目录路径
+  output: string      # 输出 ZIP 文件名
+  level: number       # 压缩级别 1-9（可选，默认 6）
+  include_hidden: boolean  # 是否包含隐藏文件（默认 false）
+
+output:
+  archive: string    # 生成的压缩包路径
+  size: number       # 压缩包大小（字节）
+  ratio: number      # 压缩比
+
+example:
+  input:
+    source: "data/archive"
+    output: "backup-2026-04-17.zip"
+  output:
+    archive: "data/backup-2026-04-17.zip"
+    size: 1024000
+    ratio: 0.65
