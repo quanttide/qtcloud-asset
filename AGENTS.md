@@ -8,21 +8,21 @@
 |------|------|
 | `.quanttide/asset/contract.yaml` | 资产组成、路径、类型 |
 | `.quanttide/code/contract.yaml` | 编程规范、依赖、质量门禁 |
-| `.quanttide/ai/contract.yaml` | AI 执行审核规则 |
+| `.quanttide/agent/contract.yaml` | AI 执行审核规则 |
 
 **做任何变更前，先查阅契约文件。** 实际项目结构必须与契约一致。
 
 ## AI 执行规则
 
-AI 助手在执行操作前，必须严格遵守 `.quanttide/ai/contract.yaml` 中的审核规则：
+AI 助手在执行操作前，必须严格遵守 `.quanttide/agent/contract.yaml` 中的审核规则：
 
-1. **每次对话开始时**，AI 必须读取 `.quanttide/ai/contract.yaml`
+1. **每次对话开始时**，AI 必须读取 `.quanttide/agent/contract.yaml`
 2. **分析用户请求**，识别是否涉及需要审核的操作
 3. **列出操作清单**，标注每个操作的风险等级
 4. **等待用户确认**，只有用户明确同意后才能执行高风险操作
 5. **执行后反馈**，简要报告执行结果
 
-详见 [`.quanttide/ai/contract.yaml`](.quanttide/ai/contract.yaml)
+详见 [`.quanttide/agent/contract.yaml`](.quanttide/agent/contract.yaml)
 
 ## 文档使用流程
 

@@ -60,7 +60,7 @@ features:
       - 不需要审核的操作清单（读取、写文档、运行测试等）
       - 执行规范（列出操作、等待确认、执行反馈）
     config_files:
-      - .quanttide/ai/contract.yaml
+      - .quanttide/agent/contract.yaml
 
 # ── 不在范围内 ────────────────────────────────────────
 

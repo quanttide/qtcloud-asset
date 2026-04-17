@@ -14,7 +14,7 @@ triggers:
 
 ai_commitment:
   我承诺严格遵守本契约：
-  1. 每次对话开始时，主动读取 .quanttide/ai/contract.yaml
+  1. 每次对话开始时，主动读取 .quanttide/agent/contract.yaml
   2. 分析用户请求涉及的操做
   3. 区分需要审核和不需要审核的操作
   4. 在执行前列出操作清单，等待用户确认
