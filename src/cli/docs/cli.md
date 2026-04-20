@@ -2,42 +2,51 @@
 
 ## 职责
 
-Typer 应用入口，定义用户可见的 CLI 命令和交互流程。
+Typer 应用入口，提供契约验证和操作计划执行的用户接口。
+
+**CLI 不做工作流引擎，只负责解析参数、调用底层模块、格式化输出。**
 
 ## 命令
 
-### `run`
+### `validate`
 
 ```
-qtcloud-asset --input=<源> --contract=<契约> --output=<目标> [-p/--pattern] [-n/--dry-run] [-v/--verbose]
+qtcloud-asset validate --contract <契约路径>
 ```
 
-数据转换：输入 → 契约(转换) → 输出
+验证 `contract.yaml` 格式是否正确。
 
 | 参数 | 类型 | 必填 | 说明 |
 |------|------|------|------|
-| `-i, --input` | 路径 | 是 | 数据源目录 |
-| `-c, --contract` | 字符串 | 是 | `contracts.yaml` 中的契约名称 |
-| `-o, --output` | 路径 | 是 | 输出目标目录 |
-| `-p, --pattern` | 字符串 | 否 | 文件匹配模式，默认 `*.md` |
-| `-n, --dry-run` | 标志 | 否 | 预览模式，不执行实际操作 |
-| `-v, --verbose` | 标志 | 否 | 详细输出 |
+| `-c, --contract` | 路径 | 否 | 契约文件路径，默认自动查找 |
 
-## 使用示例
+### `plan`
 
-```bash
-# 基本用法
-qtcloud-asset -i ./docs/journal -c archive -o ./docs/archive
-
-# 预览模式
-qtcloud-asset -i ./docs/journal -c archive -o ./docs/archive --dry-run
-
-# 详细输出
-qtcloud-asset -i ./docs/journal -c archive -o ./docs/archive -v
-
-# 指定文件模式
-qtcloud-asset -i ./docs -c archive -o ./output --pattern "*.txt"
 ```
+qtcloud-asset plan --contract <契约路径> [--context <JSON>]
+```
+
+解析契约，生成并打印操作计划（不执行实际操作）。
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `-c, --contract` | 路径 | 否 | 契约文件路径 |
+| `--context` | JSON | 否 | 上下文参数，用于路径变量替换 |
+
+### `execute`
+
+```
+qtcloud-asset execute --contract <契约路径> [--context <JSON>] [--dry-run]
+```
+
+解析契约并执行操作计划。
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `-c, --contract` | 路径 | 否 | 契约文件路径 |
+| `--context` | JSON | 否 | 上下文参数 |
+| `-n, --dry-run` | 标志 | 否 | 预览模式 |
+| `-v, --verbose` | 标志 | 否 | 详细输出 |
 
 ## 执行流程
 
@@ -45,11 +54,14 @@ qtcloud-asset -i ./docs -c archive -o ./output --pattern "*.txt"
 用户输入
     │
     ▼
-resolve_workflow_simple() ── 解析契约，生成 Workflow
+validate() ── 验证契约格式
     │
     ▼
-for each task:
-    archive_product() ── 执行归档
+resolve_plan() ── 解析为操作计划
+    │
+    ▼
+for each operation:
+    move_file() / copy_file() / delete_file() / scan_knowledge_base()
     │
     ▼
 打印结果（OK / FAIL）+ 成功统计
@@ -57,12 +69,12 @@ for each task:
 
 ## 错误处理
 
-- 契约不存在 / 目录不存在 → 红色错误信息 + `Exit(1)`
-- 部分产品失败 → 打印失败原因 + 统计 `X/Y 成功` + `Exit(1)`
+- 契约不存在 / 格式错误 → 红色错误信息 + `Exit(1)`
+- 部分操作失败 → 打印失败原因 + 统计 `X/Y 成功` + `Exit(1)`
 - 全部成功 → `Exit(0)`
 
 ## 依赖
 
-- `planner.py` → `resolve_workflow_simple`, `print_workflow_summary`
-- `file_operator.py` → `archive_product`
-- 不直接操作文件系统
+- `workflow.py` → `resolve_plan`
+- `workflow.py` → `move_file`, `copy_file`, `delete_file`, `scan_knowledge_base`
+- 不直接操作文件系统，不硬编码业务逻辑
