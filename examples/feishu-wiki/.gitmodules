@@ -1,0 +1,21 @@
+[submodule "docs/tutorial"]
+	path = docs/tutorial
+	url = https://github.com/quanttide/quanttide-tutorial-of-asset-management
+[submodule "apps/qtcloud-asset"]
+	path = apps/qtcloud-asset
+	url = https://github.com/quanttide/qtcloud-asset.git
+[submodule "docs/context"]
+	path = docs/context
+	url = https://github.com/quanttide/quanttide-context-of-asset-management.git
+[submodule "docs/handbook"]
+	path = docs/handbook
+	url = https://github.com/quanttide/quanttide-handbook-of-asset-management.git
+[submodule "docs/bylaw"]
+	path = docs/bylaw
+	url = https://github.com/quanttide/quanttide-bylaw-of-asset-management.git
+[submodule "docs/specification"]
+	path = docs/specification
+	url = https://github.com/quanttide/quanttide-specification-of-asset-management.git
+[submodule "docs/report"]
+	path = docs/report
+	url = https://github.com/quanttide/quanttide-report-of-asset-management.git
