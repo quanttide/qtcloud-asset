@@ -1,0 +1,130 @@
+# 议事档案标本契约 v0.0.2
+# 从实际议事档案中发现结构，固化下来形成标本
+
+spec_version: 0.0.2
+
+name: 议事档案
+description: |
+  记录团队集体决策过程的知识库，以议题为单位，按时间（年份+周次）组织。
+  本质是"标本"——从真实决策过程中发现结构，固化下来供后续验证和复用。
+  核心理念："发现而非发明"——模型从资产中长出，不是预设的模板。
+
+structure:
+  root: 议事档案
+  metadata:
+    - 首页（议事活动和编号规则）
+  children:
+    - name: 议题
+      description: 集体讨论的最小单元，按类型区分
+      types:
+        - name: 议事规则
+          description: 目标设定、任务分解、行动指派
+          expected_fields:
+            - 动议区（目标、@提及、行动项）
+            - 附议区（可选）
+          lifecycle_node: 动议提出
+        - name: 议程
+          description: 会议时间、参与者、讨论安排
+          expected_fields:
+            - 时间
+            - 参与者
+            - 议程项
+          lifecycle_node: 议题创建
+        - name: 决策
+          description: 多选项权衡后的集体决定
+          expected_fields:
+            - 元数据区（申请人、审议人）
+            - 动议区（选项列表）
+            - 准则（决策依据）
+            - 权衡（选项分析）
+            - 决定（最终选择）
+            - 附议区（各方意见）
+            - 决议区（最终决定，可选）
+          lifecycle_node: 决议形成
+        - name: 计划
+          description: 执行方案、里程碑、责任分工
+          expected_fields:
+            - 目标
+            - 里程碑
+            - 责任人
+            - 时间线
+          lifecycle_node: 决议形成
+        - name: 复盘研讨
+          description: 事后反思、经验总结、教训提炼
+          expected_fields:
+            - 问题清单
+            - 解决方案
+            - 个人心得
+            - 附议区（可选）
+            - 决议区（可选）
+          lifecycle_node: 归档沉淀
+        - name: 提案审计
+          description: 提案的正式评审
+          expected_fields:
+            - 提案内容
+            - 评审意见
+            - 审计结论
+          lifecycle_node: 决议形成
+        - name: 澄清评估
+          description: 对模糊事项的澄清和评估
+          expected_fields:
+            - 澄清事项
+            - 评估结论
+          lifecycle_node: 附议扩散
+        - name: 谈判报告
+          description: 谈判过程和结果记录
+          expected_fields:
+            - 谈判对象
+            - 谈判过程
+            - 谈判结果
+          lifecycle_node: 决议形成
+        - name: 决议
+          description: 最终决策的正式记录
+          expected_fields:
+            - 决议内容
+            - 投票结果（如有）
+          lifecycle_node: 决议形成
+
+lifecycle:
+  nodes:
+    - 议题创建: 新议题按类型选择模板，填写元数据
+    - 动议提出: 在动议区填写核心内容（目标/选项/问题等）
+    - 附议扩散: 相关人在附议区表态或补充（可选）
+    - 决议形成: 在决议区记录最终决定（可选，不是每议题都有）
+    - 归档沉淀: 完成记录，存入知识库
+  note: "辩论区在当前实践中不运转，已移除；决议区为可选，非必然产物"
+
+purpose:
+  - 沉淀组织记忆，避免"人走知识散"
+  - 支持决策可追溯，清楚"这个决定是怎么来的"
+  - 提炼集体智慧，形成可复用的决策模式
+
+business_process:
+  # 预期的业务流程，AI 用来反推验证
+  流程节点:
+    - 议题创建: 新议题按类型选择模板
+    - 动议提出: 动议区填写核心提案
+    - 附议扩散: 相关人表态
+    - 决议形成: 拍板决定（可选）
+    - 归档沉淀: 存入知识库
+  反推验证: |
+    AI 将实际文档内容与此处定义的预期流程对照，
+    检查实际走了几步、缺了哪步、多余了哪些。
+
+validation:
+  mode: SCOPED
+  scope: "议事档案/**"
+  policies:
+    - selector: "**"
+      mode: SCOPED
+      required_categories:
+        - 议题
+        - 动议区
+      optional_categories:
+        - 附议区
+        - 决议区
+        - 元数据区
+        - 个人心得
+        - 准则
+        - 权衡
+        - 决定
