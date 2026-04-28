@@ -7,6 +7,9 @@ dependencies = [
     "typer",
     "pyyaml",
     "pydantic",
+    "rich",
+    "requests",
+    "python-dotenv",
 ]
 
 [project.optional-dependencies]
