@@ -1,0 +1,42 @@
+# See docs at: https://mystmd.org
+version: 1
+project:
+  title: 量潮数字资产云
+  description: QtCloud Asset 产品文档
+  keywords: []
+  authors: []
+  toc:
+    - file: index.md
+    - title: BRD（业务需求文档）
+      children:
+        - file: brd/index.md
+        - file: brd/graph.md
+        - file: brd/harness.md
+        - file: brd/pricing.md
+        - file: brd/skill-composition.md
+    - title: PRD（产品需求文档）
+      children:
+        - file: prd/index.md
+        - file: prd/graph.md
+        - file: prd/harness.md
+        - file: prd/pricing.md
+        - file: prd/skill-composition.md
+        - file: prd/workflow.md
+    - title: IXD（交互设计文档）
+      children:
+        - file: ixd/index.md
+    - title: QA（质量保证文档）
+      children:
+        - file: qa/README.md
+        - file: qa/contract.md
+        - file: qa/workflow.md
+    - title: User（用户文档）
+      children:
+        - file: user/index.md
+        - file: user/install.md
+        - file: user/quickstart.md
+        - file: user/archive.md
+        - file: user/config.md
+        - file: user/contract.md
+site:
+  template: book-theme
