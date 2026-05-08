@@ -61,9 +61,10 @@ jobs:
 
       - name: Upload to OSS
         run: |
-          curl -L -o ossutil64 https://gosspublic.alicdn.com/ossutil/1.7.19/ossutil64
-          chmod +x ossutil64
-          ./ossutil64 --version
-          ./ossutil64 config -e https://oss-cn-hangzhou.aliyuncs.com -i "$ALIBABA_CLOUD_ACCESS_KEY_ID" -k "$ALIBABA_CLOUD_ACCESS_KEY_SECRET" -L CH
-          ./ossutil64 ls oss://qtcloud-asset-studio/
-          ./ossutil64 cp -r -f build/web oss://qtcloud-asset-studio/
+          curl -L -o ossutil.tar.gz https://gosspublic.alicdn.com/ossutil/v2/2.0.6/ossutil-2.0.6-linux-amd64.tar.gz
+          tar -xzf ossutil.tar.gz
+          OSSUTIL="$(find . -type f -name ossutil -perm -111 | head -n 1)"
+          "$OSSUTIL" version
+          "$OSSUTIL" config set -e https://oss-cn-hangzhou.aliyuncs.com -i "$ALIBABA_CLOUD_ACCESS_KEY_ID" -k "$ALIBABA_CLOUD_ACCESS_KEY_SECRET"
+          "$OSSUTIL" ls oss://qtcloud-asset-studio/
+          "$OSSUTIL" cp -r -f build/web oss://qtcloud-asset-studio/
