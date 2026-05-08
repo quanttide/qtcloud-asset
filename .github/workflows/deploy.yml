@@ -56,10 +56,10 @@ jobs:
 
       - name: Set env vars
         run: |
-          echo "ALIYUN_ACCESS_KEY_ID=${{ secrets.ALIYUN_ACCESS_KEY_ID }}" >> $GITHUB_ENV
-          echo "ALIYUN_ACCESS_KEY_SECRET=${{ secrets.ALIYUN_ACCESS_KEY_SECRET }}" >> $GITHUB_ENV
+          echo "ALIBABA_CLOUD_ACCESS_KEY_ID=${{ secrets.ALIYUN_ACCESS_KEY_ID }}" >> $GITHUB_ENV
+          echo "ALIBABA_CLOUD_ACCESS_KEY_SECRET=${{ secrets.ALIYUN_ACCESS_KEY_SECRET }}" >> $GITHUB_ENV
 
       - name: Upload to OSS
         run: |
-          pip install oss2
-          python scripts/upload_oss.py
+          pip install aliyun-cli
+          aliyun oss cp build/web/ oss://qtcloud-asset-studio/ --recursive --force
