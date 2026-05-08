@@ -45,3 +45,7 @@ jobs:
           tags: |
             registry.cn-hangzhou.aliyuncs.com/quanttide/qtcloud-asset-provider:latest
             registry.cn-hangzhou.aliyuncs.com/quanttide/qtcloud-asset-provider:${{ github.sha }}
+
+      - name: Verify provider image manifest
+        if: github.event_name == 'push'
+        run: docker buildx imagetools inspect registry.cn-hangzhou.aliyuncs.com/quanttide/qtcloud-asset-provider:latest
