@@ -1,15 +1,12 @@
-# 服务端 - FastAPI + uv
-FROM ghcr.io/astral-sh/uv:python3.11-bookworm-slim
+FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim
 
 WORKDIR /app
 
-# 安装依赖
-COPY pyproject.toml uv.lock ./
-RUN uv sync --frozen --no-dev
+COPY src/provider/pyproject.toml ./pyproject.toml
+COPY src/provider/app ./app
 
-# 复制代码
-COPY server/ ./server/
+RUN uv pip install --system .
 
 EXPOSE 9000
 
-CMD ["uv", "run", "uvicorn", "server.main:app", "--host", "0.0.0.0", "--port", "9000"]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "9000"]

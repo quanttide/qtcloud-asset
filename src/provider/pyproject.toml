@@ -5,6 +5,7 @@ description = "量潮数字资产云 Provider"
 requires-python = ">=3.12"
 dependencies = [
     "fastapi",
+    "uvicorn",
     "pyyaml",
 ]
 
