@@ -34,8 +34,8 @@ variable "error_document" {
   default     = "index.html"
 }
 
-variable "provider_image" {
-  description = "Container image used by the provider Function Compute function"
+variable "provider_code_object" {
+  description = "OSS object key used by the provider Function Compute code package"
   type        = string
-  default     = "registry.cn-hangzhou.aliyuncs.com/quanttide/qtcloud-asset-provider:latest"
+  default     = "provider/qtcloud-asset-provider.zip"
 }

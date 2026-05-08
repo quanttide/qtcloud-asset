@@ -1,4 +1,4 @@
-name: Build and Push Provider Image
+name: Deploy Provider Package
 
 on:
   workflow_dispatch:
@@ -6,47 +6,58 @@ on:
     branches: [main]
     paths:
       - ".github/workflows/deploy-provider.yml"
-      - "manifests/docker/Dockerfile.provider"
       - "src/provider/**"
   pull_request:
     branches: [main]
     paths:
       - ".github/workflows/deploy-provider.yml"
-      - "manifests/docker/Dockerfile.provider"
       - "src/provider/**"
 
 jobs:
-  build-and-push:
+  package:
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Login to Alibaba Cloud Container Registry
-        if: github.event_name == 'push'
-        uses: docker/login-action@v3
+      - name: Setup Python
+        uses: actions/setup-python@v5
         with:
-          registry: registry.cn-hangzhou.aliyuncs.com
-          username: ${{ secrets.ALIYUN_REGISTRY_USERNAME }}
-          password: ${{ secrets.ALIYUN_REGISTRY_PASSWORD }}
+          python-version: "3.12"
 
-      - name: Build provider image
-        uses: docker/build-push-action@v5
+      - name: Build provider package
+        run: |
+          python -m pip install --upgrade pip
+          mkdir -p build/provider
+          python -m pip install -r src/provider/requirements.txt -t build/provider
+          cp -R src/provider/app build/provider/app
+          cd build/provider
+          zip -r ../qtcloud-asset-provider.zip .
+
+      - name: Upload package artifact
+        uses: actions/upload-artifact@v4
         with:
-          context: .
-          file: manifests/docker/Dockerfile.provider
-          platforms: linux/amd64
-          push: ${{ github.event_name == 'push' }}
-          provenance: false
-          sbom: false
-          tags: |
-            registry.cn-hangzhou.aliyuncs.com/quanttide/qtcloud-asset-provider:latest
-            registry.cn-hangzhou.aliyuncs.com/quanttide/qtcloud-asset-provider:${{ github.sha }}
+          name: qtcloud-asset-provider
+          path: build/qtcloud-asset-provider.zip
+          retention-days: 3
 
-      - name: Verify provider image manifest
-        if: github.event_name == 'push'
-        run: docker buildx imagetools inspect registry.cn-hangzhou.aliyuncs.com/quanttide/qtcloud-asset-provider:latest
+  deploy:
+    needs: package
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    steps:
+      - name: Download package artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: qtcloud-asset-provider
+          path: build
+
+      - name: Upload provider package to OSS
+        run: |
+          curl -L -o ossutil.zip https://gosspublic.alicdn.com/ossutil/v2/2.2.1/ossutil-2.2.1-linux-amd64.zip
+          unzip -q ossutil.zip
+          OSSUTIL="$(find . -type f -name ossutil -perm -111 | head -n 1)"
+          "$OSSUTIL" version
+          "$OSSUTIL" -i "${{ secrets.ALIYUN_ACCESS_KEY_ID }}" -k "${{ secrets.ALIYUN_ACCESS_KEY_SECRET }}" -e oss-cn-hangzhou.aliyuncs.com --region cn-hangzhou cp -f build/qtcloud-asset-provider.zip oss://qtcloud-asset-studio/provider/qtcloud-asset-provider.zip
