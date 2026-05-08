@@ -34,14 +34,8 @@ variable "error_document" {
   default     = "index.html"
 }
 
-variable "provider_registry_namespace" {
-  description = "ACR namespace used by the provider image"
+variable "provider_image" {
+  description = "Container image used by the provider Function Compute function"
   type        = string
-  default     = "quanttide"
-}
-
-variable "provider_registry_repo" {
-  description = "ACR repository used by the provider image"
-  type        = string
-  default     = "qtcloud-asset-provider"
+  default     = "registry.cn-hangzhou.aliyuncs.com/quanttide/qtcloud-asset-provider:latest"
 }

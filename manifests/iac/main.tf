@@ -41,25 +41,11 @@ resource "alicloud_alidns_record" "studio_cname" {
   depends_on = [alicloud_oss_bucket.studio]
 }
 
-resource "alicloud_cr_namespace" "provider" {
-  name               = var.provider_registry_namespace
-  auto_create        = false
-  default_visibility = "PRIVATE"
-}
-
-resource "alicloud_cr_repo" "provider" {
-  namespace = alicloud_cr_namespace.provider.name
-  name      = var.provider_registry_repo
-  summary   = "QtCloud Asset provider image"
-  repo_type = "PRIVATE"
-  detail    = "Container image repository for the QtCloud Asset provider Function Compute service."
-}
-
 module "fc" {
   source = "./modules/fc"
 
   service_name  = "${var.project_name}-service"
   function_name = "provider"
   region        = var.region
-  image         = "registry.cn-hangzhou.aliyuncs.com/${alicloud_cr_repo.provider.namespace}/${alicloud_cr_repo.provider.name}:latest"
+  image         = var.provider_image
 }
