@@ -1,18 +1,11 @@
 terraform {
-  required_version = ">= 1.6.0"
+  required_version = ">= 1.0"
 
   required_providers {
     alicloud = {
-      source  = "hashicorp/alicloud"
-      version = "~> 1.230.0"
+      source  = "aliyun/alicloud"
+      version = "~> 1.212"
     }
-  }
-
-  backend "oss" {
-    bucket     = "qtcloud-asset-terraform-state"
-    prefix     = "state"
-    region     = "cn-hangzhou"
-    encrypt    = true
   }
 }
 
@@ -20,33 +13,30 @@ provider "alicloud" {
   region = var.region
 }
 
-module "vpc" {
-  source = "./modules/vpc"
+resource "alicloud_oss_bucket" "studio" {
+  bucket = var.studio_bucket_name
 
-  vpc_name   = "${var.project_name}-vpc"
-  cidr_block = var.vpc_cidr
-  region     = var.region
+  versioning {
+    status = "Enabled"
+  }
+
+  website {
+    index_document = var.index_document
+    error_document = var.error_document
+  }
+
+  lifecycle {
+    prevent_destroy = false
+  }
 }
 
-module "oss" {
-  source = "./modules/oss"
+resource "alicloud_alidns_record" "studio_cname" {
+  domain_name = "quanttide.com"
+  type        = "CNAME"
+  rr          = "asset"
+  value       = "${alicloud_oss_bucket.studio.bucket}.${alicloud_oss_bucket.studio.extranet_endpoint}"
+  ttl         = 600
+  status      = "ENABLE"
 
-  bucket_name = "${var.project_name}-assets"
-  region      = var.region
-}
-
-module "fc" {
-  source = "./modules/fc"
-
-  service_name  = "${var.project_name}-service"
-  function_name = "${var.project_name}-fn"
-  region        = var.region
-}
-
-module "trigger" {
-  source = "./modules/trigger"
-
-  function_name = module.fc.function_name
-  service_name  = module.fc.service_name
-  region        = var.region
+  depends_on = [alicloud_oss_bucket.studio]
 }
