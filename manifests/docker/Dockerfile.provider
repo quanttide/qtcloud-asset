@@ -3,9 +3,10 @@ FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim
 WORKDIR /app
 
 COPY src/provider/pyproject.toml ./pyproject.toml
-COPY src/provider/app ./app
 
-RUN uv pip install --system .
+RUN uv pip install --system fastapi uvicorn pyyaml
+
+COPY src/provider/app ./app
 
 EXPOSE 9000
 
