@@ -33,3 +33,9 @@ variable "error_document" {
   type        = string
   default     = "index.html"
 }
+
+variable "provider_image" {
+  description = "Container image used by the provider Function Compute function"
+  type        = string
+  default     = "crpi-uorshhk4a32pmmio.cn-hangzhou.personal.cr.aliyuncs.com/quanttide/qtcloud-asset-provider:latest"
+}

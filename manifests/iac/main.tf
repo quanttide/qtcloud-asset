@@ -40,3 +40,12 @@ resource "alicloud_alidns_record" "studio_cname" {
 
   depends_on = [alicloud_oss_bucket.studio]
 }
+
+module "fc" {
+  source = "./modules/fc"
+
+  service_name  = "${var.project_name}-service"
+  function_name = "provider"
+  region        = var.region
+  image         = var.provider_image
+}
