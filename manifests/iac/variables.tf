@@ -37,5 +37,5 @@ variable "error_document" {
 variable "provider_image" {
   description = "Container image used by the provider Function Compute function"
   type        = string
-  default     = "registry.cn-hangzhou.aliyuncs.com/quanttide/qtcloud-asset-provider:latest"
+  default     = "crpi-uorshhk4a32pmmio.cn-hangzhou.personal.cr.aliyuncs.com/quanttide/qtcloud-asset-provider:latest"
 }
