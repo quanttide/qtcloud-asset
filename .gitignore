@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Flutter / Dart
+build/
+.dart_tool/
+
+# Data and env
+data/
+.env
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Terraform
+.terraform/
+terraform/
+manifests/iac/.terraform/
+manifests/iac/terraform.tfstate
+manifests/iac/terraform.tfstate.backup
