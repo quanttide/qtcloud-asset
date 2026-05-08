@@ -10,14 +10,18 @@ variable "region" {
   type = string
 }
 
-variable "image" {
+variable "code_bucket" {
+  type = string
+}
+
+variable "code_object" {
   type = string
 }
 
 resource "alicloud_fcv3_function" "this" {
   function_name        = var.function_name
   description          = "QtCloud Asset provider"
-  runtime              = "custom-container"
+  runtime              = "custom.debian12"
   handler              = "not-used"
   memory_size          = 512
   cpu                  = 0.5
@@ -26,9 +30,15 @@ resource "alicloud_fcv3_function" "this" {
   instance_concurrency = 10
   internet_access      = true
 
-  custom_container_config {
-    image = var.image
-    port  = 9000
+  code {
+    oss_bucket_name = var.code_bucket
+    oss_object_name = var.code_object
+  }
+
+  custom_runtime_config {
+    command = ["uvicorn"]
+    args    = ["app.main:app", "--host", "0.0.0.0", "--port", "9000"]
+    port    = 9000
 
     health_check_config {
       http_get_url          = "/health"
