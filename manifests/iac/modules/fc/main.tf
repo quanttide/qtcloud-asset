@@ -14,68 +14,54 @@ variable "image" {
   type = string
 }
 
-resource "alicloud_ram_role" "this" {
-  role_name = "${var.service_name}-fc-role"
-
-  assume_role_policy_document = jsonencode({
-    Version = "1"
-    Statement = [
-      {
-        Action = "sts:AssumeRole"
-        Effect = "Allow"
-        Principal = {
-          Service = ["fc.aliyuncs.com"]
-        }
-      }
-    ]
-  })
-}
-
-resource "alicloud_ram_role_policy_attachment" "this" {
-  role_name   = alicloud_ram_role.this.role_name
-  policy_name = "AliyunFCFullAccess"
-  policy_type = "System"
-}
-
-resource "alicloud_fc_service" "this" {
-  name = var.service_name
-  role = alicloud_ram_role.this.arn
-}
-
-resource "alicloud_fc_function" "this" {
-  service     = alicloud_fc_service.this.name
-  name        = var.function_name
-  runtime     = "custom-container"
-  handler     = "main.handler"
-  memory_size = 512
-  timeout     = 60
-  ca_port     = 9000
+resource "alicloud_fcv3_function" "this" {
+  function_name        = var.function_name
+  description          = "QtCloud Asset provider"
+  runtime              = "custom-container"
+  handler              = "not-used"
+  memory_size          = 512
+  cpu                  = 0.5
+  disk_size            = 512
+  timeout              = 60
+  instance_concurrency = 10
+  internet_access      = true
 
   custom_container_config {
     image = var.image
+    port  = 9000
+
+    health_check_config {
+      http_get_url          = "/health"
+      initial_delay_seconds = 1
+      period_seconds        = 10
+      timeout_seconds       = 3
+      failure_threshold     = 3
+      success_threshold     = 1
+    }
   }
 }
 
-resource "alicloud_fc_trigger" "http_trigger" {
-  service  = alicloud_fc_service.this.name
-  function = alicloud_fc_function.this.name
-  name     = "http-trigger"
-  type     = "http"
+resource "alicloud_fcv3_trigger" "http_trigger" {
+  function_name = alicloud_fcv3_function.this.function_name
+  trigger_name  = "http-trigger"
+  trigger_type  = "http"
+  qualifier     = "LATEST"
+  description   = "Public HTTP trigger for QtCloud Asset provider"
 
-  config = jsonencode({
+  trigger_config = jsonencode({
     authType = "anonymous"
     methods  = ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
   })
 }
 
 output "service_name" {
-  value = alicloud_fc_service.this.name
+  value = var.service_name
 }
 
 output "function_name" {
-  value = alicloud_fc_function.this.name
+  value = alicloud_fcv3_function.this.function_name
 }
 
 output "invoke_url" {
-  value = "https://${alicloud_fc_service.this.name}.${var.region}.fc.aliyuncs.com/2016-08-15/proxy/${alicloud_fc_function.this.name}/"
+  value = alicloud_fcv3_trigger.http_trigger.http_trigger[0].url_internet
 }
