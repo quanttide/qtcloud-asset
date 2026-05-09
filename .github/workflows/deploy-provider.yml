@@ -34,13 +34,13 @@ jobs:
           cp -R src/provider/app build/provider/app
           find build/provider -type d -name __pycache__ -prune -exec rm -rf {} +
           cd build/provider
-          python -m zipfile -c ../qtcloud-asset-provider-py311.zip .
+          python -m zipfile -c ../qtcloud-asset-provider-py311-cors.zip .
 
       - name: Upload package artifact
         uses: actions/upload-artifact@v4
         with:
           name: qtcloud-asset-provider
-          path: build/qtcloud-asset-provider-py311.zip
+          path: build/qtcloud-asset-provider-py311-cors.zip
           retention-days: 3
 
   deploy:
@@ -67,4 +67,4 @@ jobs:
           OSSUTIL="$(find . -type f -name ossutil -perm -111 | head -n 1)"
           "$OSSUTIL" version
           "$OSSUTIL" -i "$ALIBABA_CLOUD_ACCESS_KEY_ID" -k "$ALIBABA_CLOUD_ACCESS_KEY_SECRET" -e oss-cn-hangzhou.aliyuncs.com --region cn-hangzhou ls oss://qtcloud-asset-studio/provider/
-          "$OSSUTIL" -i "$ALIBABA_CLOUD_ACCESS_KEY_ID" -k "$ALIBABA_CLOUD_ACCESS_KEY_SECRET" -e oss-cn-hangzhou.aliyuncs.com --region cn-hangzhou cp -f build/qtcloud-asset-provider-py311.zip oss://qtcloud-asset-studio/provider/qtcloud-asset-provider-py311.zip
+          "$OSSUTIL" -i "$ALIBABA_CLOUD_ACCESS_KEY_ID" -k "$ALIBABA_CLOUD_ACCESS_KEY_SECRET" -e oss-cn-hangzhou.aliyuncs.com --region cn-hangzhou cp -f build/qtcloud-asset-provider-py311-cors.zip oss://qtcloud-asset-studio/provider/qtcloud-asset-provider-py311-cors.zip
