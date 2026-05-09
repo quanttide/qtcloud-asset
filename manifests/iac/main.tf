@@ -45,7 +45,7 @@ module "fc" {
   source = "./modules/fc"
 
   service_name  = "${var.project_name}-service"
-  function_name = "provider"
+  function_name = "provider-package"
   region        = var.region
   code_bucket   = alicloud_oss_bucket.studio.bucket
   code_object   = var.provider_code_object
