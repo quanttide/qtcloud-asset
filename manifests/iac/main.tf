@@ -30,6 +30,11 @@ resource "alicloud_oss_bucket" "studio" {
   }
 }
 
+resource "alicloud_oss_bucket_acl" "studio_public_read" {
+  bucket = alicloud_oss_bucket.studio.bucket
+  acl    = "public-read"
+}
+
 resource "alicloud_alidns_record" "studio_cname" {
   domain_name = "quanttide.com"
   type        = "CNAME"
