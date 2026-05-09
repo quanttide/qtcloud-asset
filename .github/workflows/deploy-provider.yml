@@ -55,10 +55,16 @@ jobs:
           name: qtcloud-asset-provider
           path: build
 
+      - name: Set env vars
+        run: |
+          echo "ALIBABA_CLOUD_ACCESS_KEY_ID=${{ secrets.ALIYUN_ACCESS_KEY_ID }}" >> $GITHUB_ENV
+          echo "ALIBABA_CLOUD_ACCESS_KEY_SECRET=${{ secrets.ALIYUN_ACCESS_KEY_SECRET }}" >> $GITHUB_ENV
+
       - name: Upload provider package to OSS
         run: |
           curl -L -o ossutil.zip https://gosspublic.alicdn.com/ossutil/v2/2.2.1/ossutil-2.2.1-linux-amd64.zip
           unzip -q ossutil.zip
           OSSUTIL="$(find . -type f -name ossutil -perm -111 | head -n 1)"
           "$OSSUTIL" version
-          "$OSSUTIL" -i "${{ secrets.ALIYUN_ACCESS_KEY_ID }}" -k "${{ secrets.ALIYUN_ACCESS_KEY_SECRET }}" -e oss-cn-hangzhou.aliyuncs.com --region cn-hangzhou cp -f build/qtcloud-asset-provider.zip oss://qtcloud-asset-studio/provider/qtcloud-asset-provider.zip
+          "$OSSUTIL" -i "$ALIBABA_CLOUD_ACCESS_KEY_ID" -k "$ALIBABA_CLOUD_ACCESS_KEY_SECRET" -e oss-cn-hangzhou.aliyuncs.com --region cn-hangzhou ls oss://qtcloud-asset-studio/provider/
+          "$OSSUTIL" -i "$ALIBABA_CLOUD_ACCESS_KEY_ID" -k "$ALIBABA_CLOUD_ACCESS_KEY_SECRET" -e oss-cn-hangzhou.aliyuncs.com --region cn-hangzhou cp -f build/qtcloud-asset-provider.zip oss://qtcloud-asset-studio/provider/qtcloud-asset-provider.zip
