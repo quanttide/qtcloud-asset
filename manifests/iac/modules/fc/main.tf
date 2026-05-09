@@ -1,3 +1,11 @@
+terraform {
+  required_providers {
+    alicloud = {
+      source = "aliyun/alicloud"
+    }
+  }
+}
+
 variable "service_name" {
   type = string
 }
