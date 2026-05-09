@@ -26,6 +26,14 @@ variable "code_object" {
   type = string
 }
 
+variable "domain_name" {
+  type = string
+}
+
+variable "enable_domain" {
+  type = bool
+}
+
 resource "alicloud_fcv3_function" "this" {
   function_name        = var.function_name
   description          = "QtCloud Asset provider"
@@ -72,6 +80,21 @@ resource "alicloud_fcv3_trigger" "http_trigger" {
   })
 }
 
+resource "alicloud_fcv3_custom_domain" "api" {
+  count = var.enable_domain ? 1 : 0
+
+  custom_domain_name = var.domain_name
+  protocol           = "HTTP"
+
+  route_config {
+    routes {
+      function_name = alicloud_fcv3_function.this.function_name
+      path          = "/*"
+      qualifier     = "LATEST"
+    }
+  }
+}
+
 output "service_name" {
   value = var.service_name
 }
@@ -82,4 +105,8 @@ output "function_name" {
 
 output "invoke_url" {
   value = alicloud_fcv3_trigger.http_trigger.http_trigger[0].url_internet
+}
+
+output "custom_domain" {
+  value = var.enable_domain ? alicloud_fcv3_custom_domain.api[0].custom_domain_name : null
 }

@@ -32,3 +32,13 @@ output "provider_invoke_url" {
   value       = module.fc.invoke_url
   description = "Provider HTTP trigger invoke URL"
 }
+
+output "provider_custom_domain_url" {
+  value       = module.fc.custom_domain == null ? null : "http://${module.fc.custom_domain}"
+  description = "Provider custom domain URL"
+}
+
+output "provider_dns_record_id" {
+  value       = var.enable_provider_custom_domain ? alicloud_alidns_record.provider_cname[0].id : null
+  description = "Provider custom domain DNS record ID"
+}

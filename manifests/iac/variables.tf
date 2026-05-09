@@ -39,3 +39,15 @@ variable "provider_code_object" {
   type        = string
   default     = "provider/qtcloud-asset-provider-py311.zip"
 }
+
+variable "provider_domain_name" {
+  description = "Custom domain for the provider API"
+  type        = string
+  default     = "api.asset.quanttide.com"
+}
+
+variable "enable_provider_custom_domain" {
+  description = "Whether to create the provider FC custom domain and DNS record"
+  type        = bool
+  default     = false
+}

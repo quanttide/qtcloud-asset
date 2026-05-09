@@ -49,4 +49,21 @@ module "fc" {
   region        = var.region
   code_bucket   = alicloud_oss_bucket.studio.bucket
   code_object   = var.provider_code_object
+  domain_name   = var.provider_domain_name
+  enable_domain = var.enable_provider_custom_domain
+}
+
+data "alicloud_account" "current" {}
+
+resource "alicloud_alidns_record" "provider_cname" {
+  count = var.enable_provider_custom_domain ? 1 : 0
+
+  domain_name = "quanttide.com"
+  type        = "CNAME"
+  rr          = "api.asset"
+  value       = "${data.alicloud_account.current.id}.${var.region}.fc.aliyuncs.com"
+  ttl         = 600
+  status      = "ENABLE"
+
+  depends_on = [module.fc]
 }
