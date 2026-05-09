@@ -37,5 +37,5 @@ variable "error_document" {
 variable "provider_code_object" {
   description = "OSS object key used by the provider Function Compute code package"
   type        = string
-  default     = "provider/qtcloud-asset-provider.zip"
+  default     = "provider/qtcloud-asset-provider-py311.zip"
 }
