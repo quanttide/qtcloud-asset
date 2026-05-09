@@ -32,8 +32,9 @@ jobs:
           mkdir -p build/provider
           python -m pip install -r src/provider/requirements.txt -t build/provider
           cp -R src/provider/app build/provider/app
+          find build/provider -type d -name __pycache__ -prune -exec rm -rf {} +
           cd build/provider
-          zip -r ../qtcloud-asset-provider.zip .
+          python -m zipfile -c ../qtcloud-asset-provider.zip .
 
       - name: Upload package artifact
         uses: actions/upload-artifact@v4
