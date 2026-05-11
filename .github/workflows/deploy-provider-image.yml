@@ -1,0 +1,59 @@
+name: Deploy Provider Image
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/deploy-provider-image.yml"
+      - "manifests/docker/Dockerfile.provider"
+      - "manifests/docker/.dockerignore"
+      - "manifests/k8s/**"
+      - "src/provider/**"
+  pull_request:
+    branches: [main]
+    paths:
+      - ".github/workflows/deploy-provider-image.yml"
+      - "manifests/docker/Dockerfile.provider"
+      - "manifests/docker/.dockerignore"
+      - "manifests/k8s/**"
+      - "src/provider/**"
+
+env:
+  ACR_REGISTRY: crpi-uorshhk4a32pmmio.cn-hangzhou.personal.cr.aliyuncs.com
+  ACR_NAMESPACE: quanttide
+  IMAGE_NAME: qtcloud-asset-provider
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build image
+        run: |
+          IMAGE="${ACR_REGISTRY}/${ACR_NAMESPACE}/${IMAGE_NAME}"
+          docker build \
+            -f manifests/docker/Dockerfile.provider \
+            -t "${IMAGE}:${GITHUB_SHA}" \
+            -t "${IMAGE}:latest" \
+            .
+
+      - name: Login to ACR
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.ACR_REGISTRY }}
+          username: ${{ secrets.ACR_USERNAME }}
+          password: ${{ secrets.ACR_PASSWORD }}
+
+      - name: Push image
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        run: |
+          IMAGE="${ACR_REGISTRY}/${ACR_NAMESPACE}/${IMAGE_NAME}"
+          docker push "${IMAGE}:${GITHUB_SHA}"
+          docker push "${IMAGE}:latest"
