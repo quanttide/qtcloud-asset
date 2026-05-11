@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
-const providerBaseUrl = 'https://provide-package-tuzknrkwac.cn-hangzhou.fcapp.run';
+const providerBaseUrl = 'https://api.asset.quanttide.com';
 
 void main() {
   runApp(const QtCloudAssetStudio());

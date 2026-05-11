@@ -1,10 +1,12 @@
+import os
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 
 app = FastAPI(title="QtCloud Asset Provider", version="0.1.0")
 
-PROVIDER_BASE_URL = "https://provide-package-tuzknrkwac.cn-hangzhou.fcapp.run"
+PROVIDER_BASE_URL = os.getenv("PROVIDER_BASE_URL", "https://api.asset.quanttide.com")
 
 app.add_middleware(
     CORSMiddleware,

@@ -1,0 +1,91 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: qtcloud-asset-provider
+  namespace: qtcloud-asset
+  labels:
+    app.kubernetes.io/name: qtcloud-asset-provider
+    app.kubernetes.io/part-of: qtcloud-asset
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: qtcloud-asset-provider
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: qtcloud-asset-provider
+        app.kubernetes.io/part-of: qtcloud-asset
+    spec:
+      containers:
+        - name: provider
+          image: crpi-uorshhk4a32pmmio.cn-hangzhou.personal.cr.aliyuncs.com/quanttide/qtcloud-asset-provider:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 9000
+          env:
+            - name: PROVIDER_BASE_URL
+              value: https://api.asset.quanttide.com
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: qtcloud-asset-provider
+  namespace: qtcloud-asset
+  labels:
+    app.kubernetes.io/name: qtcloud-asset-provider
+    app.kubernetes.io/part-of: qtcloud-asset
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: qtcloud-asset-provider
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: qtcloud-asset-provider
+  namespace: qtcloud-asset
+  labels:
+    app.kubernetes.io/name: qtcloud-asset-provider
+    app.kubernetes.io/part-of: qtcloud-asset
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - api.asset.quanttide.com
+      secretName: qtcloud-asset-api-tls
+  rules:
+    - host: api.asset.quanttide.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: qtcloud-asset-provider
+                port:
+                  name: http

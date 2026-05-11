@@ -25,4 +25,8 @@ manifests/iac/
 examples/
 tests/
 src/cli/
-src/provider/
+src/provider/.gitignore
+src/provider/.pytest_cache/
+src/provider/__pycache__/
+src/provider/app/**/__pycache__/
+src/provider/tests/
