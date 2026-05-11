@@ -17,6 +17,8 @@ spec:
         app.kubernetes.io/name: qtcloud-asset-provider
         app.kubernetes.io/part-of: qtcloud-asset
     spec:
+      imagePullSecrets:
+        - name: acr-pull-secret
       containers:
         - name: provider
           image: crpi-uorshhk4a32pmmio.cn-hangzhou.personal.cr.aliyuncs.com/quanttide/qtcloud-asset-provider:latest
