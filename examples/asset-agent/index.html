@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>资产智能体协作壳 · 核心原型 v2.0</title>
+    <script src="https://unpkg.com/vis-network@9.1.6/standalone/umd/vis-network.min.js"></script>
+    <style>
+        :root {
+            --bg: #1e1e2e;
+            --surface: #282840;
+            --text: #cdd6f4;
+            --subtle: #a6adc8;
+            --border: #45475a;
+            --accent: #89b4fa;
+            --green: #a6e3a1;
+            --orange: #fab387;
+            --pink: #f5c2e7;
+            --font: system-ui, -apple-system, sans-serif;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            background: var(--bg); color: var(--text); font-family: var(--font);
+            height: 100vh; display: flex; flex-direction: column; overflow: hidden;
+        }
+
+        /* 顶部栏 */
+        .topbar {
+            display: flex; align-items: center; padding: 8px 16px;
+            background: var(--surface); border-bottom: 1px solid var(--border); flex-shrink: 0;
+        }
+        .topbar .title { font-weight: 700; font-size: 15px; margin-right: 20px; letter-spacing: 0.5px; }
+        .topbar button {
+            background: var(--surface); color: var(--subtle); border: 1px solid var(--border);
+            padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 13px; transition: all 0.2s;
+        }
+        .topbar button:hover { background: #363652; color: var(--text); }
+        .engine-status {
+            margin-left: auto; display: flex; align-items: center; gap: 6px;
+            font-size: 13px; color: var(--subtle);
+        }
+        .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); display: inline-block; animation: pulse 2s infinite; }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+
+        /* 主体 */
+        .main { display: flex; flex: 1; overflow: hidden; }
+
+        /* 左侧资产树 */
+        .left-panel {
+            width: 260px; background: var(--surface); border-right: 1px solid var(--border);
+            display: flex; flex-direction: column; overflow: hidden; flex-shrink: 0;
+        }
+        .panel-header {
+            padding: 12px 16px; border-bottom: 1px solid var(--border);
+            font-weight: 600; font-size: 13px; color: var(--subtle);
+        }
+        .tree-container { flex: 1; overflow-y: auto; padding: 8px 0; }
+        .tree-node {
+            font-size: 13px; line-height: 2; white-space: nowrap; padding: 0 12px;
+            cursor: pointer; transition: background 0.15s; display: flex; align-items: center; position: relative;
+        }
+        .tree-node:hover { background: #363652; }
+        .tree-node.active { background: #3a3b5a; }
+        .tree-node.active::before {
+            content: ''; position: absolute; left: 0; top: 4px; bottom: 4px;
+            width: 3px; background: var(--accent); border-radius: 0 2px 2px 0;
+        }
+        .node-icon { margin-right: 6px; font-size: 14px; width: 18px; text-align: center; }
+        .node-label { flex: 1; }
+        .agent-badge {
+            font-size: 10px; background: #45475a; color: var(--accent);
+            padding: 1px 6px; border-radius: 4px; margin-left: 8px;
+        }
+
+        /* 右侧面板 */
+        .right-panel { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+        /* 上部关系图 */
+        .graph-area {
+            flex: 1; position: relative; background: var(--bg); border-bottom: 1px solid var(--border); min-height: 300px;
+        }
+        #network { width: 100%; height: 100%; }
+        .legend {
+            position: absolute; bottom: 16px; right: 16px;
+            background: rgba(40,40,64,0.95); padding: 10px 14px;
+            border-radius: 8px; font-size: 12px; border: 1px solid var(--border); line-height: 1.8;
+        }
+        .legend-item { display: flex; align-items: center; gap: 6px; }
+        .legend-dot { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+        .legend-line { width: 20px; height: 0; border-top: 2px solid; display: inline-block; }
+        .legend-line.dashed { border-top-style: dashed; }
+
+        /* 下部事件流 */
+        .event-area {
+            height: 260px; background: var(--surface); display: flex; flex-direction: column; overflow: hidden; flex-shrink: 0;
+        }
+        .event-header {
+            padding: 10px 16px; border-bottom: 1px solid var(--border);
+            font-weight: 600; font-size: 13px; display: flex; justify-content: space-between; align-items: center;
+        }
+        .event-count { font-size: 11px; color: var(--subtle); font-weight: normal; background: #45475a; padding: 2px 8px; border-radius: 10px; }
+        .event-list { flex: 1; overflow-y: auto; padding: 12px 16px; display: flex; flex-direction: column; gap: 8px; }
+        .event-card {
+            background: #313244; border-radius: 8px; padding: 10px 14px;
+            font-size: 12px; cursor: pointer; transition: all 0.2s; border-left: 3px solid transparent;
+        }
+        .event-card:hover { background: #3a3b5a; }
+        .event-card.active { border-left-color: var(--pink); background: #3a3b5a; }
+        .event-card.hidden { display: none; }
+        .event-main { display: flex; align-items: center; gap: 10px; }
+        .event-type { font-weight: 600; color: var(--accent); flex: 1; }
+        .event-time { color: #6c7086; font-size: 11px; }
+        .event-detail { color: var(--subtle); font-size: 11px; margin-top: 6px; display: none; }
+        .event-card.active .event-detail { display: block; }
+        .event-payload { background: #1e1e2e; padding: 6px; margin-top: 6px; border-radius: 4px; font-size: 11px; font-family: monospace; white-space: pre-wrap; display: none; }
+        .event-card.active .event-payload { display: block; }
+
+    </style>
+</head>
+<body>
+
+<div class="topbar">
+    <span class="title">📊 资产智能体协作壳 v2.0</span>
+    <button id="btn-fit">🔄 重置视图</button>
+    <button id="btn-clear">✖ 清除选中</button>
+    <div class="engine-status"><span class="status-dot"></span> 引擎运行中</div>
+</div>
+
+<div class="main">
+    <!-- 左：资产树 -->
+    <div class="left-panel">
+        <div class="panel-header">📁 资产结构</div>
+        <div class="tree-container" id="asset-tree"></div>
+    </div>
+
+    <!-- 右：图 + 事件 -->
+    <div class="right-panel">
+        <!-- 上：关系图 -->
+        <div class="graph-area">
+            <div id="network"></div>
+            <div class="legend">
+                <div class="legend-item"><span class="legend-dot" style="background:#89b4fa"></span> 智能体</div>
+                <div class="legend-item"><span class="legend-dot" style="background:#f5c2e7"></span> 资产文件</div>
+                <div class="legend-item"><span class="legend-line" style="border-color:#89b4fa"></span> 触发</div>
+                <div class="legend-item"><span class="legend-line dashed" style="border-color:#fab387"></span> 反馈</div>
+                <div class="legend-item"><span class="legend-line dashed" style="border-color:#6c7086"></span> 写入</div>
+            </div>
+        </div>
+        <!-- 下：事件时间线 -->
+        <div class="event-area">
+            <div class="event-header">
+                <span>📋 协作事件</span>
+                <span class="event-count" id="event-count">0 事件</span>
+            </div>
+            <div class="event-list" id="event-list"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+// ==================== 统一数据模型：一切皆图 ====================
+const graphNodes = [
+    // --- 目录节点 (Dir) ---
+    { id: 'dir-root', label: '元仓库', group: 'Dir', parent: null },
+    { id: 'dir-roadmap', label: 'roadmap', group: 'Dir', parent: 'dir-root' },
+    { id: 'dir-plat', label: '平台', group: 'Dir', parent: 'dir-root' },
+    { id: 'dir-plat-docs', label: 'docs', group: 'Dir', parent: 'dir-plat' },
+    { id: 'dir-plat-drd', label: 'drd', group: 'Dir', parent: 'dir-plat-docs' },
+    { id: 'dir-plat-qa', label: 'qa', group: 'Dir', parent: 'dir-plat-docs' },
+    { id: 'dir-plat-src', label: 'src', group: 'Dir', parent: 'dir-plat' },
+    { id: 'dir-plat-test', label: 'test', group: 'Dir', parent: 'dir-plat' },
+    { id: 'dir-plat-config', label: 'config', group: 'Dir', parent: 'dir-plat' },
+    { id: 'dir-ex', label: '示例', group: 'Dir', parent: 'dir-root' },
+    { id: 'dir-lib', label: '库', group: 'Dir', parent: 'dir-root' },
+
+    // --- 智能体节点 (Agent) ---
+    { id: 'agent-meta', label: 'meta-agent', group: 'Agent', parent: 'dir-root' },
+    { id: 'agent-plat', label: 'platform-agent', group: 'Agent', parent: 'dir-plat' },
+    { id: 'agent-ex', label: 'example-agent', group: 'Agent', parent: 'dir-ex' },
+    { id: 'agent-lib', label: 'lib-agent', group: 'Agent', parent: 'dir-lib' },
+    { id: 'agent-drd', label: 'drd-agent', group: 'Agent', parent: 'dir-plat-drd' },
+    { id: 'agent-qa', label: 'qa-agent', group: 'Agent', parent: 'dir-plat-qa' },
+    { id: 'agent-code', label: 'code-agent', group: 'Agent', parent: 'dir-plat-src' },
+    { id: 'agent-test', label: 'test-agent', group: 'Agent', parent: 'dir-plat-test' },
+    { id: 'agent-config', label: 'config-agent', group: 'Agent', parent: 'dir-plat-config' },
+
+    // --- 资产文件节点 (File) ---
+    { id: 'file-roadmap', label: '未命名.md', group: 'File', parent: 'dir-roadmap' },
+    { id: 'file-plan', label: 'PLAN.md', group: 'File', parent: 'dir-plat' },
+    { id: 'file-status', label: 'STATUS.md', group: 'File', parent: 'dir-plat' },
+    { id: 'file-drd', label: '支付设计.md', group: 'File', parent: 'dir-plat-drd' },
+    { id: 'file-qa', label: '测试策略.md', group: 'File', parent: 'dir-plat-qa' },
+    { id: 'file-code', label: 'payment.ts', group: 'File', parent: 'dir-plat-src' }
+];
+
+const graphEdges = [
+    // --- 写入关系 (Agent -> File) ---
+    { id: 'w1', from: 'agent-meta', to: 'file-roadmap', type: 'write', label: '修改' },
+    { id: 'w2', from: 'agent-meta', to: 'file-plan', type: 'write', label: '写入' },
+    { id: 'w3', from: 'agent-plat', to: 'file-status', type: 'write', label: '回报' },
+    { id: 'w4', from: 'agent-drd', to: 'file-drd', type: 'write', label: '修改' },
+    { id: 'w5', from: 'agent-qa', to: 'file-qa', type: 'write', label: '生成' },
+    { id: 'w6', from: 'agent-code', to: 'file-code', type: 'write', label: '实现' },
+
+    // --- 触发关系 (Agent -> Agent) ---
+    { id: 't1', from: 'agent-meta', to: 'agent-plat', type: 'trigger', label: '更新PLAN', events: [
+        { time: '14:18:30', payload: { version: 'v2' } }
+    ]},
+    { id: 't2', from: 'agent-plat', to: 'agent-drd', type: 'trigger', label: '设计任务', events: [] },
+    { id: 't3', from: 'agent-drd', to: 'agent-qa', type: 'trigger', label: 'drd.finalized', events: [
+        { time: '14:30:05', payload: { status: 'final' } }
+    ]},
+    { id: 't4', from: 'agent-drd', to: 'agent-code', type: 'trigger', label: 'design.finalized', events: [
+        { time: '14:30:05', payload: { status: 'final' } }
+    ]},
+    { id: 't5', from: 'agent-code', to: 'agent-test', type: 'trigger', label: 'code.implemented', events: [
+        { time: '14:25:00', payload: { status: 'implemented' } }
+    ]},
+
+    // --- 反馈关系 (Agent -> Agent) ---
+    { id: 'f1', from: 'agent-test', to: 'agent-code', type: 'feedback', label: 'bug.report', events: [
+        { time: '14:20:45', payload: { bug: '回调未处理超时' } }
+    ]},
+    { id: 'f2', from: 'agent-qa', to: 'agent-drd', type: 'feedback', label: 'change.request', events: [
+        { time: '14:28:12', payload: { issue: '缺少超时处理', suggestion: '增加 timeout 参数' } }
+    ]}
+];
+
+// ==================== 辅助映射 ====================
+const nodeMap = new Map(graphNodes.map(n => [n.id, n]));
+const edgeMap = new Map(graphEdges.map(e => [e.id, e]));
+
+// 查找目录下挂载的所有智能体
+function getAgentsInDir(dirId) {
+    return graphNodes.filter(n => n.group === 'Agent' && n.parent === dirId).map(n => n.id);
+}
+
+// ==================== 状态管理：选中即过滤 ====================
+let currentFocus = {
+    type: null, // 'node' | 'edge' | null
+    id: null    // 对应的 ID
+};
+
+// ==================== 视图1：资产树 ====================
+const treeContainer = document.getElementById('asset-tree');
+
+function buildTreeView() {
+    treeContainer.innerHTML = '';
+    const root = graphNodes.find(n => n.parent === null);
+    if (!root) return;
+    renderTreeNode(root, treeContainer, 0);
+}
+
+function renderTreeNode(node, container, level) {
+    const div = document.createElement('div');
+    div.className = 'tree-node';
+    div.dataset.id = node.id;
+    div.style.paddingLeft = (level * 16 + 12) + 'px';
+
+    const icon = node.group === 'Dir' ? '📁' : (node.group === 'Agent' ? '🤖' : '📄');
+    const agentsInDir = node.group === 'Dir' ? getAgentsInDir(node.id) : [];
+
+    div.innerHTML = `
+        <span class="node-icon">${icon}</span>
+        <span class="node-label">${node.label}</span>
+        ${node.group === 'Agent' ? '<span class="agent-badge">Agent</span>' : ''}
+        ${agentsInDir.length > 0 ? `<span class="agent-badge">${agentsInDir.length} 智能体</span>` : ''}
+    `;
+
+    // 点击树节点联动
+    div.addEventListener('click', (e) => {
+        e.stopPropagation();
+        setFocus('node', node.id);
+    });
+
+    container.appendChild(div);
+
+    // 递归渲染子目录和子文件
+    const children = graphNodes.filter(n => n.parent === node.id && n.group === 'Dir');
+    const files = graphNodes.filter(n => n.parent === node.id && n.group === 'File');
+    
+    children.forEach(child => renderTreeNode(child, container, level + 1));
+    files.forEach(file => renderTreeNode(file, container, level + 1));
+}
+
+// 更新树高亮
+function updateTreeHighlight() {
+    treeContainer.querySelectorAll('.tree-node.active').forEach(el => el.classList.remove('active'));
+    if (currentFocus.type === 'node') {
+        const targetEl = treeContainer.querySelector(`.tree-node[data-id="${currentFocus.id}"]`);
+        if (targetEl) {
+            targetEl.classList.add('active');
+            targetEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+    } else if (currentFocus.type === 'edge') {
+        const edge = edgeMap.get(currentFocus.id);
+        if (edge) {
+            const fromNode = nodeMap.get(edge.from);
+            const targetEl = treeContainer.querySelector(`.tree-node[data-id="${fromNode.id}"]`);
+            if (targetEl) targetEl.classList.add('active');
+        }
+    }
+}
+
+// ==================== 视图2：关系图 ====================
+const visNodes = new vis.DataSet();
+const visEdges = new vis.DataSet();
+
+// 只将 Agent 和 File 加入图，Dir 作为层级不显示
+graphNodes.forEach(n => {
+    if (n.group === 'Agent' || n.group === 'File') {
+        visNodes.add({
+            id: n.id,
+            label: n.label,
+            group: n.group,
+            level: n.group === 'Agent' ? 0 : 1 // 简单分层：Agent上，File下
+        });
+    }
+});
+
+// 只加入协作和写入边
+graphEdges.forEach(e => {
+    const isTrigger = e.type === 'trigger';
+    const isFeedback = e.type === 'feedback';
+    visEdges.add({
+        id: e.id,
+        from: e.from,
+        to: e.to,
+        label: e.label,
+        arrows: 'to',
+        color: isTrigger ? '#89b4fa' : (isFeedback ? '#fab387' : '#6c7086'),
+        dashes: isFeedback || e.type === 'write',
+        width: isTrigger || isFeedback ? 2 : 1,
+        font: { size: 11, color: '#a6adc8', strokeWidth: 0 },
+        smooth: { type: 'cubicBezier', forceDirection: 'vertical', roundness: 0.5 }
+    });
+});
+
+const network = new vis.Network(document.getElementById('network'), { nodes: visNodes, edges: visEdges }, {
+    layout: { hierarchical: { direction: 'UD', sortMethod: 'directed', nodeSpacing: 200, levelSeparation: 150 } },
+    physics: false,
+    interaction: { dragNodes: true, zoomView: true, dragView: true, hover: true },
+    groups: {
+        Agent: { shape: 'box', color: { background: '#45475a', border: '#89b4fa', highlight: { background: '#5a5b7a', border: '#89b4fa' } }, font: { color: '#cdd6f4', size: 14 }, borderWidth: 2, margin: 10, shadow: { enabled: true, color: 'rgba(137,180,250,0.2)', size: 10 } },
+        File: { shape: 'ellipse', color: { background: '#313244', border: '#f5c2e7', highlight: { background: '#3a3b5a', border: '#f5c2e7' } }, font: { color: '#f5c2e7', size: 12 }, borderWidth: 1, shadow: { enabled: true, color: 'rgba(245,194,231,0.15)', size: 8 } }
+    }
+});
+
+// 图点击联动
+network.on("selectNode", function(params) {
+    setFocus('node', params.nodes[0]);
+});
+network.on("deselectNode", function() {
+    setFocus(null, null);
+});
+network.on("selectEdge", function(params) {
+    setFocus('edge', params.edges[0]);
+});
+network.on("deselectEdge", function() {
+    // 如果取消边选中，且没有节点选中，则清空
+    if (network.getSelectedNodes().length === 0) setFocus(null, null);
+});
+
+// 更新图高亮
+function updateGraphHighlight() {
+    const allEdgeIds = visEdges.getIds();
+    const allNodeIds = visNodes.getIds();
+
+    if (!currentFocus.type) {
+        // 恢复默认
+        allEdgeIds.forEach(id => visEdges.update({ id, color: edgeMap.get(id)?.type === 'trigger' ? '#89b4fa' : (edgeMap.get(id)?.type === 'feedback' ? '#fab387' : '#6c7086'), width: (edgeMap.get(id)?.type === 'trigger' || edgeMap.get(id)?.type === 'feedback') ? 2 : 1 }));
+        allNodeIds.forEach(id => visNodes.update({ id, opacity: 1.0 }));
+        return;
+    }
+
+    let relatedNodeIds = new Set();
+    let relatedEdgeIds = new Set();
+
+    if (currentFocus.type === 'node') {
+        relatedNodeIds.add(currentFocus.id);
+        // 包含相连的节点
+        const connectedEdges = network.getConnectedEdges(currentFocus.id);
+        connectedEdges.forEach(eid => {
+            relatedEdgeIds.add(eid);
+            const edge = visEdges.get(eid);
+            relatedNodeIds.add(edge.from);
+            relatedNodeIds.add(edge.to);
+        });
+    } else if (currentFocus.type === 'edge') {
+        const edge = visEdges.get(currentFocus.id);
+        relatedEdgeIds.add(currentFocus.id);
+        relatedNodeIds.add(edge.from);
+        relatedNodeIds.add(edge.to);
+    }
+
+    // 应用高亮与暗化
+    allNodeIds.forEach(id => {
+        visNodes.update({ id, opacity: relatedNodeIds.has(id) ? 1.0 : 0.2 });
+    });
+
+    allEdgeIds.forEach(id => {
+        if (relatedEdgeIds.has(id)) {
+            const originColor = edgeMap.get(id)?.type === 'trigger' ? '#89b4fa' : (edgeMap.get(id)?.type === 'feedback' ? '#fab387' : '#6c7086');
+            visEdges.update({ id, color: '#f5c2e7', width: 3, font: { color: '#f5c2e7' } }); // 高亮粉色
+        } else {
+            visEdges.update({ id, color: '#333348', width: 1, font: { color: '#333348' } }); // 暗化
+        }
+    });
+}
+
+// ==================== 视图3：事件时间线 ====================
+const eventList = document.getElementById('event-list');
+let allEvents = [];
+
+// 从边数据中提取事件
+function extractEvents() {
+    allEvents = [];
+    graphEdges.forEach(edge => {
+        if (edge.events && edge.events.length > 0) {
+            edge.events.forEach(evt => {
+                allEvents.push({
+                    edgeId: edge.id,
+                    type: edge.label, // 事件类型复用边的 label
+                    from: edge.from,
+                    to: edge.to,
+                    time: evt.time,
+                    payload: evt.payload
+                });
+            });
+        }
+    });
+    // 按时间倒序排列
+    allEvents.sort((a, b) => b.time.localeCompare(a.time));
+}
+
+function renderTimeline() {
+    eventList.innerHTML = '';
+    extractEvents();
+    document.getElementById('event-count').textContent = `${allEvents.length} 事件`;
+
+    allEvents.forEach((evt, index) => {
+        const card = document.createElement('div');
+        card.className = 'event-card';
+        card.dataset.edgeId = evt.edgeId;
+        card.dataset.from = evt.from;
+        card.dataset.to = evt.to;
+        card.dataset.index = index;
+
+        const fromNode = nodeMap.get(evt.from);
+        const toNode = nodeMap.get(evt.to);
+
+        card.innerHTML = `
+            <div class="event-main">
+                <div class="event-type">${evt.type}</div>
+                <div class="event-time">${evt.time}</div>
+            </div>
+            <div class="event-detail">
+                ${fromNode.label} ➡️ ${toNode.label}
+            </div>
+            <pre class="event-payload">${JSON.stringify(evt.payload, null, 2)}</pre>
+        `;
+
+        // 点击事件联动
+        card.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const isExpanding = !card.classList.contains('active');
+            // 如果是展开动作，同时触发聚焦联动
+            if (isExpanding) {
+                setFocus('edge', evt.edgeId);
+            } else {
+                setFocus(null, null);
+            }
+        });
+
+        eventList.appendChild(card);
+    });
+}
+
+// 更新事件列表高亮与过滤
+function updateTimelineHighlight() {
+    const cards = eventList.querySelectorAll('.event-card');
+    let visibleCount = 0;
+
+    cards.forEach(card => {
+        const edgeId = card.dataset.edgeId;
+        const from = card.dataset.from;
+        const to = card.dataset.to;
+
+        let isVisible = false;
+        let isActive = false;
+
+        if (!currentFocus.type) {
+            isVisible = true;
+        } else if (currentFocus.type === 'node') {
+            // 如果聚焦节点，只显示与该节点相关的事件
+            if (from === currentFocus.id || to === currentFocus.id) {
+                isVisible = true;
+            }
+        } else if (currentFocus.type === 'edge') {
+            // 如果聚焦边，只显示该边的事件
+            if (edgeId === currentFocus.id) {
+                isVisible = true;
+                isActive = true; // 自动展开
+            }
+        }
+
+        card.classList.toggle('hidden', !isVisible);
+        if (isVisible) visibleCount++;
+        
+        // 管理激活状态（展开详情）
+        if (isActive) {
+            card.classList.add('active');
+            card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        } else {
+            // 保留用户手动点击的其他卡片的展开状态，或者严格点全部折叠
+            // 这里严格一点，非聚焦边折叠
+            if (currentFocus.type === 'edge') card.classList.remove('active');
+        }
+    });
+
+    document.getElementById('event-count').textContent = `${visibleCount} / ${allEvents.length} 事件`;
+}
+
+// ==================== 核心联动引擎 ====================
+function setFocus(type, id) {
+    // 避免重复触发
+    if (currentFocus.type === type && currentFocus.id === id) return;
+    
+    currentFocus.type = type;
+    currentFocus.id = id;
+
+    // 1. 更新图
+    if (type === 'node') {
+        network.selectNodes([id], false);
+        network.focus(id, { scale: 1.2, animation: { duration: 400, easingFunction: 'easeInOutQuad' } });
+    } else if (type === 'edge') {
+        network.selectEdges([id]);
+        const edge = visEdges.get(id);
+        network.focus(edge.from, { scale: 1.2, animation: { duration: 400, easingFunction: 'easeInOutQuad' } });
+    } else {
+        network.setSelection({ nodes: [], edges: [] });
+    }
+    updateGraphHighlight();
+
+    // 2. 更新树
+    updateTreeHighlight();
+
+    // 3. 更新事件
+    updateTimelineHighlight();
+}
+
+// ==================== 初始化 ====================
+buildTreeView();
+renderTimeline();
+
+// 顶部按钮
+document.getElementById('btn-fit').addEventListener('click', () => {
+    setFocus(null, null);
+    network.fit({ animation: { duration: 500, easingFunction: 'easeInOutQuad' } });
+});
+document.getElementById('btn-clear').addEventListener('click', () => {
+    setFocus(null, null);
+});
+
+// 初始适配
+setTimeout(() => network.fit({ animation: false }), 300);
+
+</script>
+</body>
+</html>
