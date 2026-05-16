@@ -1,242 +1,114 @@
-# 资产智能体规则引擎 — 核心设计文档
+# 资产版本因果链可视化 — 核心设计文档
 
 状态：已确认
 日期：2026-05-16
-领域：数字资产管理 × 智能体工程
+领域：数字资产管理 × 智能体协作
 
-—
+---
 
 1. 概述
 
 1.1 项目定位
 
-构建一个壳程序（Shell），用于可视化平台资产仓库中多智能体的协作关系。底层依赖规则引擎实现文件事件到智能体动作的路由。
+通过版本因果链可视化，回答三个问题：当前仓库各资产处于什么版本、版本之间谁驱动了谁、协作过程经历了多少轮迭代才收敛。
 
-1.2 规则引擎职责
+1.2 数据模型
 
-· 监听资产目录的文件变化
-· 根据预定义规则匹配触发条件
-· 将事件路由到对应智能体（调用 Opencode）
-· 记录智能体间的触发链路，供壳程序可视化
+```
+graphData
+├── graphNodes[]
+│   └── { id, label, group, parent }
+│       其中 group ∈ { Dir, File, Agent, Version }
+└── graphEdges[]
+    └── { id, from, to, type, label, events[] }
+        其中 type ∈ { write, trigger, feedback }
+```
 
-规则引擎不负责智能体的内部逻辑，只负责编排。
+节点类型：
 
-—
+| 类型 | 含义 | 出现在 |
+|------|------|--------|
+| Dir | 资产目录 | 结构页树 |
+| File | 资产文件 | 结构页树 |
+| Agent | 智能体角色 | 结构页树（badge） |
+| Version | 资产版本 | 演化页图 |
+
+边类型：
+
+| 类型 | 含义 | 方向 |
+|------|------|------|
+| write | 智能体产出文件 | Agent → File |
+| trigger | 上游通知下游 | 版本 → 版本 |
+| feedback | 下游反馈上游 | 版本 → 版本 |
 
 2. 核心架构
 
-2.1 资产树结构
+2.1 资产目录结构
 
 ```
-元仓库/
-├── roadmap/
-├── 示例/
-│   ├── docs/
-│   ├── test/
-│   ├── src/
-│   └── config/
-├── 平台/
-│   ├── docs/
-│   │   ├── drd/
-│   │   └── qa/
-│   ├── test/
-│   ├── src/
-│   └── config/
-└── 库/
-    ├── docs/
-    ├── test/
-    ├── src/
-    └── config/
+资产仓库/
+├── docs/drd/          ← drd-agent
+│   └── 支付设计.md
+├── src/frontend/     ← code-frontend-agent
+│   └── payment.js
+└── src/backend/      ← code-backend-agent
+    └── payment.go
 ```
 
-2.2 智能体分层
+每个智能体挂载在一个目录下，职责边界由目录路径定义。
 
-层级 智能体 管辖范围
-元仓库 meta-agent /, roadmap/*, */STATUS.md
-单仓 platform-agent 等 各自单仓根目录
-分层 doc-agent, qa-agent, code-agent, test-agent 等 对应子目录
+2.2 版本追踪
 
-2.3 数据流
+每个智能体独立维护版本计数器。版本在以下情况递增：
 
-```
-文件系统事件 → 规则引擎 → 条件匹配 → 动作执行 → 记录协作图
-                  ↑                        │
-                  └── agent_rules.yaml      └── 调用 Opencode
-```
+- 收到 trigger 事件 → 按源版本对齐
+- 收到 feedback 事件 → 当前版本 +1
+- 自迭代（内部修改） → 当前版本 +1，不产生 trigger 或 feedback
 
-—
+版本节点 ID 格式：`{agent-id}-v{number}`，如 `drd-agent-v2`。
 
-3. 核心设计决策
+2.3 迭代边生成逻辑
 
-3.1 统一事件格式（基于 CloudEvents 思想）
+跨版本连线的依据是事件。一次协作产生两种边：
 
-所有智能体间通信采用统一的轻量 JSON 格式：
+- trigger：从 source 的某版本指向 target 的某版本（设计驱动开发）
+- feedback：从 source 的某版本指向 target 的下一个版本（实现反馈设计）
 
-```json
-{
-  ”id“: ”evt-20260516-001“,
-  ”type“: ”drd.finalized“,
-  ”source“: ”/平台/docs/drd“,
-  ”time“: ”2026-05-16T10:30:00Z“,
-  ”subject“: ”支付设计.md“,
-  ”datacontenttype“: ”application/json“,
-  ”data“: {
-    ”status“: ”final“,
-    ”author“: ”human“
-  }
-}
-```
+同列内部不存在 trigger 或 feedback 边。自迭代不产生跨列连线。
 
-字段说明：
+2.4 收敛
 
-· id：全局唯一标识，用于去重和日志
-· type：事件类型（如 drd.finalized、qa.change.request），驱动规则匹配
-· source：产生事件的智能体或目录
-· time：发生时间
-· subject：受影响的资产文件
-· data：业务载荷
+收敛没有显式标记，而是隐式状态：当所有关联路径上没有未处理的 feedback 时，该资产版本视为收敛。演化图中表现为最后一版只有 trigger 边，没有 feedback 边。
 
-设计理由：借鉴 CloudEvents 核心字段，获得标准化语义的同时保持极简实现，零外部依赖。
-
-3.2 文件即事件
-
-事件载体为文件系统中的 JSON 文件，存放于约定位置：
+3. 数据流
 
 ```
-{管辖目录}/.events/{event-id}.json
+app.py（内嵌 AGENTS 定义 + traces）
+  │ 扫描 sample/ 目录
+  │ 解析智能体挂载关系
+  │ 生成 trigger/feedback 边
+  │ 从 traces 生成版本节点和迭代边
+  ▼
+data.js → window.graphData
+  ├── index.html（结构页）
+  │   读取 Dir + File + Agent 节点
+  │   渲染目录树 + 角色 badge
+  └── evolution.html（演化页）
+      读取 Version 节点 + 迭代边
+      渲染三列版本网格
 ```
 
-规则引擎监听这些文件的变化，解析后触发下游动作。传递机制完全基于文件系统，无额外消息队列。
+4. 当前技术选型
 
-3.3 正向与反向触发
+| 层 | 选型 | 理由 |
+|:---|:-----|:-----|
+| 前端渲染 | vanilla HTML + vis-network | 零构建、双击即用 |
+| 数据格式 | data.js（静态 JSON + 全局变量） | 支持 file:// 协议 |
+| 数据生成 | app.py（内嵌 agent 定义） | 无需外部配置，可复现 |
+| 布局计算 | 代码内 BFS 求层次 + 显式坐标 | 避免 vis 自动布局不稳定 |
 
-正向触发：上游完成 → 通知下游
+5. 下一步
 
-· 例：drd 文档状态变更为 final → 触发 qa-agent 和 code-agent
-
-反向触发（反馈）：下游发现问题 → 向上游发送变更请求
-
-· 例：qa-agent 发现设计问题 → 向 drd 发送 design.change.request 事件，携带问题描述和修改建议
-
-两种触发都使用同一事件格式，通过 type 字段区分。
-
-—
-
-4. 规则定义规范
-
-4.1 规则文件格式（agent_rules.yaml）
-
-```yaml
-agents:
-  - id: drd-agent
-    watch:
-      - ”平台/docs/drd/*.md“
-    command: ”opencode run drd-agent —file ${FILE}“
-    outputs:
-      - ”平台/docs/drd/*.md“
-
-  - id: qa-agent
-    watch:
-      - ”平台/docs/qa/*.md“
-      - ”平台/docs/drd/.events/*.json“
-    command: ”opencode run qa-agent —file ${FILE}“
-    outputs:
-      - ”平台/docs/qa/*.md“
-```
-
-4.2 带条件的规则（扩展语法）
-
-```yaml
-rules:
-  - name: ”DRD定稿通知“
-    trigger:
-      file_pattern: ”平台/docs/drd/*.md“
-      condition: ”content.status == ’final‘“
-    action:
-      - notify:
-          target: agent/qa
-          payload:
-            type: ”drd.finalized“
-            source_file: ”${trigger.file}“
-      - notify:
-          target: agent/code
-          payload:
-            type: ”design.finalized“
-            source_file: ”${trigger.file}“
-
-  - name: ”QA反馈变更请求“
-    trigger:
-      file_pattern: ”平台/docs/qa/*.md“
-      condition: ”event_type == ’design.change.request‘“
-    action:
-      - notify:
-          target: agent/drd
-          payload:
-            type: ”design.change.request“
-            message_file: ”${trigger.file}“
-```
-
-4.3 规则字段说明
-
-字段 说明
-watch glob 模式，定义智能体关心的文件
-command 触发后执行的命令，${FILE} 为触发文件路径
-outputs 声明可能的输出文件，用于推断上下游关系
-condition 触发条件表达式（可选，如解析 Markdown frontmatter）
-action.notify 通知目标智能体，携带结构化 payload
-
-—
-
-5. 协作关系图
-
-5.1 图结构
-
-· 节点：智能体（id、监控目录、最近活跃时间）
-· 有向边：触发者 → 被触发者，属性包含时间戳、触发文件、事件类型
-
-5.2 典型链路
-
-```
-meta-agent → platform-agent → doc-agent → qa-agent
-                                  ↑            │
-                                  └────────────┘
-                              (change.request)
-```
-
-—
-
-6. 实现要点
-
-6.1 技术选型
-
-· 监听：Python watchdog 或 Node.js chokidar
-· 规则解析：YAML
-· 图维护：networkx（Python）或 JSON 持久化
-· 可视化：TUI 或轻量 Web 仪表盘（壳程序负责）
-
-6.2 防循环触发
-
-· 同一文件在冷却期（如 2 秒）内重复事件忽略
-· 智能体执行期间可暂停监听
-
-6.3 与 Opencode 集成
-
-优先使用命令行调用：
-
-```bash
-opencode run <agent-name> —file <trigger-file>
-```
-
-—
-
-7. 下一步计划
-
-1. 完善 agent_rules.yaml，覆盖所有单仓和分层智能体
-2. 实现事件监听与 condition 解析（解析 Markdown frontmatter 中的状态字段）
-3. 构建协作图可视化壳程序
-4. 与 Opencode 联调，验证完整闭环链路
-
-—
-
-文档版本：v1.0
-确认范围：事件格式、规则结构、触发模式、技术路线均已确认
+- 自迭代（同列内版本递增无 trigger）当前未实现，traces 中需要增加 self-version-bump 事件类型
+- 收敛标准目前是隐式的，未在数据中显式标记
+- 版本号目前由 app.py 按 traces 顺序分配，未接入真实 Git tag
