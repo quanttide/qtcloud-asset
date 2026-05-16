@@ -13,7 +13,7 @@ AGENTS = [
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('root', help='资产仓库根目录')
-    parser.add_argument('--output', default='data.json')
+    parser.add_argument('--output', default='data.js')
     parser.add_argument('--seed-traces', action='store_true')
     args = parser.parse_args()
 

@@ -76,17 +76,17 @@
 4. 数据流
 
 ```
-agent_rules.yaml    sample/目录        traces（app.py内嵌）
-       │                │                  │
-       └────────────────┼──────────────────┘
-                        ▼
-                   app.py
-                        │
-                        ▼
-                    data.js
-                   ┌───┴───┐
-                   ▼       ▼
-            index.html  evolution.html
+sample/目录              traces（app.py内嵌）
+     │                        │
+     └────────────────────────┘
+              ▼
+         src/app.py
+              │
+              ▼
+         src/data.js
+        ┌───┴───┐
+        ▼       ▼
+ src/index.html  src/evolution.html
 ```
 
 两个页面共享同一份 `data.js`，各自过滤需要的节点类型。结构页只读 Dir + File + Agent，演化页只读 Version。
@@ -95,8 +95,8 @@ agent_rules.yaml    sample/目录        traces（app.py内嵌）
 
 - 前端：vanilla HTML + vis-network（演化页）
 - 数据：data.js（静态 JSON，全局变量 `window.graphData`）
-- 生成：app.py + agent_rules.yaml，可从真实目录产出 data.js
-- 启动：双击 index.html 或 evolution.html，零配置
+- 生成：src/app.py（内嵌 agent 定义），可从真实目录产出 src/data.js
+- 启动：双击 src/index.html 或 src/evolution.html，零配置
 
 6. 使用场景
 

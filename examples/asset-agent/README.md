@@ -8,13 +8,13 @@
 
 | 页面 | 用途 | 打开方式 |
 |------|------|----------|
-| `index.html` | 资产结构树 + 角色 badge，回答「谁负责什么、上下游是谁」 | 双击 |
-| `evolution.html` | 版本演化网格，回答「迭代了多少轮、卡在哪、怎么收敛的」 | 双击 |
+| `src/index.html` | 资产结构树 + 角色 badge，回答「谁负责什么、上下游是谁」 | 双击 |
+| `src/evolution.html` | 版本演化网格，回答「迭代了多少轮、卡在哪、怎么收敛的」 | 双击 |
 
 ### 数据生成
 
 ```bash
-python app.py sample/ --output data.js --seed-traces
+python src/app.py sample/ --output src/data.js --seed-traces
 ```
 
 扫描真实目录结构，生成图数据。`--seed-traces` 生成 3 轮迭代的版本节点和 trigger/feedback 边。
@@ -31,25 +31,25 @@ python app.py sample/ --output data.js --seed-traces
 
 | 文档 | 内容 |
 |------|------|
-| `brd.md` | 3 个业务场景（版本不可追溯、迭代不可见、收敛不明确） |
-| `drd.md` | 图数据模型和 6 项业务假设 |
-| `ixd.md` | 双页设计原则和布局 |
-| `add.md` | 核心数据模型和版本追踪逻辑 |
-| `qa.md` | 4 组验证项和通过标准 |
-| `user.md` | 最终用户指南 |
+| `docs/brd.md` | 3 个业务场景（版本不可追溯、迭代不可见、收敛不明确） |
+| `docs/drd.md` | 图数据模型和 6 项业务假设 |
+| `docs/ixd.md` | 双页设计原则和布局 |
+| `docs/add.md` | 核心数据模型和版本追踪逻辑 |
+| `docs/qa.md` | 4 组验证项和通过标准 |
+| `docs/user.md` | 最终用户指南 |
 
 ### 示例仓库
 
-`sample/` 目录包含一个模拟资产仓库（`docs/drd/`、`src/backend/`、`src/frontend/`），可直接作为 `app.py` 的输入。
+`sample/` 目录包含一个模拟资产仓库（`sample/docs/drd/`、`sample/src/backend/`、`sample/src/frontend/`），可直接作为 `src/app.py` 的输入。
 
 ## 快速开始
 
 ```bash
 # 1. 生成图数据
-python app.py sample/ --output data.js --seed-traces
+python src/app.py sample/ --output src/data.js --seed-traces
 
 # 2. 打开视图
-open index.html   # 或 evolution.html
+open src/index.html   # 或 src/evolution.html
 ```
 
 ## 设计原则
