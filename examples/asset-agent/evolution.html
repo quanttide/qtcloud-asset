@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>资产演化 · 资产智能体协作壳</title>
+    <script src="data.js"></script>
+    <script src="vis-network.min.js"></script>
+    <style>
+        :root {
+            --bg: #1e1e2e;
+            --surface: #282840;
+            --text: #cdd6f4;
+            --subtle: #a6adc8;
+            --border: #45475a;
+            --accent: #89b4fa;
+            --green: #a6e3a1;
+            --orange: #fab387;
+            --font: system-ui, -apple-system, sans-serif;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            background: var(--bg); color: var(--text); font-family: var(--font);
+            height: 100vh; display: flex; flex-direction: column; overflow: hidden;
+        }
+        .topbar {
+            display: flex; align-items: center; padding: 8px 16px;
+            background: var(--surface); border-bottom: 1px solid var(--border); flex-shrink: 0;
+        }
+        .topbar .title { font-weight: 700; font-size: 15px; margin-right: 20px; }
+        .topbar a { color: var(--accent); font-size: 13px; text-decoration: none; }
+        .topbar a:hover { text-decoration: underline; }
+        .evolve-info {
+            margin-left: auto; display: flex; align-items: center; gap: 16px;
+            font-size: 13px; color: var(--subtle);
+        }
+        .evolve-info .tag {
+            background: #45475a; padding: 2px 10px; border-radius: 4px;
+        }
+        .graph-area {
+            flex: 1; position: relative;
+        }
+        #network { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+        .legend {
+            position: absolute; bottom: 16px; right: 16px;
+            background: rgba(40,40,64,0.95); padding: 10px 14px;
+            border-radius: 8px; font-size: 12px; border: 1px solid var(--border); line-height: 1.8;
+        }
+        .legend-item { display: flex; align-items: center; gap: 6px; }
+        .legend-dot { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+        .legend-line { width: 20px; height: 0; border-top: 2px solid; display: inline-block; }
+        .legend-line.dashed { border-top-style: dashed; }
+    </style>
+</head>
+<body>
+
+<div class="topbar">
+    <span class="title">⏳ 资产演化</span>
+    <a href="index.html">← 返回资产结构</a>
+    <div class="evolve-info">
+        <span class="tag">DRD</span>
+        <span class="tag">前端</span>
+        <span class="tag">后端</span>
+    </div>
+</div>
+
+<div class="graph-area">
+    <div id="network"></div>
+    <div class="legend">
+        <div class="legend-item"><span class="legend-dot" style="background:#89b4fa"></span> 资产版本</div>
+        <div class="legend-item"><span class="legend-line" style="border-color:#89b4fa"></span> 设计驱动</div>
+        <div class="legend-item"><span class="legend-line dashed" style="border-color:#fab387"></span> 反馈迭代</div>
+        <div class="legend-item" style="margin-top:4px;color:var(--green)">✓ v3 收敛</div>
+    </div>
+</div>
+
+<script>
+let graphNodes = [], graphEdges = [];
+const visNodes = new vis.DataSet();
+const visEdges = new vis.DataSet();
+let network;
+
+function initNetwork() {
+    const xGap = 280, yGap = 200;
+    const colMap = { 'drd-agent': 0, 'code-frontend-agent': -1, 'code-backend-agent': 1 };
+    const colLabel = { 'drd-agent': 'DRD', 'code-frontend-agent': '前端', 'code-backend-agent': '后端' };
+
+    graphNodes.forEach(n => {
+        if (n.group !== 'Version') return;
+        const m = n.id.match(/^(.+)-v(\d+)$/);
+        if (!m) return;
+        const col = colMap[m[1]] !== undefined ? colMap[m[1]] : 0;
+        const x = col * xGap;
+        const y = (parseInt(m[2]) - 1) * yGap;
+        const label = (colLabel[m[1]] || m[1]) + ' v' + m[2];
+        visNodes.add({ id: n.id, label, group: 'Version', x, y, fixed: true });
+    });
+
+    graphEdges.forEach(e => {
+        if (!e.from.includes('-v') && !e.to.includes('-v')) return;
+        const isTrigger = e.type === 'trigger';
+        visEdges.add({
+            id: e.id, from: e.from, to: e.to, label: e.label, arrows: 'to',
+            color: isTrigger ? '#89b4fa' : '#fab387',
+            dashes: !isTrigger, width: 2,
+            font: { size: 11, color: '#a6adc8', strokeWidth: 0 },
+            smooth: { type: 'cubicBezier', roundness: 0.3 }
+        });
+    });
+
+    network = new vis.Network(document.getElementById('network'), { nodes: visNodes, edges: visEdges }, {
+        physics: false,
+        interaction: { dragNodes: true, zoomView: true, dragView: true, hover: true },
+        groups: {
+            Version: { shape: 'box', color: { background: '#313244', border: '#89b4fa', highlight: { background: '#3a3b5a', border: '#89b4fa' } }, font: { color: '#cdd6f4', size: 14 }, borderWidth: 2, margin: 10, shadow: { enabled: true, color: 'rgba(137,180,250,0.15)', size: 10 } }
+        }
+    });
+    network.fit({ animation: false });
+}
+
+function loadData() {
+    graphNodes = window.graphData.graphNodes;
+    graphEdges = window.graphData.graphEdges;
+    initNetwork();
+}
+
+loadData();
+</script>
+</body>
+</html>
