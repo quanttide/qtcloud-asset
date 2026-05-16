@@ -7,608 +7,412 @@ window.graphData = {
       "parent": null
     },
     {
-      "id": "meta-agent",
-      "label": "meta-agent",
-      "group": "Agent",
-      "parent": "dir-root"
-    },
-    {
-      "id": "dir-roadmap",
-      "label": "roadmap",
-      "group": "Dir",
-      "parent": "dir-root"
-    },
-    {
-      "id": "file-roadmap/未命名.md",
-      "label": "未命名.md",
-      "group": "File",
-      "parent": "dir-roadmap"
-    },
-    {
-      "id": "dir-平台",
-      "label": "平台",
-      "group": "Dir",
-      "parent": "dir-root"
-    },
-    {
-      "id": "platform-agent",
-      "label": "platform-agent",
-      "group": "Agent",
-      "parent": "dir-平台"
-    },
-    {
-      "id": "file-平台/PLAN.md",
-      "label": "PLAN.md",
-      "group": "File",
-      "parent": "dir-平台"
-    },
-    {
-      "id": "file-平台/STATUS.md",
-      "label": "STATUS.md",
-      "group": "File",
-      "parent": "dir-平台"
-    },
-    {
-      "id": "dir-平台/config",
-      "label": "config",
-      "group": "Dir",
-      "parent": "dir-平台"
-    },
-    {
-      "id": "config-agent",
-      "label": "config-agent",
-      "group": "Agent",
-      "parent": "dir-平台/config"
-    },
-    {
-      "id": "dir-平台/docs",
+      "id": "dir-docs",
       "label": "docs",
       "group": "Dir",
-      "parent": "dir-平台"
+      "parent": "dir-root"
     },
     {
-      "id": "dir-平台/docs/drd",
+      "id": "dir-docs/drd",
       "label": "drd",
       "group": "Dir",
-      "parent": "dir-平台/docs"
+      "parent": "dir-docs"
     },
     {
       "id": "drd-agent",
       "label": "drd-agent",
       "group": "Agent",
-      "parent": "dir-平台/docs/drd"
+      "parent": "dir-docs/drd"
     },
     {
-      "id": "file-平台/docs/drd/支付设计.md",
+      "id": "file-docs/drd/支付设计.md",
       "label": "支付设计.md",
       "group": "File",
-      "parent": "dir-平台/docs/drd"
+      "parent": "dir-docs/drd"
     },
     {
-      "id": "dir-平台/docs/qa",
-      "label": "qa",
-      "group": "Dir",
-      "parent": "dir-平台/docs"
-    },
-    {
-      "id": "qa-agent",
-      "label": "qa-agent",
-      "group": "Agent",
-      "parent": "dir-平台/docs/qa"
-    },
-    {
-      "id": "file-平台/docs/qa/测试策略.md",
-      "label": "测试策略.md",
-      "group": "File",
-      "parent": "dir-平台/docs/qa"
-    },
-    {
-      "id": "dir-平台/src",
+      "id": "dir-src",
       "label": "src",
       "group": "Dir",
-      "parent": "dir-平台"
+      "parent": "dir-root"
     },
     {
-      "id": "code-agent",
-      "label": "code-agent",
+      "id": "dir-src/backend",
+      "label": "backend",
+      "group": "Dir",
+      "parent": "dir-src"
+    },
+    {
+      "id": "code-backend-agent",
+      "label": "code-backend-agent",
       "group": "Agent",
-      "parent": "dir-平台/src"
+      "parent": "dir-src/backend"
     },
     {
-      "id": "file-平台/src/payment.ts",
-      "label": "payment.ts",
+      "id": "file-src/backend/payment.go",
+      "label": "payment.go",
       "group": "File",
-      "parent": "dir-平台/src"
+      "parent": "dir-src/backend"
     },
     {
-      "id": "dir-平台/test",
-      "label": "test",
+      "id": "dir-src/frontend",
+      "label": "frontend",
       "group": "Dir",
-      "parent": "dir-平台"
+      "parent": "dir-src"
     },
     {
-      "id": "test-agent",
-      "label": "test-agent",
+      "id": "code-frontend-agent",
+      "label": "code-frontend-agent",
       "group": "Agent",
-      "parent": "dir-平台/test"
+      "parent": "dir-src/frontend"
     },
     {
-      "id": "dir-库",
-      "label": "库",
-      "group": "Dir",
-      "parent": "dir-root"
+      "id": "file-src/frontend/payment.js",
+      "label": "payment.js",
+      "group": "File",
+      "parent": "dir-src/frontend"
     },
     {
-      "id": "lib-agent",
-      "label": "lib-agent",
-      "group": "Agent",
-      "parent": "dir-库"
+      "id": "drd-agent-v1",
+      "label": "Drd v1",
+      "group": "Version",
+      "parent": "dir-docs/drd"
     },
     {
-      "id": "dir-示例",
-      "label": "示例",
-      "group": "Dir",
-      "parent": "dir-root"
+      "id": "code-frontend-agent-v1",
+      "label": "Frontend v1",
+      "group": "Version",
+      "parent": "dir-src/frontend"
     },
     {
-      "id": "example-agent",
-      "label": "example-agent",
-      "group": "Agent",
-      "parent": "dir-示例"
+      "id": "code-backend-agent-v1",
+      "label": "Backend v1",
+      "group": "Version",
+      "parent": "dir-src/backend"
+    },
+    {
+      "id": "drd-agent-v2",
+      "label": "Drd v2",
+      "group": "Version",
+      "parent": "dir-docs/drd"
+    },
+    {
+      "id": "code-frontend-agent-v2",
+      "label": "Frontend v2",
+      "group": "Version",
+      "parent": "dir-src/frontend"
+    },
+    {
+      "id": "code-backend-agent-v2",
+      "label": "Backend v2",
+      "group": "Version",
+      "parent": "dir-src/backend"
+    },
+    {
+      "id": "drd-agent-v3",
+      "label": "Drd v3",
+      "group": "Version",
+      "parent": "dir-docs/drd"
+    },
+    {
+      "id": "code-frontend-agent-v3",
+      "label": "Frontend v3",
+      "group": "Version",
+      "parent": "dir-src/frontend"
+    },
+    {
+      "id": "code-backend-agent-v3",
+      "label": "Backend v3",
+      "group": "Version",
+      "parent": "dir-src/backend"
     }
   ],
   "graphEdges": [
     {
-      "id": "write-meta-agent-file-平台/PLAN.md",
-      "from": "meta-agent",
-      "to": "file-平台/PLAN.md",
-      "type": "write",
-      "label": "写入",
-      "events": []
-    },
-    {
-      "id": "trigger-meta-agent-platform-agent",
-      "from": "meta-agent",
-      "to": "platform-agent",
+      "id": "trigger-drd-agent-code-frontend-agent",
+      "from": "drd-agent",
+      "to": "code-frontend-agent",
       "type": "trigger",
-      "label": "meta-agent→platform-agent",
+      "label": "drd-agent→code-frontend-agent",
       "events": [
         {
-          "time": "09:42:12",
-          "traceId": "trace-001",
+          "time": "11:05:58",
+          "traceId": "iter-001",
           "payload": {
-            "plan": "v2"
+            "design": "v1",
+            "action": "实现支付页面"
           }
         },
         {
-          "time": "09:43:12",
-          "traceId": "trace-002",
+          "time": "11:15:58",
+          "traceId": "iter-002",
           "payload": {
-            "plan": "v2.1"
-          }
-        }
-      ]
-    },
-    {
-      "id": "feedback-platform-agent-meta-agent",
-      "from": "platform-agent",
-      "to": "meta-agent",
-      "type": "feedback",
-      "label": "反馈",
-      "events": []
-    },
-    {
-      "id": "trigger-meta-agent-drd-agent",
-      "from": "meta-agent",
-      "to": "drd-agent",
-      "type": "trigger",
-      "label": "meta-agent→drd-agent",
-      "events": []
-    },
-    {
-      "id": "feedback-drd-agent-meta-agent",
-      "from": "drd-agent",
-      "to": "meta-agent",
-      "type": "feedback",
-      "label": "反馈",
-      "events": []
-    },
-    {
-      "id": "trigger-meta-agent-qa-agent",
-      "from": "meta-agent",
-      "to": "qa-agent",
-      "type": "trigger",
-      "label": "meta-agent→qa-agent",
-      "events": []
-    },
-    {
-      "id": "feedback-qa-agent-meta-agent",
-      "from": "qa-agent",
-      "to": "meta-agent",
-      "type": "feedback",
-      "label": "反馈",
-      "events": []
-    },
-    {
-      "id": "trigger-meta-agent-code-agent",
-      "from": "meta-agent",
-      "to": "code-agent",
-      "type": "trigger",
-      "label": "meta-agent→code-agent",
-      "events": []
-    },
-    {
-      "id": "feedback-code-agent-meta-agent",
-      "from": "code-agent",
-      "to": "meta-agent",
-      "type": "feedback",
-      "label": "反馈",
-      "events": []
-    },
-    {
-      "id": "trigger-meta-agent-config-agent",
-      "from": "meta-agent",
-      "to": "config-agent",
-      "type": "trigger",
-      "label": "meta-agent→config-agent",
-      "events": []
-    },
-    {
-      "id": "feedback-config-agent-meta-agent",
-      "from": "config-agent",
-      "to": "meta-agent",
-      "type": "feedback",
-      "label": "反馈",
-      "events": []
-    },
-    {
-      "id": "write-platform-agent-file-平台/STATUS.md",
-      "from": "platform-agent",
-      "to": "file-平台/STATUS.md",
-      "type": "write",
-      "label": "写入",
-      "events": []
-    },
-    {
-      "id": "trigger-platform-agent-meta-agent",
-      "from": "platform-agent",
-      "to": "meta-agent",
-      "type": "trigger",
-      "label": "platform-agent→meta-agent",
-      "events": []
-    },
-    {
-      "id": "feedback-meta-agent-platform-agent",
-      "from": "meta-agent",
-      "to": "platform-agent",
-      "type": "feedback",
-      "label": "反馈",
-      "events": []
-    },
-    {
-      "id": "trigger-platform-agent-drd-agent",
-      "from": "platform-agent",
-      "to": "drd-agent",
-      "type": "trigger",
-      "label": "platform-agent→drd-agent",
-      "events": [
-        {
-          "time": "09:44:12",
-          "traceId": "trace-001",
-          "payload": {
-            "task": "支付模块设计"
+            "design": "v2",
+            "action": "新增退款页面"
           }
         },
         {
-          "time": "09:45:12",
-          "traceId": "trace-002",
+          "time": "11:25:58",
+          "traceId": "iter-003",
           "payload": {
-            "task": "退款流程"
+            "design": "v3",
+            "converged": true
           }
         }
       ]
     },
     {
-      "id": "feedback-drd-agent-platform-agent",
-      "from": "drd-agent",
-      "to": "platform-agent",
-      "type": "feedback",
-      "label": "反馈",
-      "events": []
-    },
-    {
-      "id": "trigger-platform-agent-qa-agent",
-      "from": "platform-agent",
-      "to": "qa-agent",
-      "type": "trigger",
-      "label": "platform-agent→qa-agent",
-      "events": []
-    },
-    {
-      "id": "feedback-qa-agent-platform-agent",
-      "from": "qa-agent",
-      "to": "platform-agent",
-      "type": "feedback",
-      "label": "反馈",
-      "events": []
-    },
-    {
-      "id": "trigger-platform-agent-code-agent",
-      "from": "platform-agent",
-      "to": "code-agent",
-      "type": "trigger",
-      "label": "platform-agent→code-agent",
-      "events": []
-    },
-    {
-      "id": "feedback-code-agent-platform-agent",
-      "from": "code-agent",
-      "to": "platform-agent",
-      "type": "feedback",
-      "label": "反馈",
-      "events": []
-    },
-    {
-      "id": "trigger-platform-agent-config-agent",
-      "from": "platform-agent",
-      "to": "config-agent",
-      "type": "trigger",
-      "label": "platform-agent→config-agent",
-      "events": []
-    },
-    {
-      "id": "feedback-config-agent-platform-agent",
-      "from": "config-agent",
-      "to": "platform-agent",
-      "type": "feedback",
-      "label": "反馈",
-      "events": []
-    },
-    {
-      "id": "trigger-drd-agent-meta-agent",
-      "from": "drd-agent",
-      "to": "meta-agent",
-      "type": "trigger",
-      "label": "drd-agent→meta-agent",
-      "events": []
-    },
-    {
-      "id": "feedback-meta-agent-drd-agent",
-      "from": "meta-agent",
-      "to": "drd-agent",
-      "type": "feedback",
-      "label": "反馈",
-      "events": []
-    },
-    {
-      "id": "trigger-drd-agent-qa-agent",
-      "from": "drd-agent",
-      "to": "qa-agent",
-      "type": "trigger",
-      "label": "drd-agent→qa-agent",
-      "events": [
-        {
-          "time": "09:47:12",
-          "traceId": "trace-001",
-          "payload": {
-            "status": "final"
-          }
-        }
-      ]
-    },
-    {
-      "id": "feedback-qa-agent-drd-agent",
-      "from": "qa-agent",
+      "id": "feedback-code-frontend-agent-drd-agent",
+      "from": "code-frontend-agent",
       "to": "drd-agent",
       "type": "feedback",
       "label": "反馈",
       "events": [
         {
-          "time": "09:50:12",
-          "traceId": "trace-001",
+          "time": "11:10:58",
+          "traceId": "iter-001",
           "payload": {
-            "issue": "缺少超时"
-          }
-        }
-      ]
-    },
-    {
-      "id": "trigger-drd-agent-code-agent",
-      "from": "drd-agent",
-      "to": "code-agent",
-      "type": "trigger",
-      "label": "drd-agent→code-agent",
-      "events": [
-        {
-          "time": "09:52:12",
-          "traceId": "trace-001",
-          "payload": {
-            "status": "final"
+            "issue": "缺少退款入口",
+            "suggestion": "新增退款单据字段"
           }
         },
         {
-          "time": "09:48:12",
-          "traceId": "trace-002",
+          "time": "11:20:58",
+          "traceId": "iter-002",
           "payload": {
-            "status": "final"
+            "issue": "退款表单校验不匹配",
+            "suggestion": "统一校验规则"
           }
         }
       ]
     },
     {
-      "id": "feedback-code-agent-drd-agent",
-      "from": "code-agent",
-      "to": "drd-agent",
-      "type": "feedback",
-      "label": "反馈",
-      "events": []
-    },
-    {
-      "id": "trigger-drd-agent-config-agent",
+      "id": "trigger-drd-agent-code-backend-agent",
       "from": "drd-agent",
-      "to": "config-agent",
+      "to": "code-backend-agent",
       "type": "trigger",
-      "label": "drd-agent→config-agent",
-      "events": []
-    },
-    {
-      "id": "feedback-config-agent-drd-agent",
-      "from": "config-agent",
-      "to": "drd-agent",
-      "type": "feedback",
-      "label": "反馈",
-      "events": []
-    },
-    {
-      "id": "trigger-qa-agent-meta-agent",
-      "from": "qa-agent",
-      "to": "meta-agent",
-      "type": "trigger",
-      "label": "qa-agent→meta-agent",
-      "events": []
-    },
-    {
-      "id": "feedback-meta-agent-qa-agent",
-      "from": "meta-agent",
-      "to": "qa-agent",
-      "type": "feedback",
-      "label": "反馈",
-      "events": []
-    },
-    {
-      "id": "trigger-qa-agent-drd-agent",
-      "from": "qa-agent",
-      "to": "drd-agent",
-      "type": "trigger",
-      "label": "qa-agent→drd-agent",
-      "events": []
-    },
-    {
-      "id": "feedback-drd-agent-qa-agent",
-      "from": "drd-agent",
-      "to": "qa-agent",
-      "type": "feedback",
-      "label": "反馈",
-      "events": []
-    },
-    {
-      "id": "trigger-qa-agent-code-agent",
-      "from": "qa-agent",
-      "to": "code-agent",
-      "type": "trigger",
-      "label": "qa-agent→code-agent",
-      "events": []
-    },
-    {
-      "id": "feedback-code-agent-qa-agent",
-      "from": "code-agent",
-      "to": "qa-agent",
-      "type": "feedback",
-      "label": "反馈",
-      "events": []
-    },
-    {
-      "id": "trigger-qa-agent-config-agent",
-      "from": "qa-agent",
-      "to": "config-agent",
-      "type": "trigger",
-      "label": "qa-agent→config-agent",
-      "events": []
-    },
-    {
-      "id": "feedback-config-agent-qa-agent",
-      "from": "config-agent",
-      "to": "qa-agent",
-      "type": "feedback",
-      "label": "反馈",
-      "events": []
-    },
-    {
-      "id": "trigger-code-agent-test-agent",
-      "from": "code-agent",
-      "to": "test-agent",
-      "type": "trigger",
-      "label": "code-agent→test-agent",
+      "label": "drd-agent→code-backend-agent",
       "events": [
         {
-          "time": "09:57:12",
-          "traceId": "trace-001",
+          "time": "11:05:58",
+          "traceId": "iter-001",
           "payload": {
-            "status": "implemented"
+            "design": "v1",
+            "action": "实现支付接口"
           }
         },
         {
-          "time": "09:51:12",
-          "traceId": "trace-002",
+          "time": "11:15:58",
+          "traceId": "iter-002",
           "payload": {
-            "status": "implemented"
+            "design": "v2",
+            "action": "新增退款接口"
+          }
+        },
+        {
+          "time": "11:25:58",
+          "traceId": "iter-003",
+          "payload": {
+            "design": "v3",
+            "converged": true
           }
         }
       ]
     },
     {
-      "id": "feedback-test-agent-code-agent",
-      "from": "test-agent",
-      "to": "code-agent",
+      "id": "feedback-code-backend-agent-drd-agent",
+      "from": "code-backend-agent",
+      "to": "drd-agent",
       "type": "feedback",
       "label": "反馈",
       "events": [
         {
-          "time": "09:54:12",
-          "traceId": "trace-002",
+          "time": "11:12:58",
+          "traceId": "iter-001",
           "payload": {
-            "bug": "边界崩溃"
+            "issue": "超时参数未定义",
+            "suggestion": "增加 timeout"
+          }
+        },
+        {
+          "time": "11:21:58",
+          "traceId": "iter-002",
+          "payload": {
+            "issue": "接口返回格式不一致",
+            "suggestion": "统一响应格式"
           }
         }
       ]
     },
     {
-      "id": "trigger-code-agent-config-agent",
-      "from": "code-agent",
-      "to": "config-agent",
+      "id": "v-drd-agent-v1-code-frontend-agent-v1",
+      "from": "drd-agent-v1",
+      "to": "code-frontend-agent-v1",
       "type": "trigger",
-      "label": "code-agent→config-agent",
-      "events": []
+      "label": "触发",
+      "events": [
+        {
+          "time": "11:05:58",
+          "traceId": "iter-001",
+          "payload": {
+            "design": "v1",
+            "action": "实现支付页面"
+          }
+        }
+      ]
     },
     {
-      "id": "feedback-config-agent-code-agent",
-      "from": "config-agent",
-      "to": "code-agent",
+      "id": "v-drd-agent-v1-code-backend-agent-v1",
+      "from": "drd-agent-v1",
+      "to": "code-backend-agent-v1",
+      "type": "trigger",
+      "label": "触发",
+      "events": [
+        {
+          "time": "11:05:58",
+          "traceId": "iter-001",
+          "payload": {
+            "design": "v1",
+            "action": "实现支付接口"
+          }
+        }
+      ]
+    },
+    {
+      "id": "v-code-frontend-agent-v1-drd-agent-v2",
+      "from": "code-frontend-agent-v1",
+      "to": "drd-agent-v2",
       "type": "feedback",
       "label": "反馈",
-      "events": []
+      "events": [
+        {
+          "time": "11:10:58",
+          "traceId": "iter-001",
+          "payload": {
+            "issue": "缺少退款入口",
+            "suggestion": "新增退款单据字段"
+          }
+        }
+      ]
     },
     {
-      "id": "trigger-test-agent-config-agent",
-      "from": "test-agent",
-      "to": "config-agent",
-      "type": "trigger",
-      "label": "test-agent→config-agent",
-      "events": []
-    },
-    {
-      "id": "feedback-config-agent-test-agent",
-      "from": "config-agent",
-      "to": "test-agent",
+      "id": "v-code-backend-agent-v1-drd-agent-v2",
+      "from": "code-backend-agent-v1",
+      "to": "drd-agent-v2",
       "type": "feedback",
       "label": "反馈",
-      "events": []
+      "events": [
+        {
+          "time": "11:12:58",
+          "traceId": "iter-001",
+          "payload": {
+            "issue": "超时参数未定义",
+            "suggestion": "增加 timeout"
+          }
+        }
+      ]
     },
     {
-      "id": "trigger-lib-agent-config-agent",
-      "from": "lib-agent",
-      "to": "config-agent",
+      "id": "v-drd-agent-v2-code-frontend-agent-v2",
+      "from": "drd-agent-v2",
+      "to": "code-frontend-agent-v2",
       "type": "trigger",
-      "label": "lib-agent→config-agent",
-      "events": []
+      "label": "触发",
+      "events": [
+        {
+          "time": "11:15:58",
+          "traceId": "iter-002",
+          "payload": {
+            "design": "v2",
+            "action": "新增退款页面"
+          }
+        }
+      ]
     },
     {
-      "id": "feedback-config-agent-lib-agent",
-      "from": "config-agent",
-      "to": "lib-agent",
+      "id": "v-drd-agent-v2-code-backend-agent-v2",
+      "from": "drd-agent-v2",
+      "to": "code-backend-agent-v2",
+      "type": "trigger",
+      "label": "触发",
+      "events": [
+        {
+          "time": "11:15:58",
+          "traceId": "iter-002",
+          "payload": {
+            "design": "v2",
+            "action": "新增退款接口"
+          }
+        }
+      ]
+    },
+    {
+      "id": "v-code-frontend-agent-v2-drd-agent-v3",
+      "from": "code-frontend-agent-v2",
+      "to": "drd-agent-v3",
       "type": "feedback",
       "label": "反馈",
-      "events": []
+      "events": [
+        {
+          "time": "11:20:58",
+          "traceId": "iter-002",
+          "payload": {
+            "issue": "退款表单校验不匹配",
+            "suggestion": "统一校验规则"
+          }
+        }
+      ]
+    },
+    {
+      "id": "v-code-backend-agent-v2-drd-agent-v3",
+      "from": "code-backend-agent-v2",
+      "to": "drd-agent-v3",
+      "type": "feedback",
+      "label": "反馈",
+      "events": [
+        {
+          "time": "11:21:58",
+          "traceId": "iter-002",
+          "payload": {
+            "issue": "接口返回格式不一致",
+            "suggestion": "统一响应格式"
+          }
+        }
+      ]
+    },
+    {
+      "id": "v-drd-agent-v3-code-frontend-agent-v3",
+      "from": "drd-agent-v3",
+      "to": "code-frontend-agent-v3",
+      "type": "trigger",
+      "label": "触发",
+      "events": [
+        {
+          "time": "11:25:58",
+          "traceId": "iter-003",
+          "payload": {
+            "design": "v3",
+            "converged": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "v-drd-agent-v3-code-backend-agent-v3",
+      "from": "drd-agent-v3",
+      "to": "code-backend-agent-v3",
+      "type": "trigger",
+      "label": "触发",
+      "events": [
+        {
+          "time": "11:25:58",
+          "traceId": "iter-003",
+          "payload": {
+            "design": "v3",
+            "converged": true
+          }
+        }
+      ]
     }
   ]
 };
