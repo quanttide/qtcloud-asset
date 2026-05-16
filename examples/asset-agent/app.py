@@ -124,8 +124,12 @@ def main():
                     print(f'警告: 未找到边 {from_id}->{to_id} ({etype})')
 
     # 5. 输出
+    ext = os.path.splitext(args.output)[1]
+    data = json.dumps({'graphNodes': nodes, 'graphEdges': edges}, ensure_ascii=False, indent=2)
+    if ext == '.js':
+        data = f'window.graphData = {data};\n'
     with open(args.output, 'w') as f:
-        json.dump({'graphNodes': nodes, 'graphEdges': edges}, f, ensure_ascii=False, indent=2)
+        f.write(data)
     print(f'✅ 已生成 {args.output} (节点 {len(nodes)}, 边 {len(edges)})')
 
 if __name__ == '__main__':
