@@ -91,8 +91,72 @@ meta-agent → platform-agent → drd-agent → qa-agent ──→ (feedback bac
 | 假设编号 | 假设 | 若不成立的影响 |
 |:---------|:-----|:---------------|
 | A01 | 组织分工可映射为目录树 | 智能体挂载点失去业务含义 |
+| A01-bis | 同目录多智能体需正交触发条件 | 竞争处理、重复工作或遗漏 |
 | A02 | 角色职责边界清晰 | 智能体之间出现职责重叠或空白 |
 | A03 | 协作是串行有向的 | 无法表达并行或多路归并 |
 | A04 | 文件是唯一工作产物 | 数据库记录、API 调用等不在模型内 |
-| A05 | 文件定稿触发下游 | 如果工作以其他方式结束（如 PR merge），模型不匹配 |
+| A05 | 文件状态机转换触发下游 | 状态机不完整导致遗漏或重复触发 |
 | A06 | 反馈逆着触发链返回 | 跨层级或跨链路的反馈不能被表达 |
+| A07 | 反馈默认沿触发链反向，允许跨层直接反馈 | 绕过中间层反馈无法路由 |
+| A08 | 反馈需限流和聚合 | 反馈风暴淹没上游 |
+
+---
+
+8. 补充设计规范
+
+8.1 正交触发条件
+
+同一目录下多个智能体的 `watch` glob 必须互不重叠：
+
+```yaml
+# 正确：正交
+- id: drd-agent
+  watch: ["库/docs/drd/*.md"]
+- id: qa-agent
+  watch: ["库/docs/qa/*.md"]
+
+# 错误：重叠（引发竞争）
+- id: drd-agent
+  watch: ["库/docs/**/*.md"]
+- id: qa-agent
+  watch: ["库/docs/**/*.md"]
+```
+
+8.2 文件状态机
+
+状态转换是触发下游的唯一依据，内容变更不触发：
+
+```
+                        feedback
+                     ┌──────────┐
+                     ▼          │
+  draft ──→ review ──→ final ──┘
+                     │
+                     └──→ draft  (feedback 重新打开)
+```
+
+- `draft` → `review`：需求定稿，触发 qa/code 审查
+- `review` → `final`：审查通过
+- `final` → `draft`：收到反馈，重新修改
+- 事件 payload 必须携带 `status` 字段
+- 内容变更但状态不变，不产生触发事件
+
+8.3 跨层反馈路由
+
+反馈默认沿触发链反向传递。需要跨层直接反馈时，事件报文携带 `target` 字段，规则引擎按 `target` 动态路由而非按边拓扑解析：
+
+```json
+{
+  "type": "feedback",
+  "source": "test-agent",
+  "target": "drd-agent",
+  "data": {
+    "issue": "支付设计有逻辑漏洞",
+    "status": "needs_revision"
+  }
+}
+```
+
+8.4 反馈限流
+
+同一 `traceId` 下，相同 `source`→`target` 的 feedback 在 5 分钟内只保留第一条，后续合并为 `aggregated: true`。
