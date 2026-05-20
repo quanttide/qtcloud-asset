@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
 """
-使用本地 Ollama 模型从产品日志生成工作蓝图
+使用 DeepSeek 模型从产品日志生成工作蓝图
 
 读取 docs/journal/<slug>/<product>/ 下的日志文件，
-调用本地 Ollama 模型生成结构化的产品蓝图，
-参考 qtcloud-think 蓝图的格式。
+调用 DeepSeek 模型生成结构化的产品蓝图。
 
 用法:
     python examples/generate_blueprint_ollama.py                    # 处理 product 标识
@@ -12,37 +11,21 @@
 
 配置:
     contracts.yaml - 契约配置
+依赖:
+    pip install quanttide-agent
 """
 
-import subprocess
 import sys
 from pathlib import Path
+
+from quanttide_agent import LLM
 
 CONTRACTS_FILE = Path(__file__).parent.parent / "contracts.yaml"
 
 
 def call_llm(prompt: str, system: str, model: str) -> str:
-    """调用 LLM CLI"""
-    result = subprocess.run(
-        ["llm", "-m", model, "-s", system, prompt],
-        capture_output=True,
-        text=True,
-    )
-    if result.returncode != 0:
-        print(f"LLM 错误: {result.stderr}")
-        sys.exit(1)
-    return result.stdout
-    """调用本地 Ollama 模型"""
-    url = f"{OLLAMA_URL}/api/generate"
-    payload = {
-        "model": model,
-        "prompt": prompt,
-        "system": system,
-        "stream": False,
-    }
-    resp = requests.post(url, json=payload, timeout=300)
-    resp.raise_for_status()
-    return resp.json().get("response", "")
+    llm = LLM(model=model, base_url="https://api.deepseek.com")
+    return llm.chat([{"role": "system", "content": system}, {"role": "user", "content": prompt}]).content
 
 
 def load_product_journal(journal_base: Path, slug: str, product: str) -> str:
@@ -62,7 +45,7 @@ def load_product_journal(journal_base: Path, slug: str, product: str) -> str:
 def generate_blueprint(journal_base: Path, slug: str, product: str, contract: dict) -> str:
     """调用 LLM 生成产品蓝图"""
     params = get_transform_params(contract)
-    model = params.get("model", "qwen2.5-coder:3b")
+    model = params.get("model", "deepseek-v4-flash")
     system_prompt = params.get("system_prompt", "")
     
     journal_content = load_product_journal(journal_base, slug, product)
