@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-使用 DeepSeek 模型从产品日志生成工作蓝图
+使用 DeepSeek 模型从产品日志生成路线图
 
 读取 docs/journal/<slug>/<product>/ 下的日志文件，
 调用 DeepSeek 模型生成结构化的产品蓝图。
@@ -25,7 +25,9 @@ CONTRACTS_FILE = Path(__file__).parent.parent / "contracts.yaml"
 
 def call_llm(prompt: str, system: str, model: str) -> str:
     llm = LLM(model=model, base_url="https://api.deepseek.com")
-    return llm.chat([{"role": "system", "content": system}, {"role": "user", "content": prompt}]).content
+    return llm.chat(
+        [{"role": "system", "content": system}, {"role": "user", "content": prompt}]
+    ).content
 
 
 def load_product_journal(journal_base: Path, slug: str, product: str) -> str:
@@ -42,14 +44,16 @@ def load_product_journal(journal_base: Path, slug: str, product: str) -> str:
     return "\n\n---\n\n".join(contents)
 
 
-def generate_blueprint(journal_base: Path, slug: str, product: str, contract: dict) -> str:
+def generate_blueprint(
+    journal_base: Path, slug: str, product: str, contract: dict
+) -> str:
     """调用 LLM 生成产品蓝图"""
     params = get_transform_params(contract)
     model = params.get("model", "deepseek-v4-flash")
     system_prompt = params.get("system_prompt", "")
-    
+
     journal_content = load_product_journal(journal_base, slug, product)
-    prompt = f"以下是产品日志内容，请生成工作蓝图：\n\n{journal_content}"
+    prompt = f"以下是产品日志内容，请生成路线图：\n\n{journal_content}"
     print(f"  正在调用 LLM ({model}) 生成 {product} 蓝图...")
     return call_llm(prompt, system_prompt, model)
 
