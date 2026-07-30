@@ -2,10 +2,10 @@ FROM golang:1.22-alpine AS builder
 
 WORKDIR /build
 
-COPY src/provider/go.mod .
+COPY go.mod .
 RUN go mod download
 
-COPY src/provider/ .
+COPY . .
 RUN CGO_ENABLED=0 go build -o /provider ./cmd/provider
 
 # --- runtime ---
