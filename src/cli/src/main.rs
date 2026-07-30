@@ -1,11 +1,5 @@
-mod contract;
-mod file_op;
-mod render;
-mod scanner;
-mod validate;
-mod workflow;
-
 use clap::{Parser, Subcommand};
+use qtcloud_asset::{contract, file_op, render, scanner, validate, workflow};
 
 const VERSION: &str = "0.1.0";
 const STAGE: &str = "alpha";
@@ -99,7 +93,7 @@ fn execute_run(args: RunArgs) -> anyhow::Result<()> {
 
     let contract = contract::Contract::load()?;
 
-    let workflow = workflow::resolve_workflow(
+    let wf = workflow::resolve_workflow(
         &args.skill,
         input_dir,
         output_dir,
@@ -109,9 +103,9 @@ fn execute_run(args: RunArgs) -> anyhow::Result<()> {
 
     if args.verbose {
         render::print_workflow_summary(
-            &workflow.name,
-            &workflow.pattern,
-            workflow.tasks.len(),
+            &wf.name,
+            &wf.pattern,
+            wf.tasks.len(),
             args.dry_run,
         );
     }
@@ -119,11 +113,11 @@ fn execute_run(args: RunArgs) -> anyhow::Result<()> {
     let mut success_products = 0usize;
     let mut failed_products = 0usize;
 
-    for task in &workflow.tasks {
+    for task in &wf.tasks {
         let result = file_op::archive_product(
             &task.src_dir,
             &task.dst_dir,
-            &workflow.pattern,
+            &wf.pattern,
             args.dry_run,
         );
 
@@ -142,7 +136,7 @@ fn execute_run(args: RunArgs) -> anyhow::Result<()> {
         }
     }
 
-    let total = workflow.tasks.len();
+    let total = wf.tasks.len();
     if failed_products > 0 {
         render::print_warning(&format!(
             "完成: {}/{} 成功，{} 失败",
