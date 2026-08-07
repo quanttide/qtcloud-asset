@@ -1,0 +1,17 @@
+[package]
+name = "qtcloud-asset"
+version = "0.1.0"
+edition = "2021"
+description = "量潮数字资产云 CLI — 面向非技术用户的资产管理工具"
+
+[dependencies]
+clap = { version = "4", features = ["derive"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+serde_yaml = "0.9"
+anyhow = "1"
+walkdir = "2"
+glob = "0.3"
+
+[dev-dependencies]
+tempfile = "3"

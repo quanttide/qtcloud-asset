@@ -1,20 +1,33 @@
-# CHANGELOG
+# Changelog
 
-## [Unreleased]
+## [0.1.0-alpha.2] - 2026-07-30
 
-## [cli/v0.0.1] - 2026-04-17
+### 变更
 
-### Added
+- Rust 全量重写（替换 Python）
+- 新增 `validate` 子命令（ATOMIC / SCOPED 声明式策略验证）
+- 新增 JSON 输出支持（`--json` 标志）
+- 56 个自动化测试（31 单元 + 25 集成）
 
-- 新增 CLI 模块：三层架构（入口层 cli.py、配置层 workflow.py、操作层 file_operator.py）
-- 新增契约系统：Pydantic 模型定义，自动识别契约目录
-- 新增集成测试和单元测试：CLI 模块测试覆盖率达 99%
+### 命令
 
-### Changed
+- `run` — 归档工作流（dry-run / 回滚 / 空目录清理）
+- `scan` — 目录资产扫描
+- `validate` — 声明式策略验证
+- `config` — 契约配置查看
+- `version` — 版本信息
 
-- 重构 CLI 为 --input/--contract/--output 模式
-- 重构契约系统：使用 Contract 类和 ContractSchema
+## [0.1.0-alpha.1] - 2026-04-28
 
-### Fixed
+### 变更
 
-- 修复 AI 契约：添加强制执行声明和触发条件
+- CLI 重构，支持 alpha 预发布阶段
+- `version` 命令支持预发布阶段标识
+
+## [0.0.1] - 2026-04-17
+
+### 变更
+
+- 初始版本（Python）
+- 基础归档工作流
+- 契约驱动配置

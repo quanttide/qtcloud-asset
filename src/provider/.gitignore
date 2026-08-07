@@ -1,6 +1,19 @@
-# QuantTide
+# Go
+/bin/
+/tmp/
 
+<<<<<<< HEAD
 data/
 __pycache__/
 app/**/__pycache__/
 *.py[cod]
+=======
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+>>>>>>> origin/main

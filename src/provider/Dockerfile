@@ -1,0 +1,20 @@
+FROM golang:1.22-alpine AS builder
+
+WORKDIR /build
+
+COPY go.mod .
+RUN go mod download
+
+COPY . .
+RUN CGO_ENABLED=0 go build -o /provider ./cmd/provider
+
+# --- runtime ---
+FROM alpine:3.19
+
+RUN apk add --no-cache ca-certificates
+
+COPY --from=builder /provider /provider
+
+EXPOSE 9000
+
+CMD ["/provider"]
