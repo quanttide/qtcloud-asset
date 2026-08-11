@@ -12,7 +12,7 @@
 - [ ] **IXD 文档补齐** — 当前 ixd/ 目录仅索引页，需补充交互设计文档（等待主仓库 product-ixd SKILL）
 - [ ] **ADD 文档补齐** — 当前缺少 add/ 目录，需为每个模块补充架构设计文档
 - [ ] **QA 文档对齐** — 当前 qa/ 是架构决策记录，需按未来 product-qa SKILL 范式转换
-- [ ] **README / CONTRIBUTING / AGENTS** — 按认知角色重组（参考 qtcloud-hr）
+- [ ] **README / CONTRIBUTING / AGENTS** — 按认知角色重组（参考 qtcloud-human）
 
 ### 检验标准
 
