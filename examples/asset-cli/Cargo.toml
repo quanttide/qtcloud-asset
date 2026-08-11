@@ -1,0 +1,23 @@
+[package]
+name = "qtcloud-asset-cli-example"
+version = "0.1.0"
+edition = "2024"
+description = "asset CLI 参考实现（自 qtadmin 迁移）— journal 归档/质量评估/结构合规"
+
+[[bin]]
+name = "qtcloud-asset"
+path = "src/main.rs"
+
+[dependencies]
+clap = { version = "4", features = ["derive"] }
+anyhow = "1"
+chrono = "0.4"
+regex = "1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+serde_yaml = "0.9"
+reqwest = { version = "0.12", features = ["json", "blocking"] }
+walkdir = "2"
+
+[dev-dependencies]
+tempfile = "3"
