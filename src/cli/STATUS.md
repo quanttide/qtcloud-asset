@@ -29,5 +29,4 @@
 
 ## 注意事项
 
-- `src/cli/README.md` 含未解决的合并冲突标记（`<<<<<<< HEAD`），需人工清理
 - `app/`、`main.py`、`__init__.py` 为 Python 遗留文件，待移除

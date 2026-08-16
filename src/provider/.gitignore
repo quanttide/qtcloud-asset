@@ -2,12 +2,6 @@
 /bin/
 /tmp/
 
-<<<<<<< HEAD
-data/
-__pycache__/
-app/**/__pycache__/
-*.py[cod]
-=======
 # IDE
 .idea/
 .vscode/
@@ -16,4 +10,3 @@ app/**/__pycache__/
 # OS
 .DS_Store
 Thumbs.db
->>>>>>> origin/main

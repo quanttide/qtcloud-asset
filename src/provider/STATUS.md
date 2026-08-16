@@ -23,5 +23,4 @@
 
 ## 注意事项
 
-- `src/provider/README.md` 含未解决的合并冲突标记（`<<<<<<< HEAD`），需人工清理
 - 产品契约标记 Provider 为「已搁置」（QA 决策 Q006），当前以 CLI 形态运行
