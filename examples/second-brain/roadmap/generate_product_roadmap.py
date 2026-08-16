@@ -1,11 +1,6 @@
 #!/usr/bin/env python3
 """
-<<<<<<< HEAD
-使用 DeepSeek 模型从产品日志生成工作蓝图
-=======
 使用 DeepSeek 模型从产品日志生成路线图
->>>>>>> origin/main
-
 读取 docs/journal/<slug>/<product>/ 下的日志文件，
 调用 DeepSeek 模型生成结构化的产品蓝图。
 
@@ -29,14 +24,9 @@ CONTRACTS_FILE = Path(__file__).parent.parent / "contracts.yaml"
 
 def call_llm(prompt: str, system: str, model: str) -> str:
     llm = LLM(model=model, base_url="https://api.deepseek.com")
-<<<<<<< HEAD
-    return llm.chat([{"role": "system", "content": system}, {"role": "user", "content": prompt}]).content
-=======
     return llm.chat(
         [{"role": "system", "content": system}, {"role": "user", "content": prompt}]
     ).content
->>>>>>> origin/main
-
 
 def load_product_journal(journal_base: Path, slug: str, product: str) -> str:
     """加载指定产品的所有日志内容"""
