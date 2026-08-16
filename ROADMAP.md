@@ -41,3 +41,13 @@
 - [ ] **准入/准出标准** — 每个功能从 exploring → validating → released 的门槛
 - [ ] **自动化质量检查** — 集成到 CI
 - [ ] **质量报告** — 定期生成各维度评分和趋势
+
+### 目标 3 — Studio：资产浏览（参照 qtfounder asset 页模式）
+
+qtfounder studio 已沉淀「资产契约 + 资产目录 + 通用页面」模式（fiction/memory 资产页：**页面结构 = 仓库目录结构**），qtcloud-asset studio 按同一模式规划：
+
+- [ ] **资产契约落地** — 定义资产契约（levels 层级语义 + naming 命名排序 + ignore 忽略文件），复用目标 1 的统一契约 Schema
+- [ ] **资产目录引擎** — 读契约 → 遍历资产目录 → 解析命名 → 排序 → 输出目录树（AssetCatalog）
+- [ ] **通用资产页面** — AssetCatalogPage 按契约渲染：一级 = 资产类型（data/ 的 context/insight/intention/journal/profile/report/roadmap，docs/ 的 bylaw/essay/gallery/handbook/specification/tutorial），二级 = 阶段/子类，文件名即条目
+- [ ] **只读浏览 + 阅读页** — 不发明视图，目录结构本身就是视图；点击文件打开阅读详情页
+- [ ] **现有页面升级** — `asset_contract_screen.dart` 按契约驱动重构，与目标 1（契约解析器）衔接
