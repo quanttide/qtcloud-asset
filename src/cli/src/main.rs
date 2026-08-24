@@ -1,5 +1,5 @@
 use clap::{Parser, Subcommand};
-use qtcloud_asset::{contract, file_op, render, scanner, validate, workflow};
+use qtcloud_asset::{contract, file_op, oss_cmd, render, scanner, validate, workflow};
 
 const VERSION: &str = "0.1.0";
 const STAGE: &str = "alpha";
@@ -25,6 +25,9 @@ enum Command {
     Validate(validate::ValidateArgs),
     /// 查看契约配置
     Config(ConfigArgs),
+    /// 管理 OSS 对象存储（复用 Provider 接口）
+    #[command(subcommand)]
+    Oss(oss_cmd::OssCommand),
     /// 显示版本和预发布阶段
     Version,
 }
@@ -74,6 +77,7 @@ fn main() -> anyhow::Result<()> {
         Command::Scan(args) => scanner::execute(args),
         Command::Validate(args) => validate::execute(args),
         Command::Config(args) => execute_config(args),
+        Command::Oss(cmd) => oss_cmd::execute(cmd),
         Command::Version => Ok(execute_version()),
     }
 }

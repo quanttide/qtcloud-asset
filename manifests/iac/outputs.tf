@@ -13,11 +13,6 @@ output "studio_website_url" {
   description = "The Studio URL, available after OSS custom domain binding is configured"
 }
 
-output "studio_dns_record_id" {
-  value       = alicloud_alidns_record.studio_cname.id
-  description = "The DNS record ID"
-}
-
 output "provider_service_name" {
   value       = module.fc.service_name
   description = "Function Compute service name"
@@ -36,9 +31,4 @@ output "provider_invoke_url" {
 output "provider_custom_domain_url" {
   value       = module.fc.custom_domain == null ? null : "http://${module.fc.custom_domain}"
   description = "Provider custom domain URL"
-}
-
-output "provider_dns_record_id" {
-  value       = var.enable_provider_custom_domain ? alicloud_alidns_record.provider_cname[0].id : null
-  description = "Provider custom domain DNS record ID"
 }

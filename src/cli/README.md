@@ -1,46 +1,3 @@
-<<<<<<< HEAD
-# QtCloud CLI 使用说明
-
-## 快速开始
-
-在项目根目录下，双击运行 `qtcloud.bat`
-
-或者在命令行中：
-```bash
-cd C:\Users\雨下雨停\q-tech\apps\qtcloud-asset
-qtcloud.bat
-```
-
-## 命令用法
-
-```
-qtcloud.bat              # 直接运行（默认执行归档）
-qtcloud.bat scan         # 扫描当前目录的资产
-qtcloud.bat scan -i ./examples  # 扫描指定目录
-qtcloud.bat config       # 查看契约配置
-qtcloud.bat run --dry-run      # 预览模式（不实际执行）
-qtcloud.bat run -i ./journal -o ./archive  # 指定输入输出目录
-```
-
-## 选项
-
-| 选项 | 说明 |
-|------|------|
-| `-i, --input` | 输入目录 |
-| `-o, --output` | 输出目录 |
-| `-s, --skill` | 技能名称 |
-| `-p, --pattern` | 文件匹配模式 |
-| `-n, --dry-run` | 预览模式 |
-| `-v, --verbose` | 详细输出 |
-| `-c, --contract` | 契约文件路径 |
-
-## 命令
-
-- **run** — 归档工作流
-- **scan** — 扫描资产
-- **validate** — 验证契约
-- **config** — 查看配置
-=======
 # QtCloud Asset CLI
 
 量潮数字资产云 CLI — 资产管理工具。
@@ -81,6 +38,7 @@ Commands:
   scan      扫描目录，列出所有资产
   validate  验证资产是否符合契约要求
   config    查看契约配置
+  oss       管理 OSS 对象存储（复用 Provider 接口）
   version   显示版本和预发布阶段
   help      Print this message or the help of the given subcommand(s)
 
@@ -153,6 +111,51 @@ qtcloud-asset config -a list
 qtcloud-asset version
 ```
 
+### oss — 管理 OSS 对象存储
+
+`oss` 子命令作为 Provider 的 HTTP 客户端，复用其只读接口，不直接访问阿里云 OSS，也不持有 AK/SK。需先启动 Provider（默认监听 `http://127.0.0.1:9000`）。
+
+```bash
+# 列出所有 OSS 桶
+qtcloud-asset oss list
+
+# 列出桶内对象
+qtcloud-asset oss ls <桶名>
+
+# 列出桶内对象，按 key 前缀过滤
+qtcloud-asset oss ls <桶名> --prefix docs/
+
+# 按创建时间倒序排列桶
+qtcloud-asset oss list --sort created --order desc
+
+# 按文件大小倒序排列对象
+qtcloud-asset oss ls <桶名> --sort size --order desc
+
+# 分页：每页 100 个对象
+qtcloud-asset oss ls <桶名> --limit 100
+
+# 生成对象访问链接（默认 1 天，公开桶忽略有效期）
+qtcloud-asset oss url <桶名> <对象key>
+
+# 指定有效期（秒）
+qtcloud-asset oss url <桶名> <对象key> --expires 604800
+```
+
+排序与分页参数：
+
+| 命令 | 排序字段（`--sort`） | 说明 |
+|------|---------------------|------|
+| `oss list` | `name` / `created` | 按桶名或创建时间排序 |
+| `oss ls` | `key` / `size` / `date` | 按 key、大小或修改日期排序 |
+
+`--order` 取值 `asc`（升序，默认）/ `desc`（降序）；`--limit` 指定每页数量（走 Provider 分页）。
+
+所有 `oss` 子命令支持 `--provider-url` 覆盖默认的 Provider 地址：
+
+```bash
+qtcloud-asset oss list --provider-url http://localhost:9000
+```
+
 ## 契约系统
 
 CLI 通过 `.quanttide/asset/contract.yaml` 驱动，契约定义了两类配置：
@@ -222,6 +225,8 @@ cargo fmt
 │  file_op.rs  — 文件移动/回滚              │
 │  workflow.rs — 契约→工作流解析             │
 │  validate.rs — 声明式验证                 │
+│  oss.rs      — Provider HTTP 客户端        │
+│  oss_cmd.rs  — oss 子命令定义             │
 │  render.rs   — 终端输出                   │
 └──────────────────────────────────────────┘
 ```
@@ -238,4 +243,3 @@ cargo fmt
 - JSON 输出：支持 `--json` 标志
 - 单元测试：31 个测试覆盖全部模块
 - CI/CD：GitHub Actions 测试 + 交叉编译发布
->>>>>>> origin/main

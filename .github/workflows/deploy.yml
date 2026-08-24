@@ -8,6 +8,9 @@ on:
 
 env:
   FLUTTER_VERSION: "3.41.9"
+  STUDIO_BUCKET: "qtcloud-asset-studio"
+  STUDIO_ORIGIN: "https://asset.cloud.quanttide.com"
+  PROVIDER_BASE_URL: "https://api.quanttide.com/qtcloud-asset"
 
 jobs:
   build:
@@ -26,9 +29,31 @@ jobs:
         working-directory: src/studio
         run: flutter pub get
 
+      - name: Test Studio
+        working-directory: src/studio
+        run: flutter test --dart-define=PROVIDER_BASE_URL=${{ env.PROVIDER_BASE_URL }} --dart-define=EXPECTED_PROVIDER_BASE_URL=${{ env.PROVIDER_BASE_URL }}
+
+      - name: Analyze Studio
+        working-directory: src/studio
+        run: flutter analyze
+
       - name: Build Web
         working-directory: src/studio
-        run: flutter build web --release
+        run: flutter build web --release --dart-define=PROVIDER_BASE_URL=${{ env.PROVIDER_BASE_URL }} --dart-define=STUDIO_ORIGIN=${{ env.STUDIO_ORIGIN }}
+
+      - name: Scan build artifacts
+        working-directory: src/studio
+        shell: bash
+        run: |
+          set -euo pipefail
+          if rg -n '(?i:127\.0\.0\.1|localhost:9000|fcapp\.run|\.internal\.)|AKIA[0-9A-Z]{16}|ALIYUN_ACCESS_KEY_ID|ALIYUN_ACCESS_KEY_SECRET|ALIBABA_CLOUD_ACCESS_KEY_ID|ALIBABA_CLOUD_ACCESS_KEY_SECRET|AWS_ACCESS_KEY_ID|AWS_SECRET_ACCESS_KEY|accessKeyId|accessKeySecret|secretAccessKey' build/web --glob '*.js' --glob '*.html' --glob '*.json' --glob '*.txt'; then
+            echo "Forbidden local address, credential marker, or internal endpoint found in build/web"
+            exit 1
+          fi
+          if find build/web -type f \( -name '*.zip' -o -name '*.log' -o -name '*.pem' -o -name '*.key' \) -print -quit | grep -q .; then
+            echo "Forbidden deployment artifact found in build/web"
+            exit 1
+          fi
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
@@ -65,5 +90,5 @@ jobs:
           unzip -q ossutil.zip
           OSSUTIL="$(find . -type f -name ossutil -perm -111 | head -n 1)"
           "$OSSUTIL" version
-          "$OSSUTIL" -i "$ALIBABA_CLOUD_ACCESS_KEY_ID" -k "$ALIBABA_CLOUD_ACCESS_KEY_SECRET" -e oss-cn-hangzhou.aliyuncs.com --region cn-hangzhou ls oss://qtcloud-asset-studio/
-          "$OSSUTIL" -i "$ALIBABA_CLOUD_ACCESS_KEY_ID" -k "$ALIBABA_CLOUD_ACCESS_KEY_SECRET" -e oss-cn-hangzhou.aliyuncs.com --region cn-hangzhou cp -r -f build/web oss://qtcloud-asset-studio/
+          "$OSSUTIL" -i "$ALIBABA_CLOUD_ACCESS_KEY_ID" -k "$ALIBABA_CLOUD_ACCESS_KEY_SECRET" -e oss-cn-hangzhou.aliyuncs.com --region cn-hangzhou ls oss://${STUDIO_BUCKET}/
+          "$OSSUTIL" -i "$ALIBABA_CLOUD_ACCESS_KEY_ID" -k "$ALIBABA_CLOUD_ACCESS_KEY_SECRET" -e oss-cn-hangzhou.aliyuncs.com --region cn-hangzhou cp -r -f build/web oss://${STUDIO_BUCKET}/

@@ -95,7 +95,7 @@ assets:
     type: code
     category: provider
     path: src/provider
-    description: FastAPI 服务，对接阿里云函数计算和 OSS
+    description: Go 服务（net/http），对接阿里云函数计算和 OSS
 
   # Docker 部署配置
   docker_manifests:
@@ -139,6 +139,59 @@ assets:
     category: iac
     path: manifests/iac
     description: 函数计算（FC）、OSS、VPC、触发器等基础设施定义
+
+  # 对象存储资产（只读发现试点，详见 docs/prd/oss-integration.md）
+  oss_buckets:
+    title: 对象存储桶
+    type: asset
+    category: oss
+    path: oss://
+    description: >
+      阿里云 OSS 对象存储桶，共 40 个，region 均为 oss-cn-hangzhou。
+      命名规律 {产品线}-{用途}，用途四类：
+      -studio（前端静态站点 18 个）、-private（私密数据 6 个）、
+      -site（站点 6 个）、-provider（后端 1 个）、
+      以及少量非标准命名（-admin 1 个、-data 2 个、-state 1 个）。
+    buckets:
+      - qtaccount-studio
+      - qtadmin-studio
+      - qtclass-studio
+      - qtcloud-business-studio
+      - qtcloud-data-studio
+      - qtcloud-delib-studio
+      - qtcloud-econ-studio
+      - qtcloud-execute-studio
+      - qtcloud-health-studio
+      - qtcloud-human-studio
+      - qtcloud-org-studio
+      - qtcloud-product-studio
+      - qtcloud-project-studio
+      - qtcloud-secret-studio
+      - qtcloud-studio
+      - qtdata-studio
+      - qthealth-studio
+      - qtrecurit-studio
+      - qtadmin-private
+      - qtclass-private
+      - qtcloud-private
+      - qtconsult-private
+      - qtdata-private
+      - qtrecruit-private
+      - qtbusiness-site
+      - qtdocs-site
+      - qtfounder-site
+      - qthealth-site
+      - qtrecurit-site
+      - qtweb-site
+      - qtadmin-provider
+      - qtcloud-learn-admin
+      - qtcloud-learn-data
+      - qtcloud-secret-data
+      - quanttide-terraform-state
+    access: read-only
+    note: >
+      -private 桶为私密数据，第一阶段仅展示元数据，不暴露内容；
+      写操作、访问链接、权限控制均不在第一阶段范围（见周会决议）。
 
 # ── 技能定义 ──────────────────────────────────────────
 

@@ -12,3 +12,5 @@
 |:---|:---|:---|
 | [workflow.md](./workflow.md) | 治理工作流检查清单 | ✅ |
 | [contract.md](./contract.md) | 契约体系检查清单 | ⏸️ |
+| [phase-four-domain-cdn.md](./phase-four-domain-cdn.md) | 阶段四域名与 CDN 接入记录 | ✅ |
+| [phase-five-online-acceptance.md](./phase-five-online-acceptance.md) | 阶段五线上验收记录 | ⏸️ |

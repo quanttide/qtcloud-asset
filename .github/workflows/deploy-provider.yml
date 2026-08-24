@@ -21,26 +21,24 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
+      - name: Setup Go
+        uses: actions/setup-go@v5
         with:
-          python-version: "3.11"
+          go-version: "1.25"
 
       - name: Build provider package
         run: |
-          python -m pip install --upgrade pip
           mkdir -p build/provider
-          python -m pip install -r src/provider/requirements.txt -t build/provider
-          cp -R src/provider/app build/provider/app
-          find build/provider -type d -name __pycache__ -prune -exec rm -rf {} +
-          cd build/provider
-          python -m zipfile -c ../qtcloud-asset-provider-py311-cors.zip .
+          cd src/provider
+          GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o ../../build/provider/bootstrap ./cmd/provider
+          cd ../../build/provider
+          zip ../qtcloud-asset-provider-go-linux-amd64.zip bootstrap
 
       - name: Upload package artifact
         uses: actions/upload-artifact@v4
         with:
           name: qtcloud-asset-provider
-          path: build/qtcloud-asset-provider-py311-cors.zip
+          path: build/qtcloud-asset-provider-go-linux-amd64.zip
           retention-days: 3
 
   deploy:
@@ -66,5 +64,5 @@ jobs:
           unzip -q ossutil.zip
           OSSUTIL="$(find . -type f -name ossutil -perm -111 | head -n 1)"
           "$OSSUTIL" version
-          "$OSSUTIL" -i "$ALIBABA_CLOUD_ACCESS_KEY_ID" -k "$ALIBABA_CLOUD_ACCESS_KEY_SECRET" -e oss-cn-hangzhou.aliyuncs.com --region cn-hangzhou ls oss://qtcloud-asset-studio/provider/
-          "$OSSUTIL" -i "$ALIBABA_CLOUD_ACCESS_KEY_ID" -k "$ALIBABA_CLOUD_ACCESS_KEY_SECRET" -e oss-cn-hangzhou.aliyuncs.com --region cn-hangzhou cp -f build/qtcloud-asset-provider-py311-cors.zip oss://qtcloud-asset-studio/provider/qtcloud-asset-provider-py311-cors.zip
+          "$OSSUTIL" -i "$ALIBABA_CLOUD_ACCESS_KEY_ID" -k "$ALIBABA_CLOUD_ACCESS_KEY_SECRET" -e oss-cn-hangzhou.aliyuncs.com --region cn-hangzhou ls oss://qtcloud-asset/provider/
+          "$OSSUTIL" -i "$ALIBABA_CLOUD_ACCESS_KEY_ID" -k "$ALIBABA_CLOUD_ACCESS_KEY_SECRET" -e oss-cn-hangzhou.aliyuncs.com --region cn-hangzhou cp -f build/qtcloud-asset-provider-go-linux-amd64.zip oss://qtcloud-asset/provider/qtcloud-asset-provider-go-linux-amd64.zip

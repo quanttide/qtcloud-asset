@@ -25,3 +25,52 @@ type ErrorResponse struct {
 	Error   string `json:"error"`
 	Message string `json:"message,omitempty"`
 }
+
+// Bucket represents a single OSS bucket.
+type Bucket struct {
+	Name         string `json:"name"`
+	Region       string `json:"region"`
+	StorageClass string `json:"storage_class"`
+	CreatedAt    string `json:"created_at"`
+}
+
+// BucketListResponse is the response for the /buckets endpoint.
+type BucketListResponse struct {
+	Buckets []Bucket `json:"buckets"`
+	Total   int      `json:"total"`
+}
+
+// Object represents a single object (file) inside a bucket.
+type Object struct {
+	Key          string `json:"key"`
+	Size         int64  `json:"size"`
+	Type         string `json:"type"`
+	StorageClass string `json:"storage_class"`
+	LastModified string `json:"last_modified"`
+}
+
+// ObjectListResponse is the response for the /buckets/{name}/objects endpoint.
+type ObjectListResponse struct {
+	Bucket     string   `json:"bucket"`
+	Objects    []Object `json:"objects"`
+	Total      int      `json:"total"`
+	NextMarker string   `json:"next_marker,omitempty"` // 下一页 marker，空表示已到末尾
+	Truncated  bool     `json:"truncated"`             // 是否被 limit 截断
+}
+
+// ListObjectsParams carries query parameters for listing objects.
+type ListObjectsParams struct {
+	Prefix string // 对象 key 前缀过滤（OSS 原生）
+	Sort   string // 排序字段：key / size / date（空 = 不排序）
+	Order  string // asc / desc（默认 asc）
+	Limit  int    // 每页数量，0 = 不限制（最大 1000）
+	Marker string // 分页游标（OSS 原生）
+}
+
+// ObjectURLResponse is the response for the /buckets/{name}/objects/{key}/url endpoint.
+type ObjectURLResponse struct {
+	Bucket    string `json:"bucket"`
+	Key       string `json:"key"`
+	URL       string `json:"url"`
+	ExpiresIn int64  `json:"expires_in"` // 有效期秒数（0 = 永久/公开）
+}
