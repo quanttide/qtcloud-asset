@@ -44,7 +44,7 @@ jobs:
   deploy:
     needs: package
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    if: github.repository == 'quanttide/qtcloud-asset' && github.ref == 'refs/heads/main' && github.event_name == 'push'
 
     steps:
       - name: Download package artifact
