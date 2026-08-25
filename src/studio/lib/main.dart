@@ -5,6 +5,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 
+import 'login_redirect.dart';
+import 'provider_http_client.dart';
+
 const providerBaseUrl = String.fromEnvironment(
   'PROVIDER_BASE_URL',
   defaultValue: 'http://127.0.0.1:9000',
@@ -18,9 +21,264 @@ const _bucketGridMainExtent = 104.0;
 
 enum BucketSortMode { none, name, createdAt, createdAtThenName }
 
+class AuthRequiredException implements Exception {
+  const AuthRequiredException();
+
+  @override
+  String toString() => 'authentication required';
+}
+
+class ProviderApiException implements Exception {
+  const ProviderApiException(this.statusCode, this.message);
+
+  final int statusCode;
+  final String message;
+
+  @override
+  String toString() => 'Provider returned HTTP $statusCode: $message';
+}
+
+class ProviderUser {
+  const ProviderUser({
+    required this.id,
+    required this.email,
+    required this.name,
+    required this.role,
+    required this.status,
+  });
+
+  final String id;
+  final String email;
+  final String name;
+  final String role;
+  final String status;
+
+  factory ProviderUser.fromJson(Map<String, dynamic> json) {
+    return ProviderUser(
+      id: json['id'] as String? ?? '',
+      email: json['email'] as String? ?? '',
+      name: json['name'] as String? ?? '',
+      role: json['role'] as String? ?? '',
+      status: json['status'] as String? ?? '',
+    );
+  }
+
+  String get displayName => name.isNotEmpty ? name : email;
+}
+
+class ProviderApiClient {
+  ProviderApiClient({String baseUrl = providerBaseUrl, http.Client? httpClient})
+      : baseUrl = baseUrl.replaceFirst(RegExp(r'/+$'), ''),
+        _httpClient = httpClient ?? createProviderHttpClient();
+
+  final String baseUrl;
+  final http.Client _httpClient;
+
+  Uri get loginUri => Uri.parse('$baseUrl/auth/login');
+
+  Uri _uri(String path, {Map<String, String>? queryParameters}) {
+    return Uri.parse('$baseUrl$path').replace(
+      queryParameters: queryParameters == null || queryParameters.isEmpty
+          ? null
+          : queryParameters,
+    );
+  }
+
+  Future<ProviderUser> fetchCurrentUser() async {
+    final response = await _httpClient
+        .get(_uri('/auth/me'))
+        .timeout(const Duration(seconds: 15));
+    if (response.statusCode == 401) {
+      throw const AuthRequiredException();
+    }
+    _ensureSuccess(response);
+    final body = jsonDecode(response.body) as Map<String, dynamic>;
+    final user = body['user'] as Map<String, dynamic>;
+    return ProviderUser.fromJson(user);
+  }
+
+  Future<void> logout() async {
+    final response = await _httpClient
+        .post(_uri('/auth/logout'))
+        .timeout(const Duration(seconds: 15));
+    if (response.statusCode == 401) return;
+    _ensureSuccess(response, allowedStatusCodes: {204});
+  }
+
+  Future<Map<String, dynamic>> fetchHealth() async {
+    final response = await _httpClient
+        .get(_uri('/health'))
+        .timeout(const Duration(seconds: 15));
+    _ensureSuccess(response);
+    return jsonDecode(response.body) as Map<String, dynamic>;
+  }
+
+  Future<List<Bucket>> fetchBuckets() async {
+    final response = await _httpClient
+        .get(_uri('/buckets'))
+        .timeout(const Duration(seconds: 15));
+    if (response.statusCode == 401) {
+      throw const AuthRequiredException();
+    }
+    _ensureSuccess(response);
+    final body = jsonDecode(response.body) as Map<String, dynamic>;
+    final list = body['buckets'] as List<dynamic>;
+    return list.map((e) => Bucket.fromJson(e as Map<String, dynamic>)).toList();
+  }
+
+  Future<List<OssObject>> fetchObjects(String bucketName) async {
+    final name = Uri.encodeComponent(bucketName);
+    return fetchAllObjectPages((marker) async {
+      final query = marker.isEmpty ? null : {'marker': marker};
+      final response = await _httpClient
+          .get(_uri('/buckets/$name/objects', queryParameters: query))
+          .timeout(const Duration(seconds: 20));
+      if (response.statusCode == 401) {
+        throw const AuthRequiredException();
+      }
+      _ensureSuccess(response);
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    });
+  }
+
+  Future<String> fetchObjectUrl({
+    required String bucketName,
+    required String objectKey,
+    required int expiresSeconds,
+  }) async {
+    final bucket = Uri.encodeComponent(bucketName);
+    final response = await _httpClient
+        .get(
+          _uri(
+            '/buckets/$bucket/object-url',
+            queryParameters: {
+              'key': objectKey,
+              'expires': '$expiresSeconds',
+            },
+          ),
+        )
+        .timeout(const Duration(seconds: 20));
+    if (response.statusCode == 401) {
+      throw const AuthRequiredException();
+    }
+    _ensureSuccess(response);
+    final body = jsonDecode(response.body) as Map<String, dynamic>;
+    return body['url'] as String;
+  }
+
+  Future<List<ProviderUser>> fetchUsers() async {
+    final response = await _httpClient
+        .get(_uri('/admin/users'))
+        .timeout(const Duration(seconds: 15));
+    if (response.statusCode == 401) {
+      throw const AuthRequiredException();
+    }
+    _ensureSuccess(response);
+    final body = jsonDecode(response.body) as Map<String, dynamic>;
+    final list = body['users'] as List<dynamic>;
+    return list
+        .map((item) => ProviderUser.fromJson(item as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<ProviderUser> inviteUser({
+    required String email,
+    required String name,
+    String role = 'viewer',
+  }) async {
+    final response = await _httpClient
+        .post(
+          _uri('/admin/users'),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({
+            'email': email,
+            'name': name,
+            'role': role,
+          }),
+        )
+        .timeout(const Duration(seconds: 15));
+    if (response.statusCode == 401) {
+      throw const AuthRequiredException();
+    }
+    _ensureSuccess(response, allowedStatusCodes: {201});
+    final body = jsonDecode(response.body) as Map<String, dynamic>;
+    return ProviderUser.fromJson(body['user'] as Map<String, dynamic>);
+  }
+
+  Future<ProviderUser> updateUserRole({
+    required String userId,
+    required String role,
+  }) async {
+    final response = await _httpClient
+        .patch(
+          _uri('/admin/users/$userId/role'),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({'role': role}),
+        )
+        .timeout(const Duration(seconds: 15));
+    if (response.statusCode == 401) {
+      throw const AuthRequiredException();
+    }
+    _ensureSuccess(response);
+    final body = jsonDecode(response.body) as Map<String, dynamic>;
+    return ProviderUser.fromJson(body['user'] as Map<String, dynamic>);
+  }
+
+  Future<void> disableUser(String userId) async {
+    final response = await _httpClient
+        .post(_uri('/admin/users/$userId/disable'))
+        .timeout(const Duration(seconds: 15));
+    if (response.statusCode == 401) {
+      throw const AuthRequiredException();
+    }
+    _ensureSuccess(response);
+  }
+
+  Future<void> revokeUserSessions(String userId) async {
+    final response = await _httpClient
+        .post(_uri('/admin/users/$userId/sessions/revoke'))
+        .timeout(const Duration(seconds: 15));
+    if (response.statusCode == 401) {
+      throw const AuthRequiredException();
+    }
+    _ensureSuccess(response);
+  }
+
+  void _ensureSuccess(
+    http.Response response, {
+    Set<int> allowedStatusCodes = const {},
+  }) {
+    if (response.statusCode >= 200 && response.statusCode < 300 ||
+        allowedStatusCodes.contains(response.statusCode)) {
+      return;
+    }
+    throw ProviderApiException(response.statusCode, _errorMessage(response));
+  }
+
+  String _errorMessage(http.Response response) {
+    try {
+      final body = jsonDecode(response.body) as Map<String, dynamic>;
+      return body['error']?.toString() ??
+          response.reasonPhrase ??
+          'request failed';
+    } catch (_) {
+      return response.reasonPhrase ?? 'request failed';
+    }
+  }
+}
+
 bool canExposeObjectLinks(String bucketName) {
-  return !bucketName.endsWith('-private') &&
-      bucketName != 'quanttide-terraform-state';
+  return !isMetadataOnlyBucket(bucketName);
+}
+
+bool isMetadataOnlyBucket(String bucketName) {
+  return bucketName.endsWith('-private') ||
+      bucketName == 'quanttide-terraform-state';
+}
+
+List<Bucket> visibleBucketsForRole(String role, Iterable<Bucket> buckets) {
+  if (role == 'admin') return List<Bucket>.of(buckets);
+  return buckets.where((bucket) => !isMetadataOnlyBucket(bucket.name)).toList();
 }
 
 typedef ObjectPageLoader = Future<Map<String, dynamic>> Function(String marker);
@@ -64,7 +322,10 @@ void main() {
 }
 
 class QtCloudAssetStudio extends StatelessWidget {
-  const QtCloudAssetStudio({super.key});
+  const QtCloudAssetStudio({super.key, this.client, this.loginRedirect});
+
+  final ProviderApiClient? client;
+  final LoginRedirect? loginRedirect;
 
   @override
   Widget build(BuildContext context) {
@@ -75,7 +336,10 @@ class QtCloudAssetStudio extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF2563EB)),
         useMaterial3: true,
       ),
-      home: const DashboardScreen(),
+      home: DashboardScreen(
+        client: client,
+        loginRedirect: loginRedirect,
+      ),
     );
   }
 }
@@ -196,15 +460,23 @@ class OssObject {
 }
 
 class DashboardScreen extends StatefulWidget {
-  const DashboardScreen({super.key});
+  const DashboardScreen({super.key, this.client, this.loginRedirect});
+
+  final ProviderApiClient? client;
+  final LoginRedirect? loginRedirect;
 
   @override
   State<DashboardScreen> createState() => _DashboardScreenState();
 }
 
 class _DashboardScreenState extends State<DashboardScreen> {
+  late ProviderApiClient _client;
+  late LoginRedirect _loginRedirect;
+  late Future<ProviderUser> _currentUser;
   Future<Map<String, dynamic>>? _health;
   Future<List<Bucket>>? _buckets;
+  bool _loginRedirectScheduled = false;
+  bool _loggedOut = false;
   String? _selectedCategory; // null = 全部
   String _searchText = '';
   bool _sortAscending = true; // true = A 到 Z（默认），false = Z 到 A
@@ -226,37 +498,70 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   void initState() {
     super.initState();
-    _health = _fetchHealth();
-    _buckets = _fetchBuckets();
+    _client = widget.client ?? ProviderApiClient();
+    _loginRedirect = widget.loginRedirect ?? defaultLoginRedirect;
+    _currentUser = _client.fetchCurrentUser();
+  }
+
+  @override
+  void didUpdateWidget(covariant DashboardScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.client != widget.client ||
+        oldWidget.loginRedirect != widget.loginRedirect) {
+      _client = widget.client ?? ProviderApiClient();
+      _loginRedirect = widget.loginRedirect ?? defaultLoginRedirect;
+      _loggedOut = false;
+      _loginRedirectScheduled = false;
+      _currentUser = _client.fetchCurrentUser();
+      _health = null;
+      _buckets = null;
+    }
   }
 
   Future<Map<String, dynamic>> _fetchHealth() async {
-    final response = await http
-        .get(Uri.parse('$providerBaseUrl/health'))
-        .timeout(const Duration(seconds: 15));
-    if (response.statusCode != 200) {
-      throw Exception('Provider returned HTTP ${response.statusCode}');
-    }
-    return jsonDecode(response.body) as Map<String, dynamic>;
+    return _client.fetchHealth();
   }
 
   Future<List<Bucket>> _fetchBuckets() async {
-    final response = await http
-        .get(Uri.parse('$providerBaseUrl/buckets'))
-        .timeout(const Duration(seconds: 15));
-    if (response.statusCode != 200) {
-      throw Exception('Provider returned HTTP ${response.statusCode}');
-    }
-    final body = jsonDecode(response.body) as Map<String, dynamic>;
-    final list = body['buckets'] as List<dynamic>;
-    return list.map((e) => Bucket.fromJson(e as Map<String, dynamic>)).toList();
+    return _client.fetchBuckets();
   }
 
   void _refresh() {
     setState(() {
-      _health = _fetchHealth();
-      _buckets = _fetchBuckets();
+      _loggedOut = false;
+      _loginRedirectScheduled = false;
+      _currentUser = _client.fetchCurrentUser();
+      _health = null;
+      _buckets = null;
     });
+  }
+
+  Future<void> _logout() async {
+    try {
+      await _client.logout();
+    } finally {
+      if (mounted) {
+        setState(() {
+          _loggedOut = true;
+          _health = null;
+          _buckets = null;
+          _loginRedirectScheduled = false;
+        });
+      }
+    }
+  }
+
+  void _scheduleLoginRedirect() {
+    if (_loginRedirectScheduled) return;
+    _loginRedirectScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loginRedirect(_client.loginUri);
+    });
+  }
+
+  void _ensureProtectedDataLoaded() {
+    _health ??= _fetchHealth();
+    _buckets ??= _fetchBuckets();
   }
 
   Widget _buildSearchField() {
@@ -298,8 +603,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildSortControls() {
-    final createdAtLabel =
-        _createdAtSortEnabled ? '创建时间' : '创建时间：关闭';
+    final createdAtLabel = _createdAtSortEnabled ? '创建时间' : '创建时间：关闭';
     final nameLabel = !_nameSortEnabled
         ? '桶名：关闭'
         : _sortAscending
@@ -394,59 +698,636 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (_loggedOut) {
+      return _AuthScaffold(
+        title: '量潮资产云',
+        child: _AuthStatusPanel(
+          icon: Icons.login,
+          title: '已退出登录',
+          message: '已退出当前会话，请重新登录。',
+          actionLabel: '重新登录',
+          onAction: () => _loginRedirect(_client.loginUri),
+        ),
+      );
+    }
+
+    return FutureBuilder<ProviderUser>(
+      future: _currentUser,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          return const _AuthScaffold(
+            title: '量潮资产云',
+            child: _AuthStatusPanel(
+              icon: Icons.hourglass_empty,
+              title: '正在确认登录状态…',
+              message: '正在连接 Provider 会话。',
+            ),
+          );
+        }
+
+        if (snapshot.hasError) {
+          final error = snapshot.error;
+          if (error is AuthRequiredException) {
+            _scheduleLoginRedirect();
+            return _AuthScaffold(
+              title: '量潮资产云',
+              child: _AuthStatusPanel(
+                icon: Icons.login,
+                title: '正在跳转登录…',
+                message: '未检测到有效会话，请完成登录后返回。',
+                actionLabel: '重新登录',
+                onAction: () => _loginRedirect(_client.loginUri),
+              ),
+            );
+          }
+
+          final forbidden =
+              error is ProviderApiException && error.statusCode == 403;
+          return _AuthScaffold(
+            title: '量潮资产云',
+            child: _AuthStatusPanel(
+              icon: forbidden ? Icons.block : Icons.error_outline,
+              title: forbidden ? '账号暂不可用' : '登录状态校验失败',
+              message: error.toString(),
+              actionLabel: '重试',
+              onAction: _refresh,
+            ),
+          );
+        }
+
+        final user = snapshot.data!;
+        final showMetadataOnlyBuckets = user.role == 'admin';
+        _ensureProtectedDataLoaded();
+        return Scaffold(
+          backgroundColor: const Color(0xFFF7F8FA),
+          appBar: AppBar(
+            title: const Text('量潮资产云'),
+            actions: [
+              _CurrentUserBadge(user: user),
+              if (user.role == 'admin')
+                IconButton(
+                  tooltip: '用户管理',
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => AdminUsersScreen(client: _client),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.manage_accounts),
+                ),
+              IconButton(
+                tooltip: '退出登录',
+                onPressed: _logout,
+                icon: const Icon(Icons.logout),
+              ),
+              IconButton(
+                tooltip: 'Refresh',
+                onPressed: _refresh,
+                icon: const Icon(Icons.refresh),
+              ),
+            ],
+          ),
+          body: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 1400),
+              child: Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      '对象存储桶',
+                      style:
+                          TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 12),
+                    _CategoryFilterBar(
+                      categories: _categories,
+                      buckets: _buckets,
+                      showMetadataOnlyBuckets: showMetadataOnlyBuckets,
+                      selected: _selectedCategory,
+                      onSelected: (value) {
+                        setState(() {
+                          _selectedCategory = value;
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    _buildSearchAndSortBar(),
+                    const SizedBox(height: 12),
+                    Expanded(
+                      child: BucketListView(
+                        buckets: _buckets,
+                        client: _client,
+                        showMetadataOnlyBuckets: showMetadataOnlyBuckets,
+                        category: _selectedCategory,
+                        searchText: _searchText,
+                        sortMode: _bucketSortMode,
+                        sortAscending: _sortAscending,
+                        createdAtDescending: _createdAtDescending,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    _ProviderStatusCard(health: _health),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _AuthScaffold extends StatelessWidget {
+  const _AuthScaffold({required this.title, required this.child});
+
+  final String title;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF7F8FA),
+      appBar: AppBar(title: Text(title)),
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 420),
+          child: child,
+        ),
+      ),
+    );
+  }
+}
+
+class _AuthStatusPanel extends StatelessWidget {
+  const _AuthStatusPanel({
+    required this.icon,
+    required this.title,
+    required this.message,
+    this.actionLabel,
+    this.onAction,
+  });
+
+  final IconData icon;
+  final String title;
+  final String message;
+  final String? actionLabel;
+  final VoidCallback? onAction;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 32, color: const Color(0xFF2563EB)),
+            const SizedBox(height: 12),
+            Text(
+              title,
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              message,
+              style: const TextStyle(fontSize: 13, color: Color(0xFF6B7280)),
+              textAlign: TextAlign.center,
+            ),
+            if (actionLabel != null && onAction != null) ...[
+              const SizedBox(height: 16),
+              FilledButton.icon(
+                onPressed: onAction,
+                icon: const Icon(Icons.login, size: 18),
+                label: Text(actionLabel!),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CurrentUserBadge extends StatelessWidget {
+  const _CurrentUserBadge({required this.user});
+
+  final ProviderUser user;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      child: Center(
+        child: Container(
+          constraints: const BoxConstraints(maxWidth: 240),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: const Color(0xFF2563EB).withValues(alpha: 0.08),
+            borderRadius: BorderRadius.circular(18),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.account_circle, size: 18),
+              const SizedBox(width: 6),
+              Flexible(
+                child: Text(
+                  user.displayName,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 13),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                user.role,
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: Color(0xFF2563EB),
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class AdminUsersScreen extends StatefulWidget {
+  const AdminUsersScreen({super.key, required this.client});
+
+  final ProviderApiClient client;
+
+  @override
+  State<AdminUsersScreen> createState() => _AdminUsersScreenState();
+}
+
+class _AdminUsersScreenState extends State<AdminUsersScreen> {
+  final _emailController = TextEditingController();
+  final _nameController = TextEditingController();
+  late Future<List<ProviderUser>> _users;
+  String _inviteRole = 'viewer';
+  bool _submitting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _users = widget.client.fetchUsers();
+  }
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _nameController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _refreshUsers() async {
+    setState(() {
+      _users = widget.client.fetchUsers();
+    });
+  }
+
+  Future<void> _inviteUser() async {
+    final email = _emailController.text.trim();
+    final name = _nameController.text.trim();
+    if (email.isEmpty || name.isEmpty) {
+      _showMessage('请填写邮箱和姓名');
+      return;
+    }
+
+    setState(() {
+      _submitting = true;
+    });
+    try {
+      await widget.client.inviteUser(
+        email: email,
+        name: name,
+        role: _inviteRole,
+      );
+      _emailController.clear();
+      _nameController.clear();
+      await _refreshUsers();
+      _showMessage('邀请已创建');
+    } catch (error) {
+      _showMessage('邀请失败：$error');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _submitting = false;
+        });
+      }
+    }
+  }
+
+  void _showMessage(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
+  }
+
+  Future<void> _updateRole(ProviderUser user, String role) async {
+    try {
+      await widget.client.updateUserRole(userId: user.id, role: role);
+      await _refreshUsers();
+      _showMessage('角色已更新');
+    } catch (error) {
+      _showMessage('角色更新失败：$error');
+    }
+  }
+
+  Future<void> _disableUser(ProviderUser user) async {
+    try {
+      await widget.client.disableUser(user.id);
+      await _refreshUsers();
+      _showMessage('账号已停用');
+    } catch (error) {
+      _showMessage('停用失败：$error');
+    }
+  }
+
+  Future<void> _revokeSessions(ProviderUser user) async {
+    try {
+      await widget.client.revokeUserSessions(user.id);
+      _showMessage('会话已撤销');
+    } catch (error) {
+      _showMessage('撤销失败：$error');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF7F8FA),
       appBar: AppBar(
-        title: const Text('量潮资产云'),
+        title: const Text('用户管理'),
         actions: [
           IconButton(
-            tooltip: 'Refresh',
-            onPressed: _refresh,
+            tooltip: '刷新用户',
+            onPressed: _refreshUsers,
             icon: const Icon(Icons.refresh),
           ),
         ],
       ),
       body: Center(
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 1400),
+          constraints: const BoxConstraints(maxWidth: 960),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+            padding: const EdgeInsets.all(24),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  '对象存储桶',
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 12),
-                _CategoryFilterBar(
-                  categories: _categories,
-                  buckets: _buckets,
-                  selected: _selectedCategory,
-                  onSelected: (value) {
+                _InviteUserCard(
+                  emailController: _emailController,
+                  nameController: _nameController,
+                  role: _inviteRole,
+                  submitting: _submitting,
+                  onRoleChanged: (value) {
+                    if (value == null) return;
                     setState(() {
-                      _selectedCategory = value;
+                      _inviteRole = value;
                     });
                   },
-                ),
-                const SizedBox(height: 12),
-                _buildSearchAndSortBar(),
-                const SizedBox(height: 12),
-                Expanded(
-                  child: BucketListView(
-                    buckets: _buckets,
-                    category: _selectedCategory,
-                    searchText: _searchText,
-                    sortMode: _bucketSortMode,
-                    sortAscending: _sortAscending,
-                    createdAtDescending: _createdAtDescending,
-                  ),
+                  onSubmit: _inviteUser,
                 ),
                 const SizedBox(height: 16),
-                _ProviderStatusCard(health: _health),
+                Expanded(
+                  child: FutureBuilder<List<ProviderUser>>(
+                    future: _users,
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState != ConnectionState.done) {
+                        return const Center(child: CircularProgressIndicator());
+                      }
+                      if (snapshot.hasError) {
+                        return Center(
+                          child: Text(
+                            '加载用户失败：${snapshot.error}',
+                            style: TextStyle(color: Colors.red.shade700),
+                          ),
+                        );
+                      }
+                      final users = snapshot.data ?? const [];
+                      if (users.isEmpty) {
+                        return const Center(child: Text('暂无用户'));
+                      }
+                      return ListView.separated(
+                        itemCount: users.length,
+                        separatorBuilder: (_, __) => const SizedBox(height: 8),
+                        itemBuilder: (context, index) {
+                          final user = users[index];
+                          return _AdminUserRow(
+                            user: user,
+                            onRoleChanged: (role) => _updateRole(user, role),
+                            onDisable: () => _disableUser(user),
+                            onRevokeSessions: () => _revokeSessions(user),
+                          );
+                        },
+                      );
+                    },
+                  ),
+                ),
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _InviteUserCard extends StatelessWidget {
+  const _InviteUserCard({
+    required this.emailController,
+    required this.nameController,
+    required this.role,
+    required this.submitting,
+    required this.onRoleChanged,
+    required this.onSubmit,
+  });
+
+  final TextEditingController emailController;
+  final TextEditingController nameController;
+  final String role;
+  final bool submitting;
+  final ValueChanged<String?> onRoleChanged;
+  final VoidCallback onSubmit;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final fields = [
+              Expanded(
+                flex: 2,
+                child: TextField(
+                  key: const Key('invite-email'),
+                  controller: emailController,
+                  decoration: const InputDecoration(
+                    labelText: '邮箱',
+                    isDense: true,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                flex: 2,
+                child: TextField(
+                  key: const Key('invite-name'),
+                  controller: nameController,
+                  decoration: const InputDecoration(
+                    labelText: '姓名',
+                    isDense: true,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              DropdownButton<String>(
+                value: role,
+                items: const [
+                  DropdownMenuItem(value: 'viewer', child: Text('viewer')),
+                  DropdownMenuItem(value: 'admin', child: Text('admin')),
+                ],
+                onChanged: submitting ? null : onRoleChanged,
+              ),
+              const SizedBox(width: 12),
+              FilledButton.icon(
+                onPressed: submitting ? null : onSubmit,
+                icon: const Icon(Icons.person_add, size: 18),
+                label: const Text('邀请'),
+              ),
+            ];
+
+            if (constraints.maxWidth < 720) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  TextField(
+                    key: const Key('invite-email'),
+                    controller: emailController,
+                    decoration: const InputDecoration(labelText: '邮箱'),
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    key: const Key('invite-name'),
+                    controller: nameController,
+                    decoration: const InputDecoration(labelText: '姓名'),
+                  ),
+                  const SizedBox(height: 8),
+                  DropdownButton<String>(
+                    value: role,
+                    isExpanded: true,
+                    items: const [
+                      DropdownMenuItem(value: 'viewer', child: Text('viewer')),
+                      DropdownMenuItem(value: 'admin', child: Text('admin')),
+                    ],
+                    onChanged: submitting ? null : onRoleChanged,
+                  ),
+                  const SizedBox(height: 8),
+                  FilledButton.icon(
+                    onPressed: submitting ? null : onSubmit,
+                    icon: const Icon(Icons.person_add, size: 18),
+                    label: const Text('邀请'),
+                  ),
+                ],
+              );
+            }
+
+            return Row(children: fields);
+          },
+        ),
+      ),
+    );
+  }
+}
+
+class _AdminUserRow extends StatelessWidget {
+  const _AdminUserRow({
+    required this.user,
+    required this.onRoleChanged,
+    required this.onDisable,
+    required this.onRevokeSessions,
+  });
+
+  final ProviderUser user;
+  final ValueChanged<String> onRoleChanged;
+  final VoidCallback onDisable;
+  final VoidCallback onRevokeSessions;
+
+  @override
+  Widget build(BuildContext context) {
+    final disabled = user.status == 'disabled';
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Row(
+          children: [
+            Icon(
+              disabled ? Icons.block : Icons.account_circle,
+              color: disabled ? Colors.red.shade700 : const Color(0xFF2563EB),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    user.displayName,
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    '${user.email} · ${user.status}',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Color(0xFF6B7280),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            DropdownButton<String>(
+              value: user.role == 'admin' ? 'admin' : 'viewer',
+              items: const [
+                DropdownMenuItem(value: 'viewer', child: Text('viewer')),
+                DropdownMenuItem(value: 'admin', child: Text('admin')),
+              ],
+              onChanged: disabled
+                  ? null
+                  : (role) {
+                      if (role != null && role != user.role) {
+                        onRoleChanged(role);
+                      }
+                    },
+            ),
+            const SizedBox(width: 8),
+            IconButton(
+              tooltip: '撤销会话',
+              onPressed: onRevokeSessions,
+              icon: const Icon(Icons.link_off),
+            ),
+            IconButton(
+              tooltip: '停用账号',
+              onPressed: disabled ? null : onDisable,
+              icon: const Icon(Icons.person_off),
+            ),
+          ],
         ),
       ),
     );
@@ -457,6 +1338,8 @@ class BucketListView extends StatefulWidget {
   const BucketListView({
     super.key,
     required this.buckets,
+    this.client,
+    this.showMetadataOnlyBuckets = true,
     this.category,
     this.searchText = '',
     this.sortMode = BucketSortMode.none,
@@ -465,6 +1348,8 @@ class BucketListView extends StatefulWidget {
   });
 
   final Future<List<Bucket>>? buckets;
+  final ProviderApiClient? client;
+  final bool showMetadataOnlyBuckets;
   final String? category;
   final String searchText;
   final BucketSortMode sortMode;
@@ -508,6 +1393,9 @@ class _BucketListViewState extends State<BucketListView> {
           );
         }
         var data = List<Bucket>.of(snapshot.data ?? const []);
+        if (!widget.showMetadataOnlyBuckets) {
+          data = visibleBucketsForRole('viewer', data);
+        }
 
         // 分类过滤
         if (widget.category != null) {
@@ -579,7 +1467,10 @@ class _BucketListViewState extends State<BucketListView> {
                       mainAxisExtent: _bucketGridMainExtent,
                     ),
                     itemBuilder: (context, index) {
-                      return BucketCard(bucket: pageData[index]);
+                      return BucketCard(
+                        bucket: pageData[index],
+                        client: widget.client,
+                      );
                     },
                   ),
                 ),
@@ -644,12 +1535,14 @@ class _CategoryFilterBar extends StatelessWidget {
   const _CategoryFilterBar({
     required this.categories,
     this.buckets,
+    this.showMetadataOnlyBuckets = true,
     required this.selected,
     required this.onSelected,
   });
 
   final List<String> categories;
   final Future<List<Bucket>>? buckets;
+  final bool showMetadataOnlyBuckets;
   final String? selected;
   final ValueChanged<String?> onSelected;
 
@@ -658,7 +1551,10 @@ class _CategoryFilterBar extends StatelessWidget {
     return FutureBuilder<List<Bucket>>(
       future: buckets,
       builder: (context, snapshot) {
-        final data = snapshot.data ?? [];
+        var data = List<Bucket>.of(snapshot.data ?? const []);
+        if (!showMetadataOnlyBuckets) {
+          data = visibleBucketsForRole('viewer', data);
+        }
         return Wrap(
           spacing: 8,
           runSpacing: 8,
@@ -720,9 +1616,10 @@ class _FilterChip extends StatelessWidget {
 }
 
 class BucketCard extends StatelessWidget {
-  const BucketCard({super.key, required this.bucket});
+  const BucketCard({super.key, required this.bucket, this.client});
 
   final Bucket bucket;
+  final ProviderApiClient? client;
 
   @override
   Widget build(BuildContext context) {
@@ -740,7 +1637,10 @@ class BucketCard extends StatelessWidget {
           }
           Navigator.of(context).push(
             MaterialPageRoute(
-              builder: (_) => BucketObjectsScreen(bucketName: bucket.name),
+              builder: (_) => BucketObjectsScreen(
+                bucketName: bucket.name,
+                client: client,
+              ),
             ),
           );
         },
@@ -863,15 +1763,17 @@ class _ProviderStatusCard extends StatelessWidget {
 }
 
 class BucketObjectsScreen extends StatefulWidget {
-  const BucketObjectsScreen({super.key, required this.bucketName});
+  const BucketObjectsScreen({super.key, required this.bucketName, this.client});
 
   final String bucketName;
+  final ProviderApiClient? client;
 
   @override
   State<BucketObjectsScreen> createState() => _BucketObjectsScreenState();
 }
 
 class _BucketObjectsScreenState extends State<BucketObjectsScreen> {
+  late final ProviderApiClient _client;
   late Future<List<OssObject>> _objects;
   String _searchText = '';
   String? _sortKey; // 'date' | 'size' | null
@@ -882,6 +1784,7 @@ class _BucketObjectsScreenState extends State<BucketObjectsScreen> {
   @override
   void initState() {
     super.initState();
+    _client = widget.client ?? ProviderApiClient();
     _objects = _fetchObjects();
   }
 
@@ -937,21 +1840,11 @@ class _BucketObjectsScreenState extends State<BucketObjectsScreen> {
 
   /// 生成对象访问链接并复制到剪贴板。
   Future<void> _copyObjectUrl(OssObject object, int expiresSeconds) async {
-    final bucket = Uri.encodeComponent(widget.bucketName);
-    final url =
-        Uri.parse('$providerBaseUrl/buckets/$bucket/object-url').replace(
-      queryParameters: {
-        'key': object.key,
-        'expires': '$expiresSeconds',
-      },
+    final link = await _client.fetchObjectUrl(
+      bucketName: widget.bucketName,
+      objectKey: object.key,
+      expiresSeconds: expiresSeconds,
     );
-
-    final response = await http.get(url).timeout(const Duration(seconds: 20));
-    if (response.statusCode != 200) {
-      throw Exception('Provider returned HTTP ${response.statusCode}');
-    }
-    final body = jsonDecode(response.body) as Map<String, dynamic>;
-    final link = body['url'] as String;
 
     await Clipboard.setData(ClipboardData(text: link));
     if (mounted) {
@@ -971,7 +1864,6 @@ class _BucketObjectsScreenState extends State<BucketObjectsScreen> {
           children: [
             _expiryOption(context, '1 天', 86400),
             _expiryOption(context, '7 天', 604800),
-            _expiryOption(context, '30 天', 2592000),
           ],
         );
       },
@@ -997,19 +1889,7 @@ class _BucketObjectsScreenState extends State<BucketObjectsScreen> {
   }
 
   Future<List<OssObject>> _fetchObjects() async {
-    final name = Uri.encodeComponent(widget.bucketName);
-    return fetchAllObjectPages((marker) async {
-      final uri = Uri.parse('$providerBaseUrl/buckets/$name/objects').replace(
-        queryParameters: marker.isEmpty ? {} : {'marker': marker},
-      );
-      final response = await http.get(uri).timeout(
-            const Duration(seconds: 20),
-          );
-      if (response.statusCode != 200) {
-        throw Exception('Provider returned HTTP ${response.statusCode}');
-      }
-      return jsonDecode(response.body) as Map<String, dynamic>;
-    });
+    return _client.fetchObjects(widget.bucketName);
   }
 
   @override

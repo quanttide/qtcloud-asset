@@ -2,6 +2,8 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 
 import 'package:qtcloud_studio/main.dart';
 
@@ -24,8 +26,13 @@ void main() {
   testWidgets('Dashboard renders title and bucket section', (
     WidgetTester tester,
   ) async {
-    await tester.pumpWidget(const QtCloudAssetStudio());
-    await tester.pump();
+    await tester.pumpWidget(
+      QtCloudAssetStudio(
+        client: _authenticatedStudioClient(),
+        loginRedirect: (_) {},
+      ),
+    );
+    await tester.pumpAndSettle();
 
     // Verify the dashboard title is present.
     expect(find.text('量潮资产云'), findsOneWidget);
@@ -34,13 +41,219 @@ void main() {
     expect(find.text('对象存储桶'), findsOneWidget);
   });
 
+  testWidgets(
+      'Dashboard redirects unauthenticated users before loading buckets', (
+    WidgetTester tester,
+  ) async {
+    Uri? redirectedTo;
+    final requestedPaths = <String>[];
+    final client = ProviderApiClient(
+      baseUrl: 'https://api.example.com',
+      httpClient: MockClient((request) async {
+        requestedPaths.add(request.url.path);
+        if (request.url.path == '/auth/me') {
+          return http.Response('{"error":"authentication required"}', 401);
+        }
+        return http.Response('{"error":"unexpected"}', 500);
+      }),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: DashboardScreen(
+          client: client,
+          loginRedirect: (uri) {
+            redirectedTo = uri;
+          },
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(requestedPaths, ['/auth/me']);
+    expect(redirectedTo, Uri.parse('https://api.example.com/auth/login'));
+    expect(find.text('正在跳转登录…'), findsOneWidget);
+    expect(find.text('对象存储桶'), findsNothing);
+  });
+
+  testWidgets('Dashboard shows the authenticated user and logout action', (
+    WidgetTester tester,
+  ) async {
+    final client = _authenticatedStudioClient();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: DashboardScreen(
+          client: client,
+          loginRedirect: (_) {},
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Viewer User'), findsOneWidget);
+    expect(find.text('viewer'), findsOneWidget);
+    expect(find.byTooltip('退出登录'), findsOneWidget);
+    expect(find.text('对象存储桶'), findsOneWidget);
+    expect(find.text('qtcloud-asset-studio'), findsOneWidget);
+    expect(find.text('qtadmin-private'), findsNothing);
+    expect(find.text('quanttide-terraform-state'), findsNothing);
+  });
+
+  testWidgets('Dashboard hides metadata-only buckets for viewers', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      QtCloudAssetStudio(
+        client: _authenticatedStudioClient(),
+        loginRedirect: (_) {},
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('全部 1'), findsOneWidget);
+    expect(find.text('qtcloud-asset-studio'), findsOneWidget);
+    expect(find.text('qtadmin-private'), findsNothing);
+    expect(find.text('quanttide-terraform-state'), findsNothing);
+  });
+
+  testWidgets('Dashboard keeps all buckets visible for admins', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      QtCloudAssetStudio(
+        client: _authenticatedStudioClient(userBody: _adminAuthMeBody),
+        loginRedirect: (_) {},
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('全部 3'), findsOneWidget);
+    expect(find.text('qtcloud-asset-studio'), findsOneWidget);
+    expect(find.text('qtadmin-private'), findsOneWidget);
+    expect(find.text('quanttide-terraform-state'), findsOneWidget);
+  });
+
+  testWidgets('Dashboard shows user management only for admins', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: DashboardScreen(
+          client: _authenticatedStudioClient(userBody: _authMeBody),
+          loginRedirect: (_) {},
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byTooltip('用户管理'), findsNothing);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: DashboardScreen(
+          client: _authenticatedStudioClient(userBody: _adminAuthMeBody),
+          loginRedirect: (_) {},
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byTooltip('用户管理'), findsOneWidget);
+  });
+
+  testWidgets('Admin user management lists users and submits invites', (
+    WidgetTester tester,
+  ) async {
+    final requested = <String>[];
+    final client = ProviderApiClient(
+      baseUrl: 'https://api.example.com',
+      httpClient: MockClient((request) async {
+        requested.add('${request.method} ${request.url.path}');
+        return switch ((request.method, request.url.path)) {
+          ('GET', '/admin/users') => http.Response(_usersBody, 200),
+          ('POST', '/admin/users') => http.Response(_invitedUserBody, 201),
+          _ => http.Response('{"error":"unexpected"}', 500),
+        };
+      }),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AdminUsersScreen(client: client),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Admin User'), findsOneWidget);
+    expect(find.text('Viewer User'), findsOneWidget);
+
+    await tester.enterText(
+        find.byKey(const Key('invite-email')), 'new@example.com');
+    await tester.enterText(find.byKey(const Key('invite-name')), 'New User');
+    await tester.tap(find.text('邀请'));
+    await tester.pumpAndSettle();
+
+    expect(requested, contains('POST /admin/users'));
+    expect(find.text('邀请已创建'), findsOneWidget);
+  });
+
+  testWidgets('Logout revokes the server session and waits for manual login', (
+    WidgetTester tester,
+  ) async {
+    Uri? redirectedTo;
+    final requested = <String>[];
+    final client = ProviderApiClient(
+      baseUrl: 'https://api.example.com',
+      httpClient: MockClient((request) async {
+        requested.add('${request.method} ${request.url.path}');
+        return switch ((request.method, request.url.path)) {
+          ('GET', '/auth/me') => http.Response(_authMeBody, 200),
+          ('GET', '/health') => http.Response(_healthBody, 200),
+          ('GET', '/buckets') => http.Response(_bucketsBody, 200),
+          ('POST', '/auth/logout') => http.Response('', 204),
+          _ => http.Response('{"error":"unexpected"}', 500),
+        };
+      }),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: DashboardScreen(
+          client: client,
+          loginRedirect: (uri) {
+            redirectedTo = uri;
+          },
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('退出登录'));
+    await tester.pumpAndSettle();
+
+    expect(requested, contains('POST /auth/logout'));
+    expect(redirectedTo, isNull);
+    expect(find.text('已退出当前会话，请重新登录。'), findsOneWidget);
+
+    await tester.tap(find.text('重新登录'));
+    await tester.pumpAndSettle();
+
+    expect(redirectedTo, Uri.parse('https://api.example.com/auth/login'));
+  });
+
   testWidgets('Dashboard places creation-time sort before alphabet sort', (
     WidgetTester tester,
   ) async {
     setTestViewSize(tester, const Size(1280, 720));
 
-    await tester.pumpWidget(const QtCloudAssetStudio());
-    await tester.pump();
+    await tester.pumpWidget(
+      QtCloudAssetStudio(
+        client: _authenticatedStudioClient(),
+        loginRedirect: (_) {},
+      ),
+    );
+    await tester.pumpAndSettle();
 
     expect(find.text('创建时间'), findsOneWidget);
     expect(find.text('A→Z'), findsOneWidget);
@@ -84,15 +297,21 @@ void main() {
   ) async {
     setTestViewSize(tester, const Size(1280, 720));
 
-    await tester.pumpWidget(const QtCloudAssetStudio());
-    await tester.pump();
+    await tester.pumpWidget(
+      QtCloudAssetStudio(
+        client: _authenticatedStudioClient(),
+        loginRedirect: (_) {},
+      ),
+    );
+    await tester.pumpAndSettle();
 
     final nameButton = find.ancestor(
       of: find.text('A→Z'),
       matching: find.byType(TextButton),
     );
     expect(
-      find.descendant(of: nameButton, matching: find.byIcon(Icons.arrow_upward)),
+      find.descendant(
+          of: nameButton, matching: find.byIcon(Icons.arrow_upward)),
       findsOneWidget,
     );
 
@@ -640,3 +859,122 @@ void main() {
     expect(objects.map((object) => object.key), ['first.txt', 'second.txt']);
   });
 }
+
+ProviderApiClient _authenticatedStudioClient({String userBody = _authMeBody}) {
+  return ProviderApiClient(
+    baseUrl: 'https://api.example.com',
+    httpClient: MockClient((request) async {
+      return switch ((request.method, request.url.path)) {
+        ('GET', '/auth/me') => http.Response(userBody, 200),
+        ('GET', '/health') => http.Response(_healthBody, 200),
+        ('GET', '/buckets') => http.Response(_bucketsBody, 200),
+        _ => http.Response('{"error":"unexpected"}', 500),
+      };
+    }),
+  );
+}
+
+const _authMeBody = '''
+{
+  "user": {
+    "id": "user-1",
+    "external_id": "lark-user-1",
+    "email": "viewer@example.com",
+    "name": "Viewer User",
+    "role": "viewer",
+    "status": "active",
+    "created_at": "2026-08-25T00:00:00Z",
+    "last_login_at": "2026-08-25T01:00:00Z"
+  }
+}
+''';
+
+const _adminAuthMeBody = '''
+{
+  "user": {
+    "id": "admin-1",
+    "external_id": "lark-admin-1",
+    "email": "admin@example.com",
+    "name": "Admin User",
+    "role": "admin",
+    "status": "active",
+    "created_at": "2026-08-25T00:00:00Z",
+    "last_login_at": "2026-08-25T01:00:00Z"
+  }
+}
+''';
+
+const _healthBody = '''
+{
+  "service": "qtcloud-asset-provider",
+  "status": "ok"
+}
+''';
+
+const _bucketsBody = '''
+{
+  "buckets": [
+    {
+      "name": "qtcloud-asset-studio",
+      "region": "oss-cn-hangzhou",
+      "storage_class": "Standard",
+      "created_at": "2026-08-25"
+    },
+    {
+      "name": "qtadmin-private",
+      "region": "oss-cn-hangzhou",
+      "storage_class": "Standard",
+      "created_at": "2026-08-24"
+    },
+    {
+      "name": "quanttide-terraform-state",
+      "region": "oss-cn-hangzhou",
+      "storage_class": "Standard",
+      "created_at": "2026-08-23"
+    }
+  ]
+}
+''';
+
+const _usersBody = '''
+{
+  "total": 2,
+  "users": [
+    {
+      "id": "admin-1",
+      "external_id": "lark-admin-1",
+      "email": "admin@example.com",
+      "name": "Admin User",
+      "role": "admin",
+      "status": "active",
+      "created_at": "2026-08-25T00:00:00Z",
+      "last_login_at": "2026-08-25T01:00:00Z"
+    },
+    {
+      "id": "viewer-1",
+      "external_id": "lark-viewer-1",
+      "email": "viewer@example.com",
+      "name": "Viewer User",
+      "role": "viewer",
+      "status": "active",
+      "created_at": "2026-08-25T00:00:00Z",
+      "last_login_at": "2026-08-25T01:00:00Z"
+    }
+  ]
+}
+''';
+
+const _invitedUserBody = '''
+{
+  "user": {
+    "id": "new-1",
+    "external_id": "new@example.com",
+    "email": "new@example.com",
+    "name": "New User",
+    "role": "viewer",
+    "status": "active",
+    "created_at": "2026-08-25T00:00:00Z",
+    "last_login_at": "0001-01-01T00:00:00Z"
+  }
+}
+''';
