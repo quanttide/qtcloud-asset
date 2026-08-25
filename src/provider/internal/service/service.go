@@ -42,6 +42,11 @@ func (s *BucketService) ListObjects(bucketName string, params schema.ListObjects
 	if IsMetadataOnlyBucket(bucketName) {
 		return nil, "", false, ErrMetadataOnlyBucket
 	}
+	return s.ListObjectsAuthorized(bucketName, params)
+}
+
+// ListObjectsAuthorized returns objects after the API layer has authorized access.
+func (s *BucketService) ListObjectsAuthorized(bucketName string, params schema.ListObjectsParams) ([]schema.Object, string, bool, error) {
 	if s.objectLister == nil {
 		return nil, "", false, fmt.Errorf("object lister not configured")
 	}
@@ -53,6 +58,11 @@ func (s *BucketService) ObjectURL(bucketName, objectKey string, expiresIn int64)
 	if IsMetadataOnlyBucket(bucketName) {
 		return "", ErrMetadataOnlyBucket
 	}
+	return s.ObjectURLAuthorized(bucketName, objectKey, expiresIn)
+}
+
+// ObjectURLAuthorized builds an object URL after the API layer has authorized access.
+func (s *BucketService) ObjectURLAuthorized(bucketName, objectKey string, expiresIn int64) (string, error) {
 	if s.urlBuilder == nil {
 		return "", fmt.Errorf("url builder not configured")
 	}

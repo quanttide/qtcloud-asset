@@ -146,16 +146,39 @@ func sortObjects(objects []schema.Object, sortKey, order string) {
 //
 // Public buckets get a plain permanent URL.
 func (a *OssAdapter) ObjectURL(bucketName, objectKey string, expiresIn int64) (string, error) {
+	publicURL, err := a.validateObjectURLRequest(bucketName, objectKey, expiresIn)
+	if err != nil {
+		return "", err
+	}
+	if publicURL != "" {
+		return publicURL, nil
+	}
+
 	client, err := a.client()
 	if err != nil {
 		return "", fmt.Errorf("create oss client: %w", err)
 	}
 
-	if _, err := client.Bucket(bucketName); err != nil {
+	bucket, err := client.Bucket(bucketName)
+	if err != nil {
 		return "", fmt.Errorf("open bucket %s: %w", bucketName, err)
 	}
 
-	return a.publicObjectURL(bucketName, objectKey), nil
+	signedURL, err := bucket.SignURL(objectKey, oss.HTTPGet, expiresIn)
+	if err != nil {
+		return "", fmt.Errorf("sign object url for %s/%s: %w", bucketName, objectKey, err)
+	}
+	return beautifyPath(signedURL), nil
+}
+
+func (a *OssAdapter) validateObjectURLRequest(bucketName, objectKey string, expiresIn int64) (string, error) {
+	if !isPrivateBucket(bucketName) {
+		return a.publicObjectURL(bucketName, objectKey), nil
+	}
+	if expiresIn <= 0 {
+		return "", fmt.Errorf("private object url expiry must be positive")
+	}
+	return "", nil
 }
 
 // host extracts the host (without scheme) from the endpoint.
@@ -177,6 +200,10 @@ func (a *OssAdapter) publicObjectURL(bucketName, objectKey string) string {
 		Path:   "/" + objectKey,
 	}
 	return u.String()
+}
+
+func isPrivateBucket(bucketName string) bool {
+	return strings.HasSuffix(bucketName, "-private") || bucketName == "quanttide-terraform-state"
 }
 
 // beautifyPath restores "/" in the path part of a signed URL.

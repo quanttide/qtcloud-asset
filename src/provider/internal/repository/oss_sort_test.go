@@ -68,3 +68,59 @@ func TestObjectURLEscapesReservedObjectKeyCharacters(t *testing.T) {
 		t.Fatalf("expected encoded object URL %q, got %q", want, got)
 	}
 }
+
+func TestPrivateBucketObjectURLRequiresPositiveExpiry(t *testing.T) {
+	adapter := &OssAdapter{Endpoint: "https://oss-cn-hangzhou.aliyuncs.com"}
+
+	_, err := adapter.validateObjectURLRequest("qtadmin-private", "secret.txt", 0)
+	if err == nil {
+		t.Fatal("expected private bucket URL to require a positive expiry")
+	}
+}
+
+func TestPublicBucketObjectURLAllowsDefaultExpiry(t *testing.T) {
+	adapter := &OssAdapter{Endpoint: "https://oss-cn-hangzhou.aliyuncs.com"}
+
+	got, err := adapter.validateObjectURLRequest("qtcloud-asset-studio", "index.html", 0)
+	if err != nil {
+		t.Fatalf("public object URL should allow default expiry: %v", err)
+	}
+	if got != "https://qtcloud-asset-studio.oss-cn-hangzhou.aliyuncs.com/index.html" {
+		t.Fatalf("unexpected public object URL: %s", got)
+	}
+}
+
+func TestNewOssAdapterStoresCredentials(t *testing.T) {
+	adapter := NewOssAdapter("https://oss-cn-hangzhou.aliyuncs.com", "ak", "secret", "token")
+
+	if adapter.Endpoint != "https://oss-cn-hangzhou.aliyuncs.com" || adapter.AccessKeyID != "ak" || adapter.AccessKeySecret != "secret" || adapter.SecurityToken != "token" {
+		t.Fatalf("unexpected adapter config: %+v", adapter)
+	}
+}
+
+func TestHostStripsEndpointScheme(t *testing.T) {
+	adapter := &OssAdapter{Endpoint: "https://oss-cn-hangzhou.aliyuncs.com"}
+	if got := adapter.host(); got != "oss-cn-hangzhou.aliyuncs.com" {
+		t.Fatalf("unexpected host: %s", got)
+	}
+}
+
+func TestBeautifyPathOnlyRestoresPathSlashes(t *testing.T) {
+	rawURL := "https://bucket.oss-cn-hangzhou.aliyuncs.com/dir%2Fa.txt?Signature=keep%2Fencoded"
+	got := beautifyPath(rawURL)
+	want := "https://bucket.oss-cn-hangzhou.aliyuncs.com/dir/a.txt?Signature=keep%2Fencoded"
+
+	if got != want {
+		t.Fatalf("expected %q, got %q", want, got)
+	}
+}
+
+func TestBeautifyPathHandlesURLWithoutQuery(t *testing.T) {
+	rawURL := "https://bucket.oss-cn-hangzhou.aliyuncs.com/dir%2Fa.txt"
+	got := beautifyPath(rawURL)
+	want := "https://bucket.oss-cn-hangzhou.aliyuncs.com/dir/a.txt"
+
+	if got != want {
+		t.Fatalf("expected %q, got %q", want, got)
+	}
+}
