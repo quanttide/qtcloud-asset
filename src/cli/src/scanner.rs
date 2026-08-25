@@ -82,7 +82,10 @@ fn dir_stats(path: &Path) -> Result<(usize, u64)> {
     let mut total_size = 0u64;
 
     if path.is_dir() {
-        for entry in walkdir::WalkDir::new(path).into_iter().filter_map(|e| e.ok()) {
+        for entry in walkdir::WalkDir::new(path)
+            .into_iter()
+            .filter_map(|e| e.ok())
+        {
             if entry.file_type().is_file() {
                 files_count += 1;
                 if let Ok(meta) = entry.metadata() {
@@ -97,7 +100,8 @@ fn dir_stats(path: &Path) -> Result<(usize, u64)> {
 
 /// 根据目录名推测资产类型
 fn guess_asset_type(path: &Path) -> String {
-    let name_lower = path.file_name()
+    let name_lower = path
+        .file_name()
         .map(|n| n.to_string_lossy().to_lowercase())
         .unwrap_or_default();
 
@@ -107,7 +111,10 @@ fn guess_asset_type(path: &Path) -> String {
     if name_lower.contains("journal") {
         return "日志".to_string();
     }
-    if ["prd", "brd", "ixd", "add", "qa"].iter().any(|kw| name_lower.contains(kw)) {
+    if ["prd", "brd", "ixd", "add", "qa"]
+        .iter()
+        .any(|kw| name_lower.contains(kw))
+    {
         return "文档".to_string();
     }
     if name_lower.contains("docs") || name_lower.contains("doc") {
@@ -210,8 +217,8 @@ mod tests {
     fn test_scan_directory_with_entries() {
         let tmp = std::env::temp_dir().join("test_scan_entries");
         let _ = std::fs::remove_dir_all(&tmp);
-        std::fs::create_dir_all(&tmp.join("sub1")).unwrap();
-        std::fs::create_dir_all(&tmp.join("sub2")).unwrap();
+        std::fs::create_dir_all(tmp.join("sub1")).unwrap();
+        std::fs::create_dir_all(tmp.join("sub2")).unwrap();
         std::fs::write(tmp.join("sub1").join("file1.md"), "test").unwrap();
         std::fs::write(tmp.join("sub1").join("file2.md"), "test").unwrap();
 

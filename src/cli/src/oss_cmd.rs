@@ -66,7 +66,7 @@ pub struct OssUrlArgs {
     /// 对象 key
     key: String,
 
-    /// 链接有效期（秒），公开桶忽略此参数
+    /// 链接有效期（秒），私密桶最大 604800，公开桶忽略此参数
     #[arg(long, default_value_t = 86400)]
     expires: i64,
 
@@ -86,7 +86,10 @@ pub fn execute(cmd: OssCommand) -> Result<()> {
 
 fn list(args: OssListArgs) -> Result<()> {
     let client = Client::new(&args.provider_url);
-    let buckets = client.list_buckets(args.sort.as_deref().unwrap_or(""), args.order.as_deref().unwrap_or(""))?;
+    let buckets = client.list_buckets(
+        args.sort.as_deref().unwrap_or(""),
+        args.order.as_deref().unwrap_or(""),
+    )?;
 
     render::print_header("OSS 桶列表");
     render::print_info(&format!("共 {} 个桶", buckets.len()));

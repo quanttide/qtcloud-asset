@@ -66,7 +66,11 @@ impl Client {
             has_query = true;
         }
         if !order.is_empty() {
-            path.push_str(&format!("{}order={}", if has_query { "&" } else { "?" }, order));
+            path.push_str(&format!(
+                "{}order={}",
+                if has_query { "&" } else { "?" },
+                order
+            ));
         }
 
         let resp: Resp = self.get::<Resp>(&path)?;
@@ -74,7 +78,15 @@ impl Client {
     }
 
     /// 列出桶内对象。返回对象列表及分页信息（next_marker / truncated）。
-    pub fn list_objects(&self, bucket: &str, prefix: &str, sort: &str, order: &str, limit: i64, marker: &str) -> Result<(Vec<OssObject>, Option<String>, bool)> {
+    pub fn list_objects(
+        &self,
+        bucket: &str,
+        prefix: &str,
+        sort: &str,
+        order: &str,
+        limit: i64,
+        marker: &str,
+    ) -> Result<(Vec<OssObject>, Option<String>, bool)> {
         #[derive(Deserialize)]
         struct Resp {
             objects: Vec<OssObject>,
@@ -89,7 +101,7 @@ impl Client {
         Ok((resp.objects, resp.next_marker, resp.truncated))
     }
 
-    /// 生成对象访问链接。expires 为有效期秒数，公开桶忽略此参数。
+    /// 生成对象访问链接。私密桶 expires 最大 604800 秒，公开桶忽略此参数。
     pub fn object_url(&self, bucket: &str, key: &str, expires: i64) -> Result<String> {
         #[derive(Deserialize)]
         struct Resp {
@@ -127,7 +139,14 @@ impl Client {
 }
 
 /// 构造列出对象的请求路径（含查询参数），纯函数便于测试。
-fn build_object_path(bucket: &str, prefix: &str, sort: &str, order: &str, limit: i64, marker: &str) -> String {
+fn build_object_path(
+    bucket: &str,
+    prefix: &str,
+    sort: &str,
+    order: &str,
+    limit: i64,
+    marker: &str,
+) -> String {
     let mut path = format!("/buckets/{}/objects", url_encode(bucket));
     let mut params: Vec<String> = Vec::new();
     if !prefix.is_empty() {

@@ -78,7 +78,10 @@ fn main() -> anyhow::Result<()> {
         Command::Validate(args) => validate::execute(args),
         Command::Config(args) => execute_config(args),
         Command::Oss(cmd) => oss_cmd::execute(cmd),
-        Command::Version => Ok(execute_version()),
+        Command::Version => {
+            execute_version();
+            Ok(())
+        }
     }
 }
 
@@ -106,24 +109,15 @@ fn execute_run(args: RunArgs) -> anyhow::Result<()> {
     )?;
 
     if args.verbose {
-        render::print_workflow_summary(
-            &wf.name,
-            &wf.pattern,
-            wf.tasks.len(),
-            args.dry_run,
-        );
+        render::print_workflow_summary(&wf.name, &wf.pattern, wf.tasks.len(), args.dry_run);
     }
 
     let mut success_products = 0usize;
     let mut failed_products = 0usize;
 
     for task in &wf.tasks {
-        let result = file_op::archive_product(
-            &task.src_dir,
-            &task.dst_dir,
-            &wf.pattern,
-            args.dry_run,
-        );
+        let result =
+            file_op::archive_product(&task.src_dir, &task.dst_dir, &wf.pattern, args.dry_run);
 
         if result.ok() {
             if args.dry_run {
@@ -158,7 +152,11 @@ fn execute_config(args: ConfigArgs) -> anyhow::Result<()> {
     render::print_header("契约配置");
 
     let contract = if let Some(ref path) = args.contract {
-        contract::Contract::load_at(std::path::Path::new(path).parent().unwrap_or(std::path::Path::new(".")))
+        contract::Contract::load_at(
+            std::path::Path::new(path)
+                .parent()
+                .unwrap_or(std::path::Path::new(".")),
+        )
     } else {
         contract::Contract::load()
     }?;

@@ -134,10 +134,10 @@ qtcloud-asset oss ls <桶名> --sort size --order desc
 # 分页：每页 100 个对象
 qtcloud-asset oss ls <桶名> --limit 100
 
-# 生成对象访问链接（默认 1 天，公开桶忽略有效期）
+# 生成对象访问链接（私密桶默认 1 天，最长 7 天；公开桶忽略有效期）
 qtcloud-asset oss url <桶名> <对象key>
 
-# 指定有效期（秒）
+# 指定有效期（秒，私密桶最大 604800）
 qtcloud-asset oss url <桶名> <对象key> --expires 604800
 ```
 
