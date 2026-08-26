@@ -10,6 +10,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"os"
 	"sort"
 	"strconv"
 	"strings"
@@ -31,6 +32,7 @@ const (
 	maxPrivateObjectURLExpirySeconds     int64 = 604800
 	defaultRateLimitRequests                   = 120
 	defaultRateLimitWindow                     = time.Minute
+	defaultLocalLoginRateLimitRequests         = 5
 )
 
 type inviteUserRequest struct {
@@ -43,28 +45,61 @@ type updateUserRoleRequest struct {
 	Role auth.Role `json:"role"`
 }
 
+type localLoginRequest struct {
+	Email    string `json:"email"`
+	Password string `json:"password"`
+}
+
 // Handler holds dependencies for HTTP handlers.
 type Handler struct {
-	cfg         *config.Config
-	buckets     *service.BucketService
-	sessions    *auth.Manager
-	identity    auth.IdentityProvider
-	users       auth.UserStore
-	audit       auth.AuditLogStore
-	rateLimiter *RateLimiter
+	cfg                   *config.Config
+	buckets               *service.BucketService
+	sessions              *auth.Manager
+	identity              auth.IdentityProvider
+	localAuthenticator    auth.LocalAuthenticator
+	users                 auth.UserStore
+	audit                 auth.AuditLogStore
+	rateLimiter           *RateLimiter
+	localLoginRateLimiter *RateLimiter
 }
 
 // New creates a new Handler.
 func New(cfg *config.Config, buckets *service.BucketService) *Handler {
+	cookieSecure := strings.HasPrefix(cfg.BaseURL, "https://")
 	sessions := auth.NewManager(auth.ManagerOptions{
-		CookieSecure: strings.HasPrefix(cfg.BaseURL, "https://"),
+		CookieSecure:      cookieSecure,
+		SameSite:          sameSiteForSessionCookie(cookieSecure),
+		SessionSigningKey: sessionSigningKeyForConfig(cfg),
 	})
-	return NewWithAuth(cfg, buckets, sessions, auth.NotConfiguredIdentityProvider{})
+	handler := NewWithAuth(cfg, buckets, sessions, auth.NotConfiguredIdentityProvider{})
+	handler.localAuthenticator = localAuthenticatorFromConfig(cfg)
+	return handler
+}
+
+func sameSiteForSessionCookie(cookieSecure bool) http.SameSite {
+	if cookieSecure {
+		return http.SameSiteNoneMode
+	}
+	return http.SameSiteLaxMode
+}
+
+func sessionSigningKeyForConfig(cfg *config.Config) []byte {
+	if cfg == nil || cfg.AuthMode != "local" || cfg.LocalAuthPasswordHash == "" {
+		return nil
+	}
+	return []byte("qtcloud-local-session:" + cfg.LocalAuthPasswordHash)
 }
 
 // NewWithAuth creates a Handler with explicit authentication dependencies.
 func NewWithAuth(cfg *config.Config, buckets *service.BucketService, sessions *auth.Manager, identity auth.IdentityProvider) *Handler {
-	return NewWithStores(cfg, buckets, sessions, identity, auth.NewMemoryUserStore(), auth.NewMemoryAuditLogStore())
+	return NewWithStores(cfg, buckets, sessions, identity, auth.NewMemoryUserStore(), defaultAuditLogStore())
+}
+
+func defaultAuditLogStore() auth.AuditLogStore {
+	return auth.NewMultiAuditLogStore(
+		auth.NewMemoryAuditLogStore(),
+		auth.NewJSONAuditLogStore(os.Stdout),
+	)
 }
 
 // NewWithStores creates a Handler with explicit auth storage dependencies.
@@ -82,13 +117,14 @@ func NewWithStores(cfg *config.Config, buckets *service.BucketService, sessions 
 		audit = auth.NewMemoryAuditLogStore()
 	}
 	return &Handler{
-		cfg:         cfg,
-		buckets:     buckets,
-		sessions:    sessions,
-		identity:    identity,
-		users:       users,
-		audit:       audit,
-		rateLimiter: NewRateLimiter(defaultRateLimitRequests, defaultRateLimitWindow),
+		cfg:                   cfg,
+		buckets:               buckets,
+		sessions:              sessions,
+		identity:              identity,
+		users:                 users,
+		audit:                 audit,
+		rateLimiter:           NewRateLimiter(defaultRateLimitRequests, defaultRateLimitWindow),
+		localLoginRateLimiter: NewRateLimiter(defaultLocalLoginRateLimitRequests, defaultRateLimitWindow),
 	}
 }
 
@@ -98,6 +134,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /", h.root)
 	mux.HandleFunc("GET /config", h.config)
 	mux.Handle("GET /auth/login", h.rateLimit(http.HandlerFunc(h.authLogin)))
+	mux.Handle("POST /auth/login", h.rateLimit(http.HandlerFunc(h.authLocalLogin)))
 	mux.Handle("GET /auth/callback", h.rateLimit(http.HandlerFunc(h.authCallback)))
 	mux.Handle("GET /auth/me", h.rateLimit(h.requireAuth(http.HandlerFunc(h.authMe))))
 	mux.Handle("POST /auth/logout", h.rateLimit(h.requireAuth(http.HandlerFunc(h.authLogout))))
@@ -228,6 +265,22 @@ func (h *Handler) adminMutationOriginAllowed(r *http.Request) bool {
 	return originAllowed(origins, origin)
 }
 
+func localAuthenticatorFromConfig(cfg *config.Config) auth.LocalAuthenticator {
+	if cfg == nil || cfg.AuthMode != "local" {
+		return nil
+	}
+	role := auth.Role(cfg.LocalAuthRole)
+	if !validRole(role) {
+		role = auth.RoleAdmin
+	}
+	return auth.NewLocalPasswordAuthenticator(auth.LocalPasswordConfig{
+		Email:        cfg.LocalAuthEmail,
+		Name:         cfg.LocalAuthName,
+		Role:         role,
+		PasswordHash: cfg.LocalAuthPasswordHash,
+	})
+}
+
 func userFromContext(ctx context.Context) (auth.User, bool) {
 	user, ok := ctx.Value(userContextKey).(auth.User)
 	return user, ok
@@ -332,6 +385,76 @@ func (h *Handler) authCallback(w http.ResponseWriter, r *http.Request) {
 	http.SetCookie(w, sessionCookie)
 	h.recordAudit(user.ID, auth.AuditActionLogin, auth.AuditResultSuccess, r, now)
 	http.Redirect(w, r, h.cfg.StudioOrigin, http.StatusSeeOther)
+}
+
+func (h *Handler) authLocalLogin(w http.ResponseWriter, r *http.Request) {
+	now := time.Now()
+	allowed, retryAfter := h.localLoginRateLimiter.allow("local-login|"+clientIP(r), now)
+	if !allowed {
+		w.Header().Set("Retry-After", strconv.FormatInt(int64(retryAfter.Seconds()), 10))
+		h.recordAudit("", auth.AuditActionLogin, auth.AuditResultDenied, r, now)
+		respondError(w, http.StatusTooManyRequests, "rate limit exceeded")
+		return
+	}
+	if !h.adminMutationOriginAllowed(r) {
+		h.recordAudit("", auth.AuditActionLogin, auth.AuditResultDenied, r, now)
+		respondError(w, http.StatusForbidden, "origin is not allowed")
+		return
+	}
+	if h.localAuthenticator == nil {
+		h.recordAudit("", auth.AuditActionLogin, auth.AuditResultFailure, r, now)
+		respondError(w, http.StatusServiceUnavailable, "local login is not configured")
+		return
+	}
+
+	var input localLoginRequest
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 4096)).Decode(&input); err != nil {
+		h.recordAudit("", auth.AuditActionLogin, auth.AuditResultFailure, r, now)
+		respondError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	input.Email = strings.ToLower(strings.TrimSpace(input.Email))
+	if input.Email == "" || input.Password == "" {
+		h.recordAudit("", auth.AuditActionLogin, auth.AuditResultFailure, r, now)
+		respondError(w, http.StatusBadRequest, "email and password are required")
+		return
+	}
+
+	user, err := h.localAuthenticator.Authenticate(r.Context(), input.Email, input.Password)
+	if err != nil {
+		if errors.Is(err, auth.ErrLocalPasswordNotConfigured) {
+			h.recordAudit("", auth.AuditActionLogin, auth.AuditResultFailure, r, now)
+			respondError(w, http.StatusServiceUnavailable, "local login is not configured")
+			return
+		}
+		h.recordAudit("", auth.AuditActionLogin, auth.AuditResultDenied, r, now)
+		respondError(w, http.StatusUnauthorized, "invalid credentials")
+		return
+	}
+
+	user, err = h.users.UpsertFromIdentity(user, now)
+	if err != nil {
+		log.Printf("upsert local user error: %v", err)
+		h.recordAudit("", auth.AuditActionLogin, auth.AuditResultFailure, r, now)
+		respondError(w, http.StatusInternalServerError, "failed to save user")
+		return
+	}
+	if user.Status == auth.UserStatusDisabled {
+		h.recordAudit(user.ID, auth.AuditActionLogin, auth.AuditResultDenied, r, now)
+		respondError(w, http.StatusForbidden, "user is disabled")
+		return
+	}
+	sessionCookie, err := h.sessions.CreateSessionWithMetadata(user, now, clientIP(r), r.UserAgent())
+	if err != nil {
+		log.Printf("create local session error: %v", err)
+		h.recordAudit(user.ID, auth.AuditActionLogin, auth.AuditResultFailure, r, now)
+		respondError(w, http.StatusInternalServerError, "failed to create session")
+		return
+	}
+
+	http.SetCookie(w, sessionCookie)
+	h.recordAudit(user.ID, auth.AuditActionLogin, auth.AuditResultSuccess, r, now)
+	respondJSON(w, http.StatusOK, map[string]auth.User{"user": user})
 }
 
 func (h *Handler) authMe(w http.ResponseWriter, r *http.Request) {

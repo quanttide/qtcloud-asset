@@ -44,7 +44,8 @@ docker run -p 9000:9000 qtcloud-asset-provider
 | `/health` | GET | 健康检查 |
 | `/` | GET | 服务信息 |
 | `/config` | GET | 服务配置 |
-| `/auth/login` | GET | 发起登录；真实飞书/Lark SSO 待平台接入 |
+| `/auth/login` | GET | 发起 SSO 登录；真实飞书/Lark SSO 待平台接入 |
+| `/auth/login` | POST | 本地账号密码登录；启用 `AUTH_MODE=local` 后可用 |
 | `/auth/callback` | GET | 登录回调，校验 state 后创建服务端会话 |
 | `/auth/me` | GET | 返回当前登录用户 |
 | `/auth/logout` | POST | 撤销当前会话 |
@@ -57,9 +58,9 @@ docker run -p 9000:9000 qtcloud-asset-provider
 | `/buckets/{name}/objects` | GET | 登录后列出桶内对象（只读） |
 | `/buckets/{name}/object-url?key=…&expires=…` | GET | 登录后生成公开桶直链；`admin` 可为私密桶生成限时签名 URL |
 
-认证状态使用服务端会话，浏览器只保存 `HttpOnly` Cookie。当前默认身份源是未配置占位实现，未接入平台 SSO 时 `/auth/login` 会返回 503，避免误开放登录入口。
+认证状态使用服务端会话，浏览器只保存 `HttpOnly` Cookie。当前默认 SSO 身份源是未配置占位实现，未接入平台 SSO 时 `GET /auth/login` 会返回 503，避免误开放登录入口。内测可启用 `AUTH_MODE=local` 使用单管理员账号密码登录，密码只读取 `LOCAL_AUTH_PASSWORD_HASH` 的 PBKDF2-SHA256 哈希值，不读取明文密码。
 
-账号、会话和审计的仓库侧模型位于 `internal/auth`。RDS 表结构草案位于 `internal/storage/auth_audit_schema.sql`，当前仅作为平台共享 RDS 接入前的审阅稿，不会在 Provider 启动时自动执行。
+账号、会话和审计的仓库侧模型位于 `internal/auth`。Provider 默认同时写入内存审计存储和结构化 stdout JSON，事件名为 `qtcloud_asset_audit`；生产函数计算通过 FC `logConfig` 将 stdout 持久化到 SLS。RDS 表结构草案位于 `internal/storage/auth_audit_schema.sql`，当前仅作为平台共享 RDS 接入前的审阅稿，不会在 Provider 启动时自动执行。
 
 业务权限按 `viewer` 和 `admin` 两级执行。`viewer` 的桶清单隐藏 `-private` 桶和 `quanttide-terraform-state`，只能访问公开桶对象元数据和公开链接；`admin` 可以查看全部桶、访问私密桶对象元数据、生成限时签名 URL，并通过后端管理接口邀请、禁用、改角色和撤销会话。私密桶签名 URL 默认有效期为 86400 秒，最大 604800 秒；公开桶直链返回 `expires_in=0`。未登录返回 401，已登录但权限不足或账号被禁用返回 403。管理写接口会校验浏览器 `Origin`，未登记来源返回 403；无 `Origin` 的服务端/CLI 调用保留给后续 CLI 接入。
 
@@ -70,6 +71,11 @@ docker run -p 9000:9000 qtcloud-asset-provider
 | `PROVIDER_PORT` | `9000` | 监听端口 |
 | `PROVIDER_BASE_URL` | `https://api.quanttide.com/qtcloud-asset` | 服务基础 URL |
 | `STUDIO_ORIGIN` | `https://asset.cloud.quanttide.com` | 正式 Studio 来源；默认 CORS 白名单同时保留 `https://asset.quanttide.com` |
+| `AUTH_MODE` | `sso` | 认证模式；内测账号密码登录设为 `local` |
+| `LOCAL_AUTH_EMAIL` | （空） | 本地账号登录邮箱 |
+| `LOCAL_AUTH_NAME` | （空） | 本地账号展示名称；为空时使用邮箱 |
+| `LOCAL_AUTH_ROLE` | `admin` | 本地账号角色，仅支持 `viewer` 或 `admin` |
+| `LOCAL_AUTH_PASSWORD_HASH` | （空） | 本地账号密码哈希，格式 `pbkdf2_sha256$iterations$salt$hash` |
 | `OSS_ENDPOINT` | `https://oss-cn-hangzhou.aliyuncs.com` | OSS 服务端点 |
 | `OSS_ACCESS_KEY_ID` | （空） | 本地开发用 AccessKey ID；缺失时回退到 `ALIBABA_CLOUD_ACCESS_KEY_ID` |
 | `OSS_ACCESS_KEY_SECRET` | （空） | 本地开发用 AccessKey Secret；缺失时回退到 `ALIBABA_CLOUD_ACCESS_KEY_SECRET` |

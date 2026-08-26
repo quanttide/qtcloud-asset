@@ -3,13 +3,18 @@ package auth
 
 import (
 	"context"
+	"crypto/hmac"
 	"crypto/rand"
+	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 )
@@ -118,6 +123,32 @@ type UserStore interface {
 // AuditLogStore persists security-relevant events.
 type AuditLogStore interface {
 	Record(entry AuditLog) error
+}
+
+// MultiAuditLogStore fans one audit entry out to multiple sinks.
+type MultiAuditLogStore struct {
+	stores []AuditLogStore
+}
+
+// NewMultiAuditLogStore creates an audit store that writes to every non-nil sink.
+func NewMultiAuditLogStore(stores ...AuditLogStore) *MultiAuditLogStore {
+	filtered := make([]AuditLogStore, 0, len(stores))
+	for _, store := range stores {
+		if store != nil {
+			filtered = append(filtered, store)
+		}
+	}
+	return &MultiAuditLogStore{stores: filtered}
+}
+
+// Record writes an audit entry to every configured sink.
+func (s *MultiAuditLogStore) Record(entry AuditLog) error {
+	for _, store := range s.stores {
+		if err := store.Record(entry); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // IdentityProvider exchanges SSO callback details for an authenticated user.
@@ -368,12 +399,60 @@ func (s *MemoryAuditLogStore) List() []AuditLog {
 	return entries
 }
 
+// JSONAuditLogStore writes structured audit records to an io.Writer. In FC this
+// lands in function stdout, which SLS can persist once logConfig is enabled.
+type JSONAuditLogStore struct {
+	mu sync.Mutex
+	w  io.Writer
+}
+
+// NewJSONAuditLogStore creates a structured audit log writer.
+func NewJSONAuditLogStore(w io.Writer) *JSONAuditLogStore {
+	return &JSONAuditLogStore{w: w}
+}
+
+// Record writes one structured audit event as a JSON line.
+func (s *JSONAuditLogStore) Record(entry AuditLog) error {
+	if s == nil || s.w == nil {
+		return nil
+	}
+	if entry.CreatedAt.IsZero() {
+		entry.CreatedAt = time.Now()
+	}
+	record := struct {
+		Event     string      `json:"event"`
+		ID        string      `json:"id,omitempty"`
+		UserID    string      `json:"user_id,omitempty"`
+		Action    AuditAction `json:"action"`
+		Target    string      `json:"target"`
+		Result    AuditResult `json:"result"`
+		IP        string      `json:"ip,omitempty"`
+		UserAgent string      `json:"user_agent,omitempty"`
+		CreatedAt time.Time   `json:"created_at"`
+	}{
+		Event:     "qtcloud_asset_audit",
+		ID:        entry.ID,
+		UserID:    entry.UserID,
+		Action:    entry.Action,
+		Target:    entry.Target,
+		Result:    entry.Result,
+		IP:        entry.IP,
+		UserAgent: entry.UserAgent,
+		CreatedAt: entry.CreatedAt,
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return json.NewEncoder(s.w).Encode(record)
+}
+
 // ManagerOptions controls cookie and session behavior.
 type ManagerOptions struct {
-	Store        SessionStore
-	SessionTTL   time.Duration
-	CookieSecure bool
-	SameSite     http.SameSite
+	Store             SessionStore
+	SessionTTL        time.Duration
+	CookieSecure      bool
+	SameSite          http.SameSite
+	SessionSigningKey []byte
 }
 
 // Manager creates and validates server-side sessions.
@@ -382,6 +461,7 @@ type Manager struct {
 	sessionTTL   time.Duration
 	cookieSecure bool
 	sameSite     http.SameSite
+	signingKey   []byte
 }
 
 // NewManager creates a session manager.
@@ -398,11 +478,13 @@ func NewManager(options ManagerOptions) *Manager {
 	if sameSite == 0 {
 		sameSite = http.SameSiteLaxMode
 	}
+	signingKey := append([]byte(nil), options.SessionSigningKey...)
 	return &Manager{
 		store:        store,
 		sessionTTL:   ttl,
 		cookieSecure: options.CookieSecure,
 		sameSite:     sameSite,
+		signingKey:   signingKey,
 	}
 }
 
@@ -452,9 +534,16 @@ func (m *Manager) CreateSessionWithMetadata(user User, now time.Time, ip, userAg
 	if err := m.store.Create(session); err != nil {
 		return nil, err
 	}
+	cookieValue := id
+	if len(m.signingKey) > 0 {
+		cookieValue, err = m.signSession(session)
+		if err != nil {
+			return nil, err
+		}
+	}
 	return &http.Cookie{
 		Name:     SessionCookieName,
-		Value:    id,
+		Value:    cookieValue,
 		Path:     "/",
 		MaxAge:   int(m.sessionTTL.Seconds()),
 		HttpOnly: true,
@@ -470,6 +559,15 @@ func (m *Manager) Authenticate(r *http.Request, now time.Time) (User, string, bo
 		return User{}, "", false
 	}
 	session, ok := m.store.Get(cookie.Value)
+	if !ok && len(m.signingKey) > 0 {
+		if signedSession, signedOK := m.parseSignedSession(cookie.Value); signedOK {
+			if storedSession, storedOK := m.store.Get(signedSession.ID); storedOK {
+				session, ok = storedSession, true
+			} else {
+				session, ok = signedSession, true
+			}
+		}
+	}
 	if !ok || session.RevokedAt != nil || !now.Before(session.ExpiresAt) {
 		return User{}, "", false
 	}
@@ -482,7 +580,18 @@ func (m *Manager) RevokeFromRequest(r *http.Request, now time.Time) bool {
 	if err != nil || cookie.Value == "" {
 		return false
 	}
-	return m.store.Revoke(cookie.Value, now)
+	sessionID := cookie.Value
+	if session, ok := m.parseSignedSession(cookie.Value); ok {
+		if m.store.Revoke(session.ID, now) {
+			return true
+		}
+		session.RevokedAt = &now
+		if err := m.store.Create(session); err != nil {
+			return false
+		}
+		return true
+	}
+	return m.store.Revoke(sessionID, now)
 }
 
 // RevokeUserSessions revokes every active session held by a user.
@@ -525,4 +634,73 @@ func randomToken() (string, error) {
 		return "", fmt.Errorf("generate auth token: %w", err)
 	}
 	return base64.RawURLEncoding.EncodeToString(buf), nil
+}
+
+type signedSessionPayload struct {
+	ID        string     `json:"id"`
+	UserID    string     `json:"user_id"`
+	Email     string     `json:"email"`
+	Name      string     `json:"name"`
+	Role      Role       `json:"role"`
+	Status    UserStatus `json:"status"`
+	ExpiresAt int64      `json:"expires_at"`
+}
+
+func (m *Manager) signSession(session Session) (string, error) {
+	payload, err := json.Marshal(signedSessionPayload{
+		ID:        session.ID,
+		UserID:    session.UserID,
+		Email:     session.User.Email,
+		Name:      session.User.Name,
+		Role:      session.User.Role,
+		Status:    session.User.Status,
+		ExpiresAt: session.ExpiresAt.UnixNano(),
+	})
+	if err != nil {
+		return "", fmt.Errorf("encode signed session: %w", err)
+	}
+	mac := hmac.New(sha256.New, m.signingKey)
+	_, _ = mac.Write(payload)
+	signature := mac.Sum(nil)
+	return base64.RawURLEncoding.EncodeToString(payload) + "." +
+		base64.RawURLEncoding.EncodeToString(signature), nil
+}
+
+func (m *Manager) parseSignedSession(value string) (Session, bool) {
+	parts := strings.Split(value, ".")
+	if len(parts) != 2 || len(m.signingKey) == 0 {
+		return Session{}, false
+	}
+	payload, err := base64.RawURLEncoding.DecodeString(parts[0])
+	if err != nil {
+		return Session{}, false
+	}
+	signature, err := base64.RawURLEncoding.DecodeString(parts[1])
+	if err != nil {
+		return Session{}, false
+	}
+	mac := hmac.New(sha256.New, m.signingKey)
+	_, _ = mac.Write(payload)
+	if subtle.ConstantTimeCompare(mac.Sum(nil), signature) != 1 {
+		return Session{}, false
+	}
+	var decoded signedSessionPayload
+	if err := json.Unmarshal(payload, &decoded); err != nil {
+		return Session{}, false
+	}
+	if decoded.ID == "" || decoded.UserID == "" || decoded.ExpiresAt <= 0 {
+		return Session{}, false
+	}
+	return Session{
+		ID:     decoded.ID,
+		UserID: decoded.UserID,
+		User: User{
+			ID:     decoded.UserID,
+			Email:  decoded.Email,
+			Name:   decoded.Name,
+			Role:   decoded.Role,
+			Status: decoded.Status,
+		},
+		ExpiresAt: time.Unix(0, decoded.ExpiresAt),
+	}, true
 }

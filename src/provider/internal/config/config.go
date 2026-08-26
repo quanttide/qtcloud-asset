@@ -2,18 +2,24 @@ package config
 
 import (
 	"os"
+	"strings"
 )
 
 // Config holds the provider configuration.
 type Config struct {
-	Port               string
-	BaseURL            string
-	StudioOrigin       string
-	StudioOrigins      []string
-	OSSEndpoint        string
-	OSSAccessKeyID     string
-	OSSAccessKeySecret string
-	OSSSecurityToken   string
+	Port                  string
+	BaseURL               string
+	StudioOrigin          string
+	StudioOrigins         []string
+	AuthMode              string
+	LocalAuthEmail        string
+	LocalAuthName         string
+	LocalAuthRole         string
+	LocalAuthPasswordHash string
+	OSSEndpoint           string
+	OSSAccessKeyID        string
+	OSSAccessKeySecret    string
+	OSSSecurityToken      string
 }
 
 // Load reads configuration from environment variables.
@@ -51,14 +57,19 @@ func Load() *Config {
 	}
 
 	return &Config{
-		Port:               getEnv("PROVIDER_PORT", "9000"),
-		BaseURL:            getEnv("PROVIDER_BASE_URL", "https://api.quanttide.com/qtcloud-asset"),
-		StudioOrigin:       studioOrigin,
-		StudioOrigins:      studioOrigins,
-		OSSEndpoint:        getEnv("OSS_ENDPOINT", "https://oss-cn-hangzhou.aliyuncs.com"),
-		OSSAccessKeyID:     accessKeyID,
-		OSSAccessKeySecret: accessKeySecret,
-		OSSSecurityToken:   securityToken,
+		Port:                  getEnv("PROVIDER_PORT", "9000"),
+		BaseURL:               getEnv("PROVIDER_BASE_URL", "https://api.quanttide.com/qtcloud-asset"),
+		StudioOrigin:          studioOrigin,
+		StudioOrigins:         studioOrigins,
+		AuthMode:              strings.ToLower(getEnv("AUTH_MODE", "sso")),
+		LocalAuthEmail:        getEnv("LOCAL_AUTH_EMAIL", ""),
+		LocalAuthName:         getEnv("LOCAL_AUTH_NAME", ""),
+		LocalAuthRole:         getEnv("LOCAL_AUTH_ROLE", "admin"),
+		LocalAuthPasswordHash: getEnv("LOCAL_AUTH_PASSWORD_HASH", ""),
+		OSSEndpoint:           getEnv("OSS_ENDPOINT", "https://oss-cn-hangzhou.aliyuncs.com"),
+		OSSAccessKeyID:        accessKeyID,
+		OSSAccessKeySecret:    accessKeySecret,
+		OSSSecurityToken:      securityToken,
 	}
 }
 

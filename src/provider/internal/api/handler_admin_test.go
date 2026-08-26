@@ -45,7 +45,7 @@ func newAdminTestHarness(t *testing.T) adminTestHarness {
 func (h adminTestHarness) sessionCookie(t *testing.T, user auth.User) *http.Cookie {
 	t.Helper()
 
-	now := time.Date(2026, 8, 25, 15, 0, 0, 0, time.UTC)
+	now := time.Now()
 	saved, err := h.users.UpsertManaged(user, now)
 	if err != nil {
 		t.Fatalf("upsert managed user: %v", err)

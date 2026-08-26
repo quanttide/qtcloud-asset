@@ -1,6 +1,8 @@
 package auth
 
 import (
+	"bytes"
+	"encoding/json"
 	"testing"
 	"time"
 )
@@ -124,5 +126,59 @@ func TestMemoryAuditLogStoreRecordsAndListsEntries(t *testing.T) {
 	}
 	if entries[0].ID == "" || entries[0].Action != AuditActionLogin || entries[0].CreatedAt != now {
 		t.Fatalf("unexpected audit entry: %+v", entries[0])
+	}
+}
+
+func TestJSONAuditLogStoreWritesStructuredAuditEntry(t *testing.T) {
+	var out bytes.Buffer
+	store := NewJSONAuditLogStore(&out)
+	now := time.Date(2026, 8, 26, 19, 30, 0, 0, time.UTC)
+
+	if err := store.Record(AuditLog{
+		UserID:    "user-1",
+		Action:    AuditActionObjectURL,
+		Target:    "/buckets/qtcloud-asset-studio/object-url?key=index.html",
+		Result:    AuditResultSuccess,
+		IP:        "192.0.2.10",
+		UserAgent: "test-agent",
+		CreatedAt: now,
+	}); err != nil {
+		t.Fatalf("record structured audit log: %v", err)
+	}
+
+	var logged struct {
+		Event     string      `json:"event"`
+		UserID    string      `json:"user_id"`
+		Action    AuditAction `json:"action"`
+		Target    string      `json:"target"`
+		Result    AuditResult `json:"result"`
+		IP        string      `json:"ip"`
+		UserAgent string      `json:"user_agent"`
+		CreatedAt time.Time   `json:"created_at"`
+	}
+	if err := json.Unmarshal(bytes.TrimSpace(out.Bytes()), &logged); err != nil {
+		t.Fatalf("decode structured audit log: %v output=%q", err, out.String())
+	}
+	if logged.Event != "qtcloud_asset_audit" || logged.Action != AuditActionObjectURL || logged.Result != AuditResultSuccess {
+		t.Fatalf("unexpected structured audit log: %+v", logged)
+	}
+	if logged.UserID != "user-1" || logged.IP != "192.0.2.10" || !logged.CreatedAt.Equal(now) {
+		t.Fatalf("audit metadata not preserved: %+v", logged)
+	}
+}
+
+func TestMultiAuditLogStoreRecordsEverySink(t *testing.T) {
+	memory := NewMemoryAuditLogStore()
+	var out bytes.Buffer
+	store := NewMultiAuditLogStore(memory, NewJSONAuditLogStore(&out))
+
+	if err := store.Record(AuditLog{Action: AuditActionLogin, Result: AuditResultDenied, Target: "/auth/login"}); err != nil {
+		t.Fatalf("record multi audit log: %v", err)
+	}
+	if got := len(memory.List()); got != 1 {
+		t.Fatalf("expected memory sink to receive audit entry, got %d", got)
+	}
+	if !bytes.Contains(out.Bytes(), []byte(`"event":"qtcloud_asset_audit"`)) {
+		t.Fatalf("expected JSON sink to receive audit event, got %q", out.String())
 	}
 }

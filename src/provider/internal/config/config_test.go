@@ -42,6 +42,26 @@ func TestLoadAllowsStudioOriginOverride(t *testing.T) {
 	}
 }
 
+func TestLoadReadsLocalAuthConfiguration(t *testing.T) {
+	t.Setenv("AUTH_MODE", "local")
+	t.Setenv("LOCAL_AUTH_EMAIL", "admin@example.com")
+	t.Setenv("LOCAL_AUTH_NAME", "Admin User")
+	t.Setenv("LOCAL_AUTH_ROLE", "admin")
+	t.Setenv("LOCAL_AUTH_PASSWORD_HASH", "pbkdf2_sha256$1000$salt$hash")
+
+	cfg := Load()
+
+	if cfg.AuthMode != "local" || cfg.LocalAuthEmail != "admin@example.com" {
+		t.Fatalf("expected local auth config to load, got %#v", cfg)
+	}
+	if cfg.LocalAuthName != "Admin User" || cfg.LocalAuthRole != "admin" {
+		t.Fatalf("expected local auth identity metadata, got %#v", cfg)
+	}
+	if cfg.LocalAuthPasswordHash != "pbkdf2_sha256$1000$salt$hash" {
+		t.Fatalf("expected local auth password hash to load, got %#v", cfg)
+	}
+}
+
 func TestLoadUsesFCExecutionRoleCredentialsWhenExplicitCredentialsAreMissing(t *testing.T) {
 	t.Setenv("OSS_ACCESS_KEY_ID", "")
 	t.Setenv("OSS_ACCESS_KEY_SECRET", "")
