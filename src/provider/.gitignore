@@ -2,6 +2,7 @@
 /bin/
 /tmp/
 /provider.exe
+/dist/
 
 # Logs
 *.log
