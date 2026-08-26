@@ -22,20 +22,22 @@
 ## [0.1.1] — 账号与门禁
 
 ### Added
-- [ ] 身份源选型与接入：飞书/Lark SSO 优先，必要时启用邀请码/邮箱验证码
-- [ ] 登录态与会话：`/auth/login`、`/auth/callback`、`/auth/logout`、`/auth/me`
-- [ ] 角色体系：`viewer` / `operator` / `admin`
-- [ ] 私密桶仅授权人员可见，公开桶继续只读
-- [ ] 访问审计：用户、IP、bucket、action、result
-- [ ] 管理员邀请 / 禁用用户
-- [ ] Studio 登录态展示与退出登录
+- [x] 身份源选型：飞书/Lark SSO 优先，必要时启用邀请码/邮箱验证码
+- [ ] 身份源接入：平台 SSO 或邀请码/邮箱验证码兜底仍待灰度前接通
+- [x] 登录态与会话：`/auth/login`、`/auth/callback`、`/auth/logout`、`/auth/me`
+- [x] 角色体系：`viewer` / `admin`
+- [x] 私密桶仅授权人员可见，公开桶继续只读
+- [x] 访问审计：用户、IP、bucket、action、result
+- [x] 管理员邀请 / 禁用用户
+- [x] Studio 登录态展示与退出登录
 - [ ] 认证态 smoke test 与灰度发布
 
 ### Security
-- [ ] `/buckets`、`/objects`、`/object-url` 全部加鉴权
-- [ ] CORS 收口到已登记来源，必要时启用 credentials
-- [ ] 会话 cookie、安全头、CSRF 保护
-- [ ] 登录与敏感接口限流
+- [x] `/buckets`、`/objects`、`/object-url` 全部加鉴权
+- [x] Provider CORS 收口到已登记来源，必要时启用 credentials
+- [ ] 平台 API 网关 CORS 收口到已登记来源
+- [x] 会话 cookie、安全头、管理写接口 Origin 校验
+- [x] 登录与敏感接口限流
 - [ ] AK/SK 凭证迁移到阿里云 KMS
 
 ## [0.2.0] — 补齐与加固
