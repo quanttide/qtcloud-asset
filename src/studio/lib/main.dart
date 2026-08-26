@@ -76,6 +76,22 @@ class ProviderApiClient {
 
   Uri get loginUri => Uri.parse('$baseUrl/auth/login');
 
+  Future<ProviderUser> login({
+    required String email,
+    required String password,
+  }) async {
+    final response = await _httpClient
+        .post(
+          _uri('/auth/login'),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({'email': email, 'password': password}),
+        )
+        .timeout(const Duration(seconds: 15));
+    _ensureSuccess(response);
+    final body = jsonDecode(response.body) as Map<String, dynamic>;
+    return ProviderUser.fromJson(body['user'] as Map<String, dynamic>);
+  }
+
   Uri _uri(String path, {Map<String, String>? queryParameters}) {
     return Uri.parse('$baseUrl$path').replace(
       queryParameters: queryParameters == null || queryParameters.isEmpty
@@ -471,12 +487,14 @@ class DashboardScreen extends StatefulWidget {
 
 class _DashboardScreenState extends State<DashboardScreen> {
   late ProviderApiClient _client;
-  late LoginRedirect _loginRedirect;
   late Future<ProviderUser> _currentUser;
   Future<Map<String, dynamic>>? _health;
   Future<List<Bucket>>? _buckets;
-  bool _loginRedirectScheduled = false;
   bool _loggedOut = false;
+  bool _loginSubmitting = false;
+  String? _loginError;
+  final _loginEmailController = TextEditingController();
+  final _loginPasswordController = TextEditingController();
   String? _selectedCategory; // null = 全部
   String _searchText = '';
   bool _sortAscending = true; // true = A 到 Z（默认），false = Z 到 A
@@ -499,8 +517,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
   void initState() {
     super.initState();
     _client = widget.client ?? ProviderApiClient();
-    _loginRedirect = widget.loginRedirect ?? defaultLoginRedirect;
     _currentUser = _client.fetchCurrentUser();
+  }
+
+  @override
+  void dispose() {
+    _loginEmailController.dispose();
+    _loginPasswordController.dispose();
+    super.dispose();
   }
 
   @override
@@ -509,9 +533,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
     if (oldWidget.client != widget.client ||
         oldWidget.loginRedirect != widget.loginRedirect) {
       _client = widget.client ?? ProviderApiClient();
-      _loginRedirect = widget.loginRedirect ?? defaultLoginRedirect;
       _loggedOut = false;
-      _loginRedirectScheduled = false;
+      _loginError = null;
       _currentUser = _client.fetchCurrentUser();
       _health = null;
       _buckets = null;
@@ -529,7 +552,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   void _refresh() {
     setState(() {
       _loggedOut = false;
-      _loginRedirectScheduled = false;
+      _loginError = null;
       _currentUser = _client.fetchCurrentUser();
       _health = null;
       _buckets = null;
@@ -543,20 +566,48 @@ class _DashboardScreenState extends State<DashboardScreen> {
       if (mounted) {
         setState(() {
           _loggedOut = true;
+          _loginError = null;
           _health = null;
           _buckets = null;
-          _loginRedirectScheduled = false;
         });
       }
     }
   }
 
-  void _scheduleLoginRedirect() {
-    if (_loginRedirectScheduled) return;
-    _loginRedirectScheduled = true;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _loginRedirect(_client.loginUri);
+  Future<void> _login() async {
+    final email = _loginEmailController.text.trim();
+    final password = _loginPasswordController.text;
+    if (email.isEmpty || password.isEmpty) {
+      setState(() {
+        _loginError = '请输入账号和密码。';
+      });
+      return;
+    }
+
+    setState(() {
+      _loginSubmitting = true;
+      _loginError = null;
     });
+    try {
+      final user = await _client.login(email: email, password: password);
+      if (!mounted) return;
+      setState(() {
+        _loggedOut = false;
+        _loginSubmitting = false;
+        _loginError = null;
+        _currentUser = Future.value(user);
+        _health = null;
+        _buckets = null;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _loginSubmitting = false;
+        _loginError = error is ProviderApiException && error.statusCode == 503
+            ? '登录服务尚未配置。'
+            : '账号或密码错误，请重试。';
+      });
+    }
   }
 
   void _ensureProtectedDataLoaded() {
@@ -698,15 +749,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final logoutMessage = _loggedOut ? '已退出当前会话，请重新登录。' : null;
     if (_loggedOut) {
       return _AuthScaffold(
         title: '量潮资产云',
-        child: _AuthStatusPanel(
-          icon: Icons.login,
-          title: '已退出登录',
-          message: '已退出当前会话，请重新登录。',
-          actionLabel: '重新登录',
-          onAction: () => _loginRedirect(_client.loginUri),
+        child: _LoginPanel(
+          emailController: _loginEmailController,
+          passwordController: _loginPasswordController,
+          message: logoutMessage,
+          error: _loginError,
+          submitting: _loginSubmitting,
+          onSubmit: _login,
         ),
       );
     }
@@ -728,15 +781,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
         if (snapshot.hasError) {
           final error = snapshot.error;
           if (error is AuthRequiredException) {
-            _scheduleLoginRedirect();
             return _AuthScaffold(
               title: '量潮资产云',
-              child: _AuthStatusPanel(
-                icon: Icons.login,
-                title: '正在跳转登录…',
-                message: '未检测到有效会话，请完成登录后返回。',
-                actionLabel: '重新登录',
-                onAction: () => _loginRedirect(_client.loginUri),
+              child: _LoginPanel(
+                emailController: _loginEmailController,
+                passwordController: _loginPasswordController,
+                error: _loginError,
+                submitting: _loginSubmitting,
+                onSubmit: _login,
               ),
             );
           }
@@ -909,6 +961,102 @@ class _AuthStatusPanel extends StatelessWidget {
                 label: Text(actionLabel!),
               ),
             ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _LoginPanel extends StatelessWidget {
+  const _LoginPanel({
+    required this.emailController,
+    required this.passwordController,
+    required this.submitting,
+    required this.onSubmit,
+    this.message,
+    this.error,
+  });
+
+  final TextEditingController emailController;
+  final TextEditingController passwordController;
+  final bool submitting;
+  final VoidCallback onSubmit;
+  final String? message;
+  final String? error;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Icon(Icons.lock_person, size: 32, color: Color(0xFF2563EB)),
+            const SizedBox(height: 12),
+            const Text(
+              '登录资产云',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              textAlign: TextAlign.center,
+            ),
+            if (message != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                message!,
+                style: const TextStyle(fontSize: 13, color: Color(0xFF6B7280)),
+                textAlign: TextAlign.center,
+              ),
+            ],
+            const SizedBox(height: 18),
+            TextField(
+              key: const Key('login-email'),
+              controller: emailController,
+              enabled: !submitting,
+              keyboardType: TextInputType.emailAddress,
+              autofillHints: const [AutofillHints.username],
+              decoration: const InputDecoration(
+                labelText: '账号',
+                prefixIcon: Icon(Icons.account_circle_outlined),
+                isDense: true,
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              key: const Key('login-password'),
+              controller: passwordController,
+              enabled: !submitting,
+              obscureText: true,
+              autofillHints: const [AutofillHints.password],
+              onSubmitted: (_) => submitting ? null : onSubmit(),
+              decoration: const InputDecoration(
+                labelText: '密码',
+                prefixIcon: Icon(Icons.password),
+                isDense: true,
+              ),
+            ),
+            if (error != null) ...[
+              const SizedBox(height: 10),
+              Text(
+                error!,
+                style: TextStyle(fontSize: 13, color: Colors.red.shade700),
+              ),
+            ],
+            const SizedBox(height: 18),
+            FilledButton.icon(
+              onPressed: submitting ? null : onSubmit,
+              icon: submitting
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.login, size: 18),
+              label: const Text('登录'),
+            ),
           ],
         ),
       ),

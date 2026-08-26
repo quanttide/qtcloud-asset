@@ -31,6 +31,28 @@ void main() {
     expect(user.displayName, 'viewer@example.com');
   });
 
+  test('ProviderApiClient logs in with local account credentials', () async {
+    final client = ProviderApiClient(
+      baseUrl: 'https://api.example.com',
+      httpClient: MockClient((request) async {
+        expect(request.method, 'POST');
+        expect(request.url.path, '/auth/login');
+        expect(request.headers['Content-Type'], contains('application/json'));
+        expect(request.body, contains('admin@example.com'));
+        expect(request.body, contains('correct-password'));
+        return http.Response(_adminUserBody, 200);
+      }),
+    );
+
+    final user = await client.login(
+      email: 'admin@example.com',
+      password: 'correct-password',
+    );
+
+    expect(user.email, 'admin@example.com');
+    expect(user.role, 'admin');
+  });
+
   test('ProviderApiClient maps 401 current user responses to auth required',
       () async {
     final client = ProviderApiClient(
@@ -232,6 +254,18 @@ const _healthBody = '''
 {
   "service": "qtcloud-asset-provider",
   "status": "ok"
+}
+''';
+
+const _adminUserBody = '''
+{
+  "user": {
+    "id": "admin-1",
+    "email": "admin@example.com",
+    "name": "Admin User",
+    "role": "admin",
+    "status": "active"
+  }
 }
 ''';
 

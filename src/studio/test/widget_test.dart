@@ -41,20 +41,23 @@ void main() {
     expect(find.text('对象存储桶'), findsOneWidget);
   });
 
-  testWidgets(
-      'Dashboard redirects unauthenticated users before loading buckets', (
+  testWidgets('Dashboard shows local login form before loading buckets', (
     WidgetTester tester,
   ) async {
     Uri? redirectedTo;
-    final requestedPaths = <String>[];
+    final requested = <String>[];
     final client = ProviderApiClient(
       baseUrl: 'https://api.example.com',
       httpClient: MockClient((request) async {
-        requestedPaths.add(request.url.path);
-        if (request.url.path == '/auth/me') {
-          return http.Response('{"error":"authentication required"}', 401);
-        }
-        return http.Response('{"error":"unexpected"}', 500);
+        requested.add('${request.method} ${request.url.path}');
+        return switch ((request.method, request.url.path)) {
+          ('GET', '/auth/me') =>
+            http.Response('{"error":"authentication required"}', 401),
+          ('POST', '/auth/login') => http.Response(_authMeBody, 200),
+          ('GET', '/health') => http.Response(_healthBody, 200),
+          ('GET', '/buckets') => http.Response(_bucketsBody, 200),
+          _ => http.Response('{"error":"unexpected"}', 500),
+        };
       }),
     );
 
@@ -70,10 +73,25 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(requestedPaths, ['/auth/me']);
-    expect(redirectedTo, Uri.parse('https://api.example.com/auth/login'));
-    expect(find.text('正在跳转登录…'), findsOneWidget);
+    expect(requested, ['GET /auth/me']);
+    expect(redirectedTo, isNull);
+    expect(find.text('登录资产云'), findsOneWidget);
     expect(find.text('对象存储桶'), findsNothing);
+
+    await tester.enterText(
+      find.byKey(const Key('login-email')),
+      'viewer@example.com',
+    );
+    await tester.enterText(
+      find.byKey(const Key('login-password')),
+      'correct-password',
+    );
+    await tester.tap(find.text('登录'));
+    await tester.pumpAndSettle();
+
+    expect(requested, contains('POST /auth/login'));
+    expect(find.text('Viewer User'), findsOneWidget);
+    expect(find.text('对象存储桶'), findsOneWidget);
   });
 
   testWidgets('Dashboard shows the authenticated user and logout action', (
@@ -212,6 +230,7 @@ void main() {
           ('GET', '/health') => http.Response(_healthBody, 200),
           ('GET', '/buckets') => http.Response(_bucketsBody, 200),
           ('POST', '/auth/logout') => http.Response('', 204),
+          ('POST', '/auth/login') => http.Response(_authMeBody, 200),
           _ => http.Response('{"error":"unexpected"}', 500),
         };
       }),
@@ -236,10 +255,20 @@ void main() {
     expect(redirectedTo, isNull);
     expect(find.text('已退出当前会话，请重新登录。'), findsOneWidget);
 
-    await tester.tap(find.text('重新登录'));
+    await tester.enterText(
+      find.byKey(const Key('login-email')),
+      'viewer@example.com',
+    );
+    await tester.enterText(
+      find.byKey(const Key('login-password')),
+      'correct-password',
+    );
+    await tester.tap(find.text('登录'));
     await tester.pumpAndSettle();
 
-    expect(redirectedTo, Uri.parse('https://api.example.com/auth/login'));
+    expect(redirectedTo, isNull);
+    expect(requested, contains('POST /auth/login'));
+    expect(find.text('Viewer User'), findsOneWidget);
   });
 
   testWidgets('Dashboard places creation-time sort before alphabet sort', (
