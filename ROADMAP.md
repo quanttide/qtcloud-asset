@@ -1,53 +1,90 @@
-# 数字资产云路线图
+# ROADMAP
 
-## 当前阶段：文档体系对齐（v0.1.x）
+> 格式：Keep a Changelog + checkbox 任务清单。
 
-主仓库已建立 BRD→PRD→ADD 三层文档标准，资产云需要将现有文档对齐到新格式。
+## [0.1.0] — 可视化对象存储 MVP
 
-### 文档对齐
+### Added
+- [x] Provider 采用 Go 技术栈，`OssAdapter` 作为 `SourceAdapter` 首个实现
+- [x] 只读端点 `/buckets`：列出 OSS 桶（含 region、存储类型、创建时间）
+- [x] 只读端点 `/buckets/{name}/objects`：列出桶内对象
+- [x] 端点 `/buckets/{name}/object-url`：生成对象访问链接，私密桶走签名 URL、公开桶走永久直链
+- [x] Studio 桶列表页：按用途分类筛选、搜索、创建时间排序
+- [x] Studio 文件浏览页：目录层级下钻、搜索、日期/大小排序
+- [x] Studio 复制访问链接：有效期自选（1 天 / 7 天 / 30 天）
+- [x] CLI 新增 `oss` 子命令（list / ls / url），复用 Provider 只读接口
 
-- [ ] **docs/index.md** — 产品简介（已完稿 ✅）
-- [ ] **BRD 模块重写** — graph、harness、pricing、skill-composition 按新格式（场景-困境-救援）统一
-- [ ] **PRD 模块重写** — 对应 BRD 模块，按用户故事 + Given-When-Then 格式统一
-- [ ] **IXD 文档补齐** — 当前 ixd/ 目录仅索引页，需补充交互设计文档（等待主仓库 product-ixd SKILL）
-- [ ] **ADD 文档补齐** — 当前缺少 add/ 目录，需为每个模块补充架构设计文档
-- [ ] **QA 文档对齐** — 当前 qa/ 是架构决策记录，需按未来 product-qa SKILL 范式转换
-- [ ] **README / CONTRIBUTING / AGENTS** — 按认知角色重组（参考 qtcloud-human）
+### Changed
+- [x] 清理 `src/provider/README.md` 遗留的 git 冲突标记
+- [x] 修订 `code/contract.yaml`：Provider 技术栈统一为 Go，补充 `aliyun-oss-go-sdk`
+- [x] `oss-integration.md` 完成阶段一基线口径对齐
 
-### 检验标准
+## [0.1.1] — 账号与门禁
 
-- 所有模块对齐完成后通过 `myst build --html` 无报错
-- 读者能从 BRD 理解痛点，从 PRD 理解需求，从 ADD 理解方案
+### Added
+- [x] 身份源选型：飞书/Lark SSO 优先，必要时启用邀请码/邮箱验证码
+- [x] 登录态与会话：`/auth/login`、`/auth/callback`、`/auth/logout`、`/auth/me`
+- [x] 本地账号密码登录：内测使用 `AUTH_MODE=local`、PBKDF2-SHA256 密码哈希和服务端会话
+- [x] 角色体系：`viewer` / `admin`
+- [x] 私密桶仅授权人员可见，公开桶继续只读
+- [x] 访问审计：用户、IP、bucket、action、result
+- [x] 审计日志持久化：Provider 输出结构化 `qtcloud_asset_audit`，函数计算 stdout 接入 SLS
+- [x] 管理员邀请 / 禁用用户
+- [x] Studio 登录态展示与退出登录
+- [x] 认证态 smoke test 与线上浏览器主路径验收
 
----
+### Security
+- [x] `/buckets`、`/objects`、`/object-url` 全部加鉴权
+- [x] Provider CORS 收口到已登记来源，必要时启用 credentials
+- [x] 平台 API 网关 CORS 收口到已登记来源
+- [x] 会话 cookie、安全头、管理写接口 Origin 校验
+- [x] 登录与敏感接口限流
 
-## 产品开发目标
+## [0.1.2] — 身份源与发布收口
 
-### 目标 1 — 重新设计数字资产契约
+### Added
+- [ ] 接入平台 SSO 或真实身份源，替换默认 SSO 占位实现
+- [ ] 将线上登录后浏览器验收脚本固化为可重复执行的 smoke test
+- [ ] 补齐 GitHub Flow 发布记录：PR、CI、release audit、tag 和 GitHub Release
+- [ ] PR 检查确认不包含 `plan.md`、`plans.md` 或 `plan-a.md`
 
-当前契约是简单的路径映射（`journal → archive`），需要演进为**声明式资产地图**：
+### Changed
+- [ ] 决定 `qtcloud-asset/provider/` 是否迁到专用 Provider 制品桶或制品仓库
+- [ ] 明确旧入口 `asset.quanttide.com` 的保留、跳转或下线策略
+- [ ] 同步 `CHANGELOG.md`、`README.md`、`src/provider/README.md` 和 `docs/prd/oss-integration.md`
 
-- [ ] **统一契约 Schema** — 定义 `assets` 和 `skills` 的标准结构，对齐主仓库 `.quanttide/asset/contract.yaml`
-- [ ] **契约解析器** — 读取 `.quanttide/asset/contract.yaml`，扫描资产目录，生成资产清单
-- [ ] **Skill 执行引擎** — CLI 支持 `qtcloud-asset execute --skill=archive-journal`
-- [ ] **契约验证** — 检查契约中声明的资产路径是否存在、是否可访问
-- [ ] **契约 diff** — 对比契约版本差异，显示资产增减、技能变更
+### Security
+- [ ] 明确本地账号密码登录的内测退场条件和管理员账号轮换流程
+- [ ] 对私密桶对象签名 URL 的默认有效期和最大有效期做产品化确认
+- [ ] 明确 API 网关、DNS、CDN、证书、RAM 权限和 OSS 删除操作的单独授权清单
+- [ ] 将长期 OSS AK/SK 使用路径迁移到 RAM 角色、临时凭证或 KMS 管控链路
 
-### 目标 2 — 重新设计质量控制文档
+## [0.2.0] — 补齐与加固
 
-当前 QA 文档是架构决策记录（Q001-Q008），需要建立**完整的质量治理体系**：
+### Added
+- [ ] 桶/对象列表自动刷新
+- [ ] `ListObjects` 分页，突破单次 1000 个对象上限
+- [ ] 文件上传、下载、删除等写操作
 
-- [ ] **质量指标体系** — 代码质量、文档质量、契约质量
-- [ ] **准入/准出标准** — 每个功能从 exploring → validating → released 的门槛
-- [ ] **自动化质量检查** — 集成到 CI
-- [ ] **质量报告** — 定期生成各维度评分和趋势
+### Changed
+- [x] 在 `.quanttide/asset/contract.yaml` 登记 35 个 OSS 桶为资产条目
 
-### 目标 3 — Studio：资产浏览（参照 qtfounder asset 页模式）
+### Security
+- [ ] 确认私密桶链接默认有效期与档位（是否含「永久」）
 
-qtfounder studio 已沉淀「资产契约 + 资产目录 + 通用页面」模式（fiction/memory 资产页：**页面结构 = 仓库目录结构**），qtcloud-asset studio 按同一模式规划：
+## [0.3.0] — 全景与多源
 
-- [ ] **资产契约落地** — 定义资产契约（levels 层级语义 + naming 命名排序 + ignore 忽略文件），复用目标 1 的统一契约 Schema
-- [ ] **资产目录引擎** — 读契约 → 遍历资产目录 → 解析命名 → 排序 → 输出目录树（AssetCatalog）
-- [ ] **通用资产页面** — AssetCatalogPage 按契约渲染：一级 = 资产类型（data/ 的 context/insight/intention/journal/profile/report/roadmap，docs/ 的 bylaw/essay/gallery/handbook/specification/tutorial），二级 = 阶段/子类，文件名即条目
-- [ ] **只读浏览 + 阅读页** — 不发明视图，目录结构本身就是视图；点击文件打开阅读详情页
-- [ ] **现有页面升级** — `asset_contract_screen.dart` 按契约驱动重构，与目标 1（契约解析器）衔接
+### Added
+- [ ] 桶/对象注册为契约资产，建立跨平台关联关系
+- [ ] 接入 GitHub 适配器
+- [ ] 接入飞书适配器
+- [ ] 资产全景总览：按平台 + 用途分组的统一视图
+
+## [0.0.1] — 已发布
+
+### Added
+- [x] CLI 模块：run / scan / validate / config / version
+- [x] 契约系统：Pydantic 模型，自动识别契约目录
+- [x] Studio 客户端与 Provider 服务端骨架
+- [x] 文档体系：BRD、PRD、IXD、QA、用户文档
+- [x] 阿里云基础设施代码（函数计算、OSS、VPC）

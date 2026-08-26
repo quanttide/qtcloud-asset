@@ -1,3 +1,4 @@
+use crate::oss::{Bucket, OssObject};
 use crate::scanner::AssetInfo;
 
 /// 打印成功信息
@@ -53,4 +54,48 @@ pub fn print_workflow_summary(name: &str, pattern: &str, tasks_count: usize, dry
     println!("\n[{}] 技能: {}", mode, name);
     println!("[{}] 模式: {}", mode, pattern);
     println!("[{}] 产品数: {}", mode, tasks_count);
+}
+
+/// 打印单个 OSS 桶。
+pub fn print_bucket(b: &Bucket) {
+    let mut line = format!("  - {}", b.name);
+    if !b.region.is_empty() {
+        line.push_str(&format!(" [{}]", b.region));
+    }
+    if !b.storage_class.is_empty() {
+        line.push_str(&format!(" {}", b.storage_class));
+    }
+    if !b.created_at.is_empty() {
+        line.push_str(&format!(" 创建于 {}", b.created_at));
+    }
+    println!("{line}");
+}
+
+/// 打印单个 OSS 对象（文件或目录）。
+pub fn print_object(o: &OssObject) {
+    let is_dir = o.key.ends_with('/');
+    let size = if is_dir {
+        String::new()
+    } else {
+        format!("  {}", human_size(o.size))
+    };
+    let modified = if o.last_modified.is_empty() {
+        String::new()
+    } else {
+        format!("  {}", o.last_modified)
+    };
+    println!("  - {}{}{}", o.key, size, modified);
+}
+
+/// 人类可读的文件大小。
+fn human_size(size: i64) -> String {
+    if size >= 1024 * 1024 * 1024 {
+        format!("{:.2} GB", size as f64 / (1024.0 * 1024.0 * 1024.0))
+    } else if size >= 1024 * 1024 {
+        format!("{:.2} MB", size as f64 / (1024.0 * 1024.0))
+    } else if size >= 1024 {
+        format!("{:.2} KB", size as f64 / 1024.0)
+    } else {
+        format!("{size} B")
+    }
 }

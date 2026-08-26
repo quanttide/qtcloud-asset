@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+### 变更
+
+- 新增 `oss` 子命令（list / ls / url），复用 Provider 的只读接口管理 OSS 对象存储
+
 ## [0.1.0-alpha.2] - 2026-07-30
 
 ### 变更

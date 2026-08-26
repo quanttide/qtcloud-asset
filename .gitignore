@@ -12,6 +12,11 @@ build/
 data/
 .env
 
+# Local verification artifacts
+.codex-temp/
+tmp-playwright/
+test-results/
+
 # IDE
 .idea/
 .vscode/

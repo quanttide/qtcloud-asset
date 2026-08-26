@@ -52,8 +52,8 @@ resource "alicloud_fcv3_function" "this" {
   }
 
   custom_runtime_config {
-    command = ["python3"]
-    args    = ["-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "9000"]
+    command = ["./bootstrap"]
+    args    = []
     port    = 9000
 
     health_check_config {
