@@ -64,6 +64,9 @@ Provider 需要以下环境变量：
 | `OSS_ACCESS_KEY_ID` | 阿里云 AccessKey ID |
 | `OSS_ACCESS_KEY_SECRET` | 阿里云 AccessKey Secret |
 | `OSS_ENDPOINT` | OSS 端点，默认 `https://oss-cn-hangzhou.aliyuncs.com` |
+| `AUTH_MODE` | 认证模式，默认 `sso`；内测账号密码登录使用 `local` |
+| `LOCAL_AUTH_EMAIL` | 本地账号登录邮箱，仅 `AUTH_MODE=local` 时使用 |
+| `LOCAL_AUTH_PASSWORD_HASH` | PBKDF2-SHA256 密码哈希，不写入明文密码 |
 
 ### CLI 工具
 
@@ -85,10 +88,12 @@ cargo run -- oss url <桶名> <key>    # 生成对象访问链接
 ## 已实现能力
 
 - Provider 只读端点：按角色列出桶、列出对象、生成公开桶直链；`viewer` 隐藏 `-private` 与 `quanttide-terraform-state`，`admin` 可查看全部并为私密桶生成限时签名 URL
-- Provider 账号门禁：登录态、`viewer` / `admin` 鉴权、管理员用户管理接口
+- Provider 账号门禁：SSO 占位入口、本地账号密码登录、`viewer` / `admin` 鉴权、管理员用户管理接口
+- Provider 审计：结构化 `qtcloud_asset_audit` stdout 日志，生产函数计算可通过 SLS 持久查询
 - Studio 桶列表：按用途分类筛选、搜索、创建时间排序
 - Studio 文件浏览：目录层级下钻、搜索、日期/大小排序
-- Studio 复制公开对象链接：有效期参数保留；私密桶链接入口留到登录态接入后开放
+- Studio 登录页：账号密码登录、当前用户展示、退出登录和管理员入口
+- Studio 复制对象链接：公开桶返回直链，`admin` 可为私密桶生成限时签名 URL，`viewer` 无权访问私密桶对象能力
 - CLI `oss` 子命令：命令行方式复用上述只读能力
 
 ## 契约定义
@@ -147,4 +152,4 @@ terraform plan
 - [质量保证](docs/qa/) - 质量决策和记录
 - [用户文档](docs/user/) - 安装和使用指南
 
-路线图见 [ROADMAP.md](ROADMAP.md)。
+路线图见 [ROADMAP.md](ROADMAP.md)，发布记录见 [CHANGELOG.md](CHANGELOG.md)，剩余事项见 [TODO.md](TODO.md)。

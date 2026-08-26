@@ -7,6 +7,31 @@
 - Provider 列表接口支持排序（`sort`/`order`）与对象分页（`limit`/`marker`）
 - Provider 对象列表支持 `prefix` 过滤（OSS 原生）
 - CLI `oss list` / `oss ls` 支持 `--sort` / `--order` / `--limit` / `--prefix` 参数
+- Provider 新增账号门禁，覆盖 `/auth/login`、`/auth/callback`、`/auth/me` 和 `/auth/logout`
+- Provider 新增 `viewer` / `admin` 两级角色，保护桶列表、对象列表、对象链接和管理接口
+- Provider 新增本地账号密码登录模式，使用 PBKDF2-SHA256 哈希和服务端 `HttpOnly` 会话 Cookie
+- Provider 新增管理员用户管理接口，支持邀请、禁用、改角色和撤销会话
+- Provider 新增结构化审计日志 `qtcloud_asset_audit`，便于函数计算 stdout 进入 SLS 后持久查询
+- Studio 新增登录态初始化、账号密码登录页、当前用户展示、退出登录和管理员入口
+- QA 新增阶段五线上验收记录、阶段六回滚准备记录和 `qtcloud-asset` 旧桶对象清单
+
+### Changed
+- Studio 桶列表排序调整为创建时间和桶名两个独立开关，支持四种组合状态
+- Studio 对象列表补齐续页逻辑，继续请求 Provider 返回的 continuation marker
+- CLI `oss` 子命令对齐认证后 Provider 的 401、403、404 和 429 错误语义
+- `README.md`、`ROADMAP.md`、`docs/prd/*` 和 `docs/qa/*` 对齐新域名、账号门禁和验收状态
+
+### Fixed
+- 修复对象访问链接经 API 网关时 `name`、`key`、`expires` 参数透传不完整的问题
+- 修复线上 API 网关 CORS 仍返回 `*` 的问题，改为正式入口和兼容入口精确来源
+- 修复管理员私密桶对象元数据访问缺少最小只读 RAM 权限的问题
+
+### Security
+- `/buckets`、`/buckets/{name}/objects` 和 `/buckets/{name}/object-url` 默认需要登录
+- `viewer` 默认隐藏 `-private` 桶和 `quanttide-terraform-state`，私密桶对象能力返回 403
+- 管理写接口校验 `Origin`，未登记来源返回 403
+- 登录接口增加限流，避免本地账号密码模式被暴力尝试
+- 旧域名 `asset.quanttide.com` 保留为兼容入口，本轮不执行旧入口下线、跳转或删除
 
 ## [0.1.0] - 2026-08-21
 
