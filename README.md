@@ -108,10 +108,10 @@ cargo run -- oss url <桶名> <key>    # 生成对象访问链接
 ### 生产入口
 
 - 正式 Studio：`https://asset.cloud.quanttide.com`
-- 兼容入口：`https://asset.quanttide.com`
+- 兼容入口：`https://asset.quanttide.com`，当前暂不处理旧入口下线
 - Provider API：`https://api.quanttide.com/qtcloud-asset`
 
-Studio 的 CI 发布目标是 `qtcloud-asset-studio`。Provider 发布包短期仍保留在 `qtcloud-asset/provider/`，不上传到 Studio 桶。
+Studio 的 CI 发布目标是 `qtcloud-asset-studio`。当前正式入口已完成 DNS、CDN、HTTPS、CORS 和登录后浏览器验收；阶段六已记录新域名关键对象 ETag、旧桶前端对象清单和回滚证据。Provider 发布包短期仍保留在 `qtcloud-asset/provider/`，不上传到 Studio 桶。
 
 ### 历史 Docker 参考
 
