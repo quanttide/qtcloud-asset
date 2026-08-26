@@ -8,6 +8,7 @@
 |------|------|----------|
 | [README](README.md) | 首页，看这个开始 | 第一步 |
 | [index](index.md) | 目录，不知道看哪篇时看这里 | 随时查看 |
+| [onboarding](onboarding.md) | 新人使用手册，配置 Provider、Studio 和 CLI | 第二步 |
 | [install](install.md) | 安装指南，先装好环境 | 第二步 |
 | [quickstart](quickstart.md) | 快速入门，跟着做一遍就会了 | 第三步 |
 | [archive](archive.md) | 归档命令详解，想深入了解时看 | 忘了就查 |

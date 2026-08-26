@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
 使用 DeepSeek 模型从产品日志生成路线图
+
 读取 docs/journal/<slug>/<product>/ 下的日志文件，
 调用 DeepSeek 模型生成结构化的产品蓝图。
 
@@ -27,6 +28,7 @@ def call_llm(prompt: str, system: str, model: str) -> str:
     return llm.chat(
         [{"role": "system", "content": system}, {"role": "user", "content": prompt}]
     ).content
+
 
 def load_product_journal(journal_base: Path, slug: str, product: str) -> str:
     """加载指定产品的所有日志内容"""

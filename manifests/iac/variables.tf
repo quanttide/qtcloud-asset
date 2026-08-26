@@ -19,7 +19,7 @@ variable "studio_bucket_name" {
 variable "studio_domain_name" {
   description = "Custom domain for the Studio website"
   type        = string
-  default     = "asset.quanttide.com"
+  default     = "asset.cloud.quanttide.com"
 }
 
 variable "index_document" {
@@ -37,17 +37,23 @@ variable "error_document" {
 variable "provider_code_object" {
   description = "OSS object key used by the provider Function Compute code package"
   type        = string
-  default     = "provider/qtcloud-asset-provider-py311-cors.zip"
+  default     = "provider/qtcloud-asset-provider-go-linux-amd64.zip"
+}
+
+variable "provider_code_bucket_name" {
+  description = "Existing OSS bucket that stores Provider release packages"
+  type        = string
+  default     = "qtcloud-asset"
 }
 
 variable "provider_domain_name" {
   description = "Custom domain for the provider API"
   type        = string
-  default     = "api.asset.quanttide.com"
+  default     = "api.quanttide.com"
 }
 
 variable "enable_provider_custom_domain" {
-  description = "Whether to create the provider FC custom domain and DNS record"
+  description = "Whether to create an optional FC custom domain; keep false when using the platform API gateway"
   type        = bool
   default     = false
 }

@@ -38,6 +38,7 @@ Commands:
   scan      扫描目录，列出所有资产
   validate  验证资产是否符合契约要求
   config    查看契约配置
+  oss       管理 OSS 对象存储（复用 Provider 接口）
   version   显示版本和预发布阶段
   help      Print this message or the help of the given subcommand(s)
 
@@ -110,6 +111,51 @@ qtcloud-asset config -a list
 qtcloud-asset version
 ```
 
+### oss — 管理 OSS 对象存储
+
+`oss` 子命令作为 Provider 的 HTTP 客户端，复用其只读接口，不直接访问阿里云 OSS，也不持有 AK/SK。需先启动 Provider（默认监听 `http://127.0.0.1:9000`）。
+
+```bash
+# 列出所有 OSS 桶
+qtcloud-asset oss list
+
+# 列出桶内对象
+qtcloud-asset oss ls <桶名>
+
+# 列出桶内对象，按 key 前缀过滤
+qtcloud-asset oss ls <桶名> --prefix docs/
+
+# 按创建时间倒序排列桶
+qtcloud-asset oss list --sort created --order desc
+
+# 按文件大小倒序排列对象
+qtcloud-asset oss ls <桶名> --sort size --order desc
+
+# 分页：每页 100 个对象
+qtcloud-asset oss ls <桶名> --limit 100
+
+# 生成对象访问链接（私密桶默认 1 天，最长 7 天；公开桶忽略有效期）
+qtcloud-asset oss url <桶名> <对象key>
+
+# 指定有效期（秒，私密桶最大 604800）
+qtcloud-asset oss url <桶名> <对象key> --expires 604800
+```
+
+排序与分页参数：
+
+| 命令 | 排序字段（`--sort`） | 说明 |
+|------|---------------------|------|
+| `oss list` | `name` / `created` | 按桶名或创建时间排序 |
+| `oss ls` | `key` / `size` / `date` | 按 key、大小或修改日期排序 |
+
+`--order` 取值 `asc`（升序，默认）/ `desc`（降序）；`--limit` 指定每页数量（走 Provider 分页）。
+
+所有 `oss` 子命令支持 `--provider-url` 覆盖默认的 Provider 地址：
+
+```bash
+qtcloud-asset oss list --provider-url http://localhost:9000
+```
+
 ## 契约系统
 
 CLI 通过 `.quanttide/asset/contract.yaml` 驱动，契约定义了两类配置：
@@ -179,6 +225,8 @@ cargo fmt
 │  file_op.rs  — 文件移动/回滚              │
 │  workflow.rs — 契约→工作流解析             │
 │  validate.rs — 声明式验证                 │
+│  oss.rs      — Provider HTTP 客户端        │
+│  oss_cmd.rs  — oss 子命令定义             │
 │  render.rs   — 终端输出                   │
 └──────────────────────────────────────────┘
 ```

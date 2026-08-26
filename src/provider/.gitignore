@@ -1,6 +1,11 @@
 # Go
 /bin/
 /tmp/
+/provider.exe
+/dist/
+
+# Logs
+*.log
 
 # IDE
 .idea/

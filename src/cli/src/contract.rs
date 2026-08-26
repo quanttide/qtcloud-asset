@@ -213,8 +213,8 @@ validation:
     fn test_load_at_success() {
         let tmp = std::env::temp_dir().join("test_contract_load");
         let _ = std::fs::remove_dir_all(&tmp);
-        std::fs::create_dir_all(&tmp.join(".quanttide/asset")).unwrap();
-        let mut f = std::fs::File::create(&tmp.join(".quanttide/asset/contract.yaml")).unwrap();
+        std::fs::create_dir_all(tmp.join(".quanttide/asset")).unwrap();
+        let mut f = std::fs::File::create(tmp.join(".quanttide/asset/contract.yaml")).unwrap();
         writeln!(f, "assets:\n  test:\n    type: code").unwrap();
         drop(f);
 

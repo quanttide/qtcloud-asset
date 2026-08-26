@@ -11,16 +11,16 @@ standards:
     formatter: dart format
 
   provider:
-    language: python
-    style: pep8
-    linter: ruff check
-    formatter: ruff format
+    language: go
+    style: effective_go
+    linter: go vet
+    formatter: gofmt
 
   cli:
-    language: python
-    style: pep8
-    linter: ruff check
-    formatter: ruff format
+    language: rust
+    style: rustfmt
+    linter: clippy
+    formatter: rustfmt
 
 # ── 模块依赖 ──────────────────────────────────────────
 
@@ -31,15 +31,14 @@ dependencies:
     routing: go_router
 
   provider:
-    framework: fastapi
-    runtime: uv + python 3.11
+    framework: net/http
+    runtime: go 1.25
     cloud_sdk:
-      - aliyun-fc2
-      - aliyun-oss2
+      - aliyun-oss-go-sdk
 
   cli:
-    runtime: uv + python 3.11
-    cli_framework: click
+    runtime: cargo + rust 1.75
+    cli_framework: clap
 
 # ── 调用关系 ──────────────────────────────────────────
 
@@ -53,8 +52,8 @@ call_graph:
 quality:
   tests:
     studio: flutter test
-    provider: uv run pytest
-    cli: uv run pytest
+    provider: go test ./...
+    cli: cargo test
 
   coverage_min: 80
 

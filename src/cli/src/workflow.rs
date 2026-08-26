@@ -105,8 +105,8 @@ mod tests {
     fn test_get_products_with_entries() {
         let tmp = std::env::temp_dir().join("test_wf_products");
         let _ = std::fs::remove_dir_all(&tmp);
-        std::fs::create_dir_all(&tmp.join("产品A")).unwrap();
-        std::fs::create_dir_all(&tmp.join("产品B")).unwrap();
+        std::fs::create_dir_all(tmp.join("产品A")).unwrap();
+        std::fs::create_dir_all(tmp.join("产品B")).unwrap();
         std::fs::write(tmp.join("文件.txt"), "").unwrap(); // 文件应被忽略
 
         let products = get_products(&tmp).unwrap();
@@ -126,7 +126,7 @@ mod tests {
             skills: HashMap::new(),
             validation: None,
         };
-        let contract = crate::contract::Contract {
+        let _contract = crate::contract::Contract {
             root: std::path::PathBuf::from("."),
             schema,
         };

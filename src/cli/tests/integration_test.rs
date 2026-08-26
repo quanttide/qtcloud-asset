@@ -20,8 +20,8 @@ fn setup_temp_project() -> (tempfile::TempDir, ProjectPaths) {
 
     // 创建输入目录
     let input = root.join("input");
-    std::fs::create_dir_all(&input.join("product1")).unwrap();
-    std::fs::create_dir_all(&input.join("product2")).unwrap();
+    std::fs::create_dir_all(input.join("product1")).unwrap();
+    std::fs::create_dir_all(input.join("product2")).unwrap();
     std::fs::write(input.join("product1/note.md"), "# Test 1").unwrap();
     std::fs::write(input.join("product2/note.md"), "# Test 2").unwrap();
 
@@ -35,7 +35,6 @@ fn setup_temp_project() -> (tempfile::TempDir, ProjectPaths) {
             root,
             input,
             output,
-            contract_dir,
         },
     )
 }
@@ -44,7 +43,6 @@ struct ProjectPaths {
     root: std::path::PathBuf,
     input: std::path::PathBuf,
     output: std::path::PathBuf,
-    contract_dir: std::path::PathBuf,
 }
 
 /// 获取 CLI 二进制路径
@@ -107,8 +105,11 @@ fn test_contract_get_skill() {
     let root = tmp.path().join("project");
     std::fs::create_dir_all(root.join(".quanttide/asset")).unwrap();
     let mut f = std::fs::File::create(root.join(".quanttide/asset/contract.yaml")).unwrap();
-    writeln!(f, "skills:\n  archive:\n    version: '1.0'\n    params:\n      pattern: '*.md'\n")
-        .unwrap();
+    writeln!(
+        f,
+        "skills:\n  archive:\n    version: '1.0'\n    params:\n      pattern: '*.md'\n"
+    )
+    .unwrap();
     drop(f);
 
     let contract = Contract::load_at(&root).unwrap();
@@ -272,8 +273,13 @@ fn test_get_products_not_found() {
             validation: None,
         },
     };
-    let result =
-        workflow::resolve_workflow("test", &tmp.path().join("nonexistent"), &tmp.path().join("out"), None, &contract);
+    let result = workflow::resolve_workflow(
+        "test",
+        &tmp.path().join("nonexistent"),
+        &tmp.path().join("out"),
+        None,
+        &contract,
+    );
     assert!(result.is_err());
 }
 
@@ -294,8 +300,8 @@ fn test_resolve_workflow_with_contract() {
     drop(f);
 
     let input = root.join("input");
-    std::fs::create_dir_all(&input.join("product1")).unwrap();
-    std::fs::create_dir_all(&input.join("product2")).unwrap();
+    std::fs::create_dir_all(input.join("product1")).unwrap();
+    std::fs::create_dir_all(input.join("product2")).unwrap();
     let output = root.join("output");
     std::fs::create_dir_all(&output).unwrap();
 
@@ -326,12 +332,13 @@ fn test_resolve_workflow_pattern_override() {
     drop(f);
 
     let input = root.join("input");
-    std::fs::create_dir_all(&input.join("product1")).unwrap();
+    std::fs::create_dir_all(input.join("product1")).unwrap();
     let output = root.join("output");
     std::fs::create_dir_all(&output).unwrap();
 
     let contract = Contract::load_at(&root).unwrap();
-    let wf = workflow::resolve_workflow("archive", &input, &output, Some("*.md"), &contract).unwrap();
+    let wf =
+        workflow::resolve_workflow("archive", &input, &output, Some("*.md"), &contract).unwrap();
     // 参数优先级高于契约配置
     assert_eq!(wf.pattern, "*.md");
 }
@@ -363,10 +370,7 @@ fn test_resolve_workflow_unknown_skill() {
 
 #[test]
 fn test_cli_version() {
-    let output = Command::new(cli_binary())
-        .arg("version")
-        .output()
-        .unwrap();
+    let output = Command::new(cli_binary()).arg("version").output().unwrap();
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("qtcloud-asset-cli"));
@@ -374,10 +378,7 @@ fn test_cli_version() {
 
 #[test]
 fn test_cli_help() {
-    let output = Command::new(cli_binary())
-        .arg("--help")
-        .output()
-        .unwrap();
+    let output = Command::new(cli_binary()).arg("--help").output().unwrap();
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("run"));

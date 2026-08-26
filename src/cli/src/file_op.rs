@@ -50,7 +50,8 @@ pub fn archive_product(
     }
 
     // 收集文件
-    let pattern_glob = glob::Pattern::new(pattern).unwrap_or_else(|_| glob::Pattern::new("*").unwrap());
+    let pattern_glob =
+        glob::Pattern::new(pattern).unwrap_or_else(|_| glob::Pattern::new("*").unwrap());
 
     let entries: Vec<_> = match std::fs::read_dir(src_dir) {
         Ok(rd) => rd
@@ -77,11 +78,14 @@ pub fn archive_product(
 
     // 预览模式
     if dry_run {
-        result.moved = entries.iter().map(|p| {
-            p.file_name()
-                .map(|n| n.to_string_lossy().to_string())
-                .unwrap_or_default()
-        }).collect();
+        result.moved = entries
+            .iter()
+            .map(|p| {
+                p.file_name()
+                    .map(|n| n.to_string_lossy().to_string())
+                    .unwrap_or_default()
+            })
+            .collect();
         return result;
     }
 
@@ -93,7 +97,8 @@ pub fn archive_product(
 
     // 逐文件移动
     for f in &entries {
-        let fname = f.file_name()
+        let fname = f
+            .file_name()
             .map(|n| n.to_string_lossy().to_string())
             .unwrap_or_default();
         let dst = dst_dir.join(&fname);
@@ -173,8 +178,8 @@ mod tests {
     fn test_archive_product_dry_run() {
         let tmp = std::env::temp_dir().join("test_archive_dry");
         let _ = std::fs::remove_dir_all(&tmp);
-        std::fs::create_dir_all(&tmp.join("src")).unwrap();
-        let mut f = std::fs::File::create(&tmp.join("src").join("test.md")).unwrap();
+        std::fs::create_dir_all(tmp.join("src")).unwrap();
+        let mut f = std::fs::File::create(tmp.join("src").join("test.md")).unwrap();
         writeln!(f, "content").unwrap();
 
         let result = archive_product(
@@ -196,17 +201,12 @@ mod tests {
     fn test_archive_product_move() {
         let tmp = std::env::temp_dir().join("test_archive_move");
         let _ = std::fs::remove_dir_all(&tmp);
-        std::fs::create_dir_all(&tmp.join("src")).unwrap();
-        std::fs::create_dir_all(&tmp.join("dst")).unwrap();
-        let mut f = std::fs::File::create(&tmp.join("src").join("test.md")).unwrap();
+        std::fs::create_dir_all(tmp.join("src")).unwrap();
+        std::fs::create_dir_all(tmp.join("dst")).unwrap();
+        let mut f = std::fs::File::create(tmp.join("src").join("test.md")).unwrap();
         writeln!(f, "content").unwrap();
 
-        let result = archive_product(
-            &tmp.join("src"),
-            &tmp.join("dst"),
-            "*.md",
-            false,
-        );
+        let result = archive_product(&tmp.join("src"), &tmp.join("dst"), "*.md", false);
         assert!(result.ok());
         assert_eq!(result.moved.len(), 1);
         // 目标文件应存在
@@ -221,15 +221,10 @@ mod tests {
     fn test_archive_product_no_match() {
         let tmp = std::env::temp_dir().join("test_archive_nomatch");
         let _ = std::fs::remove_dir_all(&tmp);
-        std::fs::create_dir_all(&tmp.join("src")).unwrap();
+        std::fs::create_dir_all(tmp.join("src")).unwrap();
         std::fs::write(tmp.join("src").join("test.txt"), "content").unwrap();
 
-        let result = archive_product(
-            &tmp.join("src"),
-            &tmp.join("dst"),
-            "*.md",
-            false,
-        );
+        let result = archive_product(&tmp.join("src"), &tmp.join("dst"), "*.md", false);
         assert!(result.ok());
         assert_eq!(result.moved.len(), 0);
         assert!(result.skipped[0].contains("无匹配"));
@@ -258,14 +253,10 @@ mod tests {
         let tmp = std::env::temp_dir().join("test_rollback");
         let _ = std::fs::remove_dir_all(&tmp);
         // 只创建 dst 目录，不创建 src 目录（模拟源已被清理的场景）
-        std::fs::create_dir_all(&tmp.join("dst")).unwrap();
-        std::fs::write(&tmp.join("dst").join("file.md"), "content").unwrap();
+        std::fs::create_dir_all(tmp.join("dst")).unwrap();
+        std::fs::write(tmp.join("dst").join("file.md"), "content").unwrap();
 
-        rollback(
-            &tmp.join("src"),
-            &tmp.join("dst"),
-            &["file.md".to_string()],
-        );
+        rollback(&tmp.join("src"), &tmp.join("dst"), &["file.md".to_string()]);
         // 回滚后，文件应回到源目录
         assert!(tmp.join("src").join("file.md").exists());
         assert!(!tmp.join("dst").join("file.md").exists());
