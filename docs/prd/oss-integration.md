@@ -71,7 +71,7 @@
 
 - `.quanttide/code/contract.yaml` 声明 Provider 为 **Python + FastAPI + aliyun-oss2**。
 - 实际代码为 **Go**（`go.mod`、`internal/api/handler.go`）。
-- `src/provider/README.md` 曾存在**未解决的 git 冲突标记**，且 README 内 Python 与 Go 两种口径并存。
+- `src/provider/README.md` 存在**未解决的 git 冲突**（`<<<<<<< HEAD` / `>>>>>>> origin/main`），且 README 内 Python 与 Go 两种口径并存。
 
 **✅ 已决策（2026-08-15）**：采纳**方案 X**——以 Go 为准，修订 code 契约与 README（Go 有官方 `aliyun-oss-go-sdk`）。理由：实际代码已是 Go，改动最小。
 

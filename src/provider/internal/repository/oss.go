@@ -2,9 +2,11 @@ package repository
 
 import (
 	"fmt"
+	"io"
 	"net/url"
 	"sort"
 	"strings"
+	"sync"
 
 	"github.com/aliyun/aliyun-oss-go-sdk/oss"
 	"github.com/quanttide/qtcloud-asset/provider/internal/schema"
@@ -17,6 +19,10 @@ type OssAdapter struct {
 	AccessKeyID     string
 	AccessKeySecret string
 	SecurityToken   string
+
+	clientOnce   sync.Once
+	cachedClient *oss.Client
+	clientErr    error
 }
 
 // NewOssAdapter builds an OssAdapter from explicit or temporary credentials.
@@ -30,11 +36,19 @@ func NewOssAdapter(endpoint, accessKeyID, accessKeySecret, securityToken string)
 }
 
 func (a *OssAdapter) client() (*oss.Client, error) {
-	options := make([]oss.ClientOption, 0, 1)
-	if a.SecurityToken != "" {
-		options = append(options, oss.SecurityToken(a.SecurityToken))
-	}
-	return oss.New(a.Endpoint, a.AccessKeyID, a.AccessKeySecret, options...)
+	a.clientOnce.Do(func() {
+		options := make([]oss.ClientOption, 0, 1)
+		if a.SecurityToken != "" {
+			options = append(options, oss.SecurityToken(a.SecurityToken))
+		}
+		a.cachedClient, a.clientErr = oss.New(
+			a.Endpoint,
+			a.AccessKeyID,
+			a.AccessKeySecret,
+			options...,
+		)
+	})
+	return a.cachedClient, a.clientErr
 }
 
 // ListBuckets lists all OSS buckets (read-only).
@@ -59,6 +73,19 @@ func (a *OssAdapter) ListBuckets() ([]schema.Bucket, error) {
 		})
 	}
 	return buckets, nil
+}
+
+// GetBucketACL returns the current bucket ACL from OSS.
+func (a *OssAdapter) GetBucketACL(bucketName string) (string, error) {
+	client, err := a.client()
+	if err != nil {
+		return "", fmt.Errorf("create oss client: %w", err)
+	}
+	result, err := client.GetBucketACL(bucketName)
+	if err != nil {
+		return "", fmt.Errorf("get bucket acl for %s: %w", bucketName, err)
+	}
+	return result.ACL, nil
 }
 
 // ListObjects lists objects (files) inside a bucket (read-only).
@@ -111,6 +138,25 @@ func (a *OssAdapter) ListObjects(bucketName string, params schema.ListObjectsPar
 	return objects, result.NextMarker, result.IsTruncated, nil
 }
 
+// GetObject opens an OSS object body for streaming.
+func (a *OssAdapter) GetObject(bucketName, objectKey string) (io.ReadCloser, error) {
+	client, err := a.client()
+	if err != nil {
+		return nil, fmt.Errorf("create oss client: %w", err)
+	}
+
+	bucket, err := client.Bucket(bucketName)
+	if err != nil {
+		return nil, fmt.Errorf("open bucket %s: %w", bucketName, err)
+	}
+
+	body, err := bucket.GetObject(objectKey)
+	if err != nil {
+		return nil, fmt.Errorf("get object %s/%s: %w", bucketName, objectKey, err)
+	}
+	return body, nil
+}
+
 // sortObjects sorts objects in memory by the given field and order.
 func sortObjects(objects []schema.Object, sortKey, order string) {
 	if sortKey == "" {
@@ -144,7 +190,7 @@ func sortObjects(objects []schema.Object, sortKey, order string) {
 
 // ObjectURL builds an access URL for a given object.
 //
-// Public buckets get a plain permanent URL.
+// Public buckets get a plain permanent URL. Metadata-only buckets do not expose links.
 func (a *OssAdapter) ObjectURL(bucketName, objectKey string, expiresIn int64) (string, error) {
 	publicURL, err := a.validateObjectURLRequest(bucketName, objectKey, expiresIn)
 	if err != nil {
@@ -175,10 +221,7 @@ func (a *OssAdapter) validateObjectURLRequest(bucketName, objectKey string, expi
 	if !isPrivateBucket(bucketName) {
 		return a.publicObjectURL(bucketName, objectKey), nil
 	}
-	if expiresIn <= 0 {
-		return "", fmt.Errorf("private object url expiry must be positive")
-	}
-	return "", nil
+	return "", fmt.Errorf("metadata-only bucket object urls are disabled")
 }
 
 // host extracts the host (without scheme) from the endpoint.

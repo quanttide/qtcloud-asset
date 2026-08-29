@@ -50,14 +50,16 @@ const (
 
 // User is the authenticated principal exposed to API handlers.
 type User struct {
-	ID          string     `json:"id"`
-	ExternalID  string     `json:"external_id"`
-	Email       string     `json:"email"`
-	Name        string     `json:"name"`
-	Role        Role       `json:"role"`
-	Status      UserStatus `json:"status"`
-	CreatedAt   time.Time  `json:"created_at"`
-	LastLoginAt time.Time  `json:"last_login_at"`
+	ID           string     `json:"id"`
+	ExternalID   string     `json:"external_id"`
+	Account      string     `json:"account"`
+	Email        string     `json:"email,omitempty"`
+	Name         string     `json:"name"`
+	Role         Role       `json:"role"`
+	Status       UserStatus `json:"status"`
+	CreatedAt    time.Time  `json:"created_at"`
+	LastLoginAt  time.Time  `json:"last_login_at"`
+	PasswordHash string     `json:"-"`
 }
 
 // Session stores the server-side login state for one browser session.
@@ -82,6 +84,12 @@ const (
 	AuditActionListBuckets    AuditAction = "list_buckets"
 	AuditActionListObjects    AuditAction = "list_objects"
 	AuditActionObjectURL      AuditAction = "object_url"
+	AuditActionCreateShare    AuditAction = "create_share"
+	AuditActionListShares     AuditAction = "list_shares"
+	AuditActionViewShare      AuditAction = "view_share"
+	AuditActionShareObjectURL AuditAction = "share_object_url"
+	AuditActionDownloadShare  AuditAction = "download_share"
+	AuditActionRevokeShare    AuditAction = "revoke_share"
 	AuditActionListUsers      AuditAction = "list_users"
 	AuditActionInviteUser     AuditAction = "invite_user"
 	AuditActionUpdateUserRole AuditAction = "update_user_role"
@@ -116,8 +124,20 @@ type UserStore interface {
 	UpsertManaged(user User, now time.Time) (User, error)
 	List() []User
 	GetByID(id string) (User, bool)
+	GetByAccount(account string) (User, bool)
 	UpdateRole(id string, role Role) (User, bool)
 	Disable(id string, disabledAt time.Time) bool
+}
+
+// UserStoreWithErrors exposes storage failures for durable user stores without
+// breaking the original UserStore interface used by local development.
+type UserStoreWithErrors interface {
+	UserStore
+	ListWithError() ([]User, error)
+	GetByIDWithError(id string) (User, bool, error)
+	GetByAccountWithError(account string) (User, bool, error)
+	UpdateRoleWithError(id string, role Role) (User, bool, error)
+	DisableWithError(id string, disabledAt time.Time) (bool, error)
 }
 
 // AuditLogStore persists security-relevant events.
@@ -160,6 +180,9 @@ type IdentityProvider interface {
 // ErrIdentityProviderNotConfigured is returned before platform SSO is wired.
 var ErrIdentityProviderNotConfigured = errors.New("identity provider is not configured")
 
+// ErrUserStoreUnavailable is returned when durable user storage cannot be reached.
+var ErrUserStoreUnavailable = errors.New("user store is unavailable")
+
 // NotConfiguredIdentityProvider keeps auth routes explicit until SSO is wired.
 type NotConfiguredIdentityProvider struct{}
 
@@ -181,19 +204,73 @@ type SessionStore interface {
 	RevokeUserSessions(userID string, revokedAt time.Time) int
 }
 
-// MemoryUserStore is an in-process user store used until RDS is wired.
+// MemoryUserStore is an in-process user store used by tests and explicit local
+// development mode.
 type MemoryUserStore struct {
-	mu      sync.RWMutex
-	users   map[string]User
-	byEmail map[string]string
+	mu        sync.RWMutex
+	users     map[string]User
+	byAccount map[string]string
 }
 
 // NewMemoryUserStore creates an empty memory user store.
 func NewMemoryUserStore() *MemoryUserStore {
 	return &MemoryUserStore{
-		users:   make(map[string]User),
-		byEmail: make(map[string]string),
+		users:     make(map[string]User),
+		byAccount: make(map[string]string),
 	}
+}
+
+// BuiltInLocalUsers returns the temporary named accounts used while the
+// production user database connection is still pending.
+func BuiltInLocalUsers() []User {
+	users := []User{
+		{
+			ID:           "usr_builtin_lixiang",
+			ExternalID:   "builtin:lixiang",
+			Account:      "lixiang",
+			Name:         "lixiang",
+			Role:         RoleViewer,
+			Status:       UserStatusActive,
+			PasswordHash: "pbkdf2_sha256$120000$wAz4KZUeXGR+K7/U8IdWrw$71HD1M47fqLq1uHSRLm5xjuX4C6xlzCGWJ20NxRWRE4",
+		},
+		{
+			ID:           "usr_builtin_zhangguo",
+			ExternalID:   "builtin:zhangguo",
+			Account:      "zhangguo",
+			Name:         "zhangguo",
+			Role:         RoleViewer,
+			Status:       UserStatusActive,
+			PasswordHash: "pbkdf2_sha256$120000$+E3DwpXlTktEZ+Ki8j3Z5A$+4v8EwfX65ZNPzEeK8sBnjjql6xcLXG1lx5+DhrWSzs",
+		},
+		{
+			ID:           "usr_builtin_liujingyi",
+			ExternalID:   "builtin:liujingyi",
+			Account:      "liujingyi",
+			Name:         "liujingyi",
+			Role:         RoleViewer,
+			Status:       UserStatusActive,
+			PasswordHash: "pbkdf2_sha256$120000$7qPzhD23Y1sWtxr1Fl8XeQ$4qGRyjR7nthyKv+ftImNq8k+Y0CFCeEqpOeUAamsGaQ",
+		},
+		{
+			ID:           "usr_builtin_zhaoziyi",
+			ExternalID:   "builtin:zhaoziyi",
+			Account:      "zhaoziyi",
+			Name:         "zhaoziyi",
+			Role:         RoleViewer,
+			Status:       UserStatusActive,
+			PasswordHash: "pbkdf2_sha256$120000$OjDMYWJ8ieEvgdQq+I7dgw$uNpeh1EAcHMpO18yOC2u4t1psWB7HdeGi+hnjwp8ub8",
+		},
+		{
+			ID:           "usr_builtin_tuyafang",
+			ExternalID:   "builtin:tuyafang",
+			Account:      "tuyafang",
+			Name:         "tuyafang",
+			Role:         RoleViewer,
+			Status:       UserStatusActive,
+			PasswordHash: "pbkdf2_sha256$120000$T2m/+LpUuEYOl5Wbmkp4pA$QoGGGdXW9UJsc7loILyM75y+JAJlgijCy50E6VTJNSc",
+		},
+	}
+	return append([]User(nil), users...)
 }
 
 // UpsertFromIdentity creates or updates a user from an external identity.
@@ -211,10 +288,15 @@ func (s *MemoryUserStore) UpsertManaged(user User, now time.Time) (User, error) 
 }
 
 func (s *MemoryUserStore) upsertLocked(user User, now time.Time, markLogin bool) (User, error) {
+	normalizedAccount := NormalizeAccount(user.Account)
+	normalizedEmail := NormalizeAccount(user.Email)
+	if normalizedAccount == "" {
+		normalizedAccount = normalizedEmail
+	}
 
 	id := user.ID
-	if id == "" && user.Email != "" {
-		id = s.byEmail[user.Email]
+	if id == "" && normalizedAccount != "" {
+		id = s.byAccount[normalizedAccount]
 	}
 	if id == "" {
 		generatedID, err := randomToken()
@@ -224,37 +306,60 @@ func (s *MemoryUserStore) upsertLocked(user User, now time.Time, markLogin bool)
 		id = generatedID
 	}
 
-	existing := s.users[id]
+	existing, exists := s.users[id]
 	if existing.CreatedAt.IsZero() {
 		existing.CreatedAt = now
 	}
-	if existing.Status == "" {
-		existing.Status = UserStatusActive
-	}
-	if user.Status != "" {
+	if !exists {
 		existing.Status = user.Status
-	}
-	if user.Role != "" {
+		if existing.Status == "" {
+			existing.Status = UserStatusActive
+		}
 		existing.Role = user.Role
-	} else if existing.Role == "" {
-		existing.Role = RoleViewer
+		if existing.Role == "" {
+			existing.Role = RoleViewer
+		}
+	} else if !markLogin {
+		if user.Status != "" {
+			existing.Status = user.Status
+		}
+		if user.Role != "" {
+			existing.Role = user.Role
+		}
 	}
 	existing.ID = id
-	existing.ExternalID = user.ExternalID
-	existing.Email = user.Email
-	existing.Name = user.Name
+	if user.ExternalID != "" {
+		existing.ExternalID = user.ExternalID
+	}
+	if normalizedAccount != "" {
+		if existing.Account != "" && existing.Account != normalizedAccount {
+			delete(s.byAccount, existing.Account)
+		}
+		existing.Account = normalizedAccount
+	}
+	if normalizedEmail != "" || !exists {
+		existing.Email = normalizedEmail
+	}
+	if strings.TrimSpace(user.Name) != "" {
+		existing.Name = strings.TrimSpace(user.Name)
+	} else if existing.Name == "" {
+		existing.Name = existing.Account
+	}
+	if user.PasswordHash != "" {
+		existing.PasswordHash = user.PasswordHash
+	}
 	if markLogin {
 		existing.LastLoginAt = now
 	}
 
 	s.users[id] = existing
-	if existing.Email != "" {
-		s.byEmail[existing.Email] = id
+	if existing.Account != "" {
+		s.byAccount[existing.Account] = id
 	}
 	return existing, nil
 }
 
-// List returns a stable snapshot of all users sorted by email then ID.
+// List returns a stable snapshot of all users sorted by account then ID.
 func (s *MemoryUserStore) List() []User {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -263,10 +368,10 @@ func (s *MemoryUserStore) List() []User {
 		users = append(users, user)
 	}
 	sort.Slice(users, func(i, j int) bool {
-		if users[i].Email == users[j].Email {
+		if users[i].Account == users[j].Account {
 			return users[i].ID < users[j].ID
 		}
-		return users[i].Email < users[j].Email
+		return users[i].Account < users[j].Account
 	})
 	return users
 }
@@ -275,6 +380,18 @@ func (s *MemoryUserStore) List() []User {
 func (s *MemoryUserStore) GetByID(id string) (User, bool) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
+	user, ok := s.users[id]
+	return user, ok
+}
+
+// GetByAccount returns a user by normalized account.
+func (s *MemoryUserStore) GetByAccount(account string) (User, bool) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	id, ok := s.byAccount[NormalizeAccount(account)]
+	if !ok {
+		return User{}, false
+	}
 	user, ok := s.users[id]
 	return user, ok
 }
@@ -303,6 +420,74 @@ func (s *MemoryUserStore) Disable(id string, _ time.Time) bool {
 	user.Status = UserStatusDisabled
 	s.users[id] = user
 	return true
+}
+
+// UnavailableUserStore fails closed when durable user storage is not ready.
+type UnavailableUserStore struct {
+	err error
+}
+
+// NewUnavailableUserStore creates a user store that reports a durable-storage outage.
+func NewUnavailableUserStore(err error) *UnavailableUserStore {
+	if err == nil {
+		err = ErrUserStoreUnavailable
+	}
+	return &UnavailableUserStore{err: fmt.Errorf("%w: %v", ErrUserStoreUnavailable, err)}
+}
+
+func (s *UnavailableUserStore) UpsertFromIdentity(User, time.Time) (User, error) {
+	return User{}, s.storeError()
+}
+
+func (s *UnavailableUserStore) UpsertManaged(User, time.Time) (User, error) {
+	return User{}, s.storeError()
+}
+
+func (s *UnavailableUserStore) List() []User {
+	return nil
+}
+
+func (s *UnavailableUserStore) ListWithError() ([]User, error) {
+	return nil, s.storeError()
+}
+
+func (s *UnavailableUserStore) GetByID(string) (User, bool) {
+	return User{}, false
+}
+
+func (s *UnavailableUserStore) GetByIDWithError(string) (User, bool, error) {
+	return User{}, false, s.storeError()
+}
+
+func (s *UnavailableUserStore) GetByAccount(string) (User, bool) {
+	return User{}, false
+}
+
+func (s *UnavailableUserStore) GetByAccountWithError(string) (User, bool, error) {
+	return User{}, false, s.storeError()
+}
+
+func (s *UnavailableUserStore) UpdateRole(string, Role) (User, bool) {
+	return User{}, false
+}
+
+func (s *UnavailableUserStore) UpdateRoleWithError(string, Role) (User, bool, error) {
+	return User{}, false, s.storeError()
+}
+
+func (s *UnavailableUserStore) Disable(string, time.Time) bool {
+	return false
+}
+
+func (s *UnavailableUserStore) DisableWithError(string, time.Time) (bool, error) {
+	return false, s.storeError()
+}
+
+func (s *UnavailableUserStore) storeError() error {
+	if s == nil || s.err == nil {
+		return ErrUserStoreUnavailable
+	}
+	return s.err
 }
 
 // MemorySessionStore is a small in-process session store for tests and the
@@ -639,6 +824,7 @@ func randomToken() (string, error) {
 type signedSessionPayload struct {
 	ID        string     `json:"id"`
 	UserID    string     `json:"user_id"`
+	Account   string     `json:"account"`
 	Email     string     `json:"email"`
 	Name      string     `json:"name"`
 	Role      Role       `json:"role"`
@@ -650,6 +836,7 @@ func (m *Manager) signSession(session Session) (string, error) {
 	payload, err := json.Marshal(signedSessionPayload{
 		ID:        session.ID,
 		UserID:    session.UserID,
+		Account:   session.User.Account,
 		Email:     session.User.Email,
 		Name:      session.User.Name,
 		Role:      session.User.Role,
@@ -695,11 +882,12 @@ func (m *Manager) parseSignedSession(value string) (Session, bool) {
 		ID:     decoded.ID,
 		UserID: decoded.UserID,
 		User: User{
-			ID:     decoded.UserID,
-			Email:  decoded.Email,
-			Name:   decoded.Name,
-			Role:   decoded.Role,
-			Status: decoded.Status,
+			ID:      decoded.UserID,
+			Account: firstNonEmpty(decoded.Account, decoded.Email),
+			Email:   decoded.Email,
+			Name:    decoded.Name,
+			Role:    decoded.Role,
+			Status:  decoded.Status,
 		},
 		ExpiresAt: time.Unix(0, decoded.ExpiresAt),
 	}, true

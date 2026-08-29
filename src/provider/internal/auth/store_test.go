@@ -62,12 +62,82 @@ func TestMemoryUserStoreManagedUsersCanBeListedAndRoleUpdated(t *testing.T) {
 	}
 
 	users := store.List()
-	if len(users) != 2 || users[0].Email != "admin@example.com" || users[1].Email != "viewer@example.com" {
-		t.Fatalf("expected users sorted by email, got %+v", users)
+	if len(users) != 2 || users[0].Account != "admin@example.com" || users[1].Account != "viewer@example.com" {
+		t.Fatalf("expected users sorted by account, got %+v", users)
 	}
 	updated, ok := store.UpdateRole(viewer.ID, RoleAdmin)
 	if !ok || updated.Role != RoleAdmin {
 		t.Fatalf("expected managed viewer role update, got %+v ok=%v", updated, ok)
+	}
+}
+
+func TestMemoryUserStoreFindsManagedPasswordByNormalizedAccountWithoutJSONLeak(t *testing.T) {
+	store := NewMemoryUserStore()
+	now := time.Date(2026, 8, 27, 10, 0, 0, 0, time.UTC)
+	passwordHash, err := HashPasswordPBKDF2("123456", 1000)
+	if err != nil {
+		t.Fatalf("hash password: %v", err)
+	}
+
+	saved, err := store.UpsertManaged(User{
+		ExternalID:   "managed:lixiang",
+		Account:      " LiXiang ",
+		Name:         "LiXiang",
+		Role:         RoleViewer,
+		Status:       UserStatusActive,
+		PasswordHash: passwordHash,
+	}, now)
+	if err != nil {
+		t.Fatalf("upsert managed user: %v", err)
+	}
+	if saved.Account != "lixiang" {
+		t.Fatalf("expected normalized account, got %q", saved.Account)
+	}
+
+	found, ok := store.GetByAccount(" lixiang ")
+	if !ok || found.PasswordHash != passwordHash {
+		t.Fatalf("expected stored password hash by account, got %+v ok=%v", found, ok)
+	}
+	encoded, err := json.Marshal(found)
+	if err != nil {
+		t.Fatalf("marshal managed user: %v", err)
+	}
+	if bytes.Contains(encoded, []byte("password")) || bytes.Contains(encoded, []byte(passwordHash)) {
+		t.Fatalf("user JSON must not expose password material: %s", string(encoded))
+	}
+}
+
+func TestMemoryIdentityLoginDoesNotOverwriteManagedRoleOrDisabledStatus(t *testing.T) {
+	store := NewMemoryUserStore()
+	now := time.Date(2026, 8, 29, 12, 0, 0, 0, time.UTC)
+
+	managed, err := store.UpsertManaged(User{
+		ExternalID:   "lark-user-1",
+		Account:      "lixiang",
+		Name:         "LiXiang",
+		Role:         RoleAdmin,
+		Status:       UserStatusDisabled,
+		PasswordHash: "existing-hash",
+	}, now)
+	if err != nil {
+		t.Fatalf("upsert managed user: %v", err)
+	}
+
+	saved, err := store.UpsertFromIdentity(User{
+		ExternalID: "lark-user-1",
+		Account:    "lixiang",
+		Name:       "Li Xiang",
+		Role:       RoleViewer,
+		Status:     UserStatusActive,
+	}, now.Add(time.Minute))
+	if err != nil {
+		t.Fatalf("upsert identity user: %v", err)
+	}
+	if saved.ID != managed.ID || saved.Role != RoleAdmin || saved.Status != UserStatusDisabled {
+		t.Fatalf("identity login must preserve managed role and status, got %+v", saved)
+	}
+	if saved.PasswordHash != "existing-hash" {
+		t.Fatalf("identity login must preserve managed password hash, got %q", saved.PasswordHash)
 	}
 }
 

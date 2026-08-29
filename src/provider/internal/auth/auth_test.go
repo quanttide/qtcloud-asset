@@ -201,22 +201,42 @@ func TestLocalPasswordAuthenticatorVerifiesPBKDF2Hash(t *testing.T) {
 		t.Fatalf("hash password: %v", err)
 	}
 	authenticator := NewLocalPasswordAuthenticator(LocalPasswordConfig{
+		Account:      "admin",
 		Email:        "admin@example.com",
 		Name:         "Admin User",
 		Role:         RoleAdmin,
 		PasswordHash: encoded,
 	})
 
-	user, err := authenticator.Authenticate(t.Context(), " admin@example.com ", "correct-password")
+	user, err := authenticator.Authenticate(t.Context(), " admin ", "correct-password")
 	if err != nil {
 		t.Fatalf("authenticate local password: %v", err)
 	}
-	if user.Email != "admin@example.com" || user.Role != RoleAdmin || user.ExternalID != "local:admin@example.com" {
+	if user.Account != "admin" || user.Email != "admin@example.com" || user.Role != RoleAdmin || user.ExternalID != "local:admin" {
 		t.Fatalf("unexpected authenticated local user: %+v", user)
 	}
 
-	if _, err := authenticator.Authenticate(t.Context(), "admin@example.com", "wrong-password"); !errors.Is(err, ErrInvalidCredentials) {
+	if _, err := authenticator.Authenticate(t.Context(), "admin", "wrong-password"); !errors.Is(err, ErrInvalidCredentials) {
 		t.Fatalf("expected invalid credentials for wrong password, got %v", err)
+	}
+}
+
+func TestLocalPasswordAuthenticatorUsesLegacyEmailAsAccountFallback(t *testing.T) {
+	encoded, err := HashPasswordPBKDF2("correct-password", 1000)
+	if err != nil {
+		t.Fatalf("hash password: %v", err)
+	}
+	authenticator := NewLocalPasswordAuthenticator(LocalPasswordConfig{
+		Email:        "admin@example.com",
+		PasswordHash: encoded,
+	})
+
+	user, err := authenticator.Authenticate(t.Context(), " admin@example.com ", "correct-password")
+	if err != nil {
+		t.Fatalf("authenticate legacy local password: %v", err)
+	}
+	if user.Account != "admin@example.com" || user.Email != "admin@example.com" {
+		t.Fatalf("unexpected legacy local user: %+v", user)
 	}
 }
 

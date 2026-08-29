@@ -28,6 +28,8 @@ var (
 
 // LocalPasswordConfig carries the single-account MVP local auth configuration.
 type LocalPasswordConfig struct {
+	Account string
+	// Email is kept as a legacy fallback for already configured environments.
 	Email        string
 	Name         string
 	Role         Role
@@ -36,11 +38,12 @@ type LocalPasswordConfig struct {
 
 // LocalAuthenticator verifies username/password credentials.
 type LocalAuthenticator interface {
-	Authenticate(ctx context.Context, email, password string) (User, error)
+	Authenticate(ctx context.Context, account, password string) (User, error)
 }
 
 // LocalPasswordAuthenticator verifies one configured local account.
 type LocalPasswordAuthenticator struct {
+	account      string
 	email        string
 	name         string
 	role         Role
@@ -53,8 +56,10 @@ func NewLocalPasswordAuthenticator(cfg LocalPasswordConfig) *LocalPasswordAuthen
 	if role == "" {
 		role = RoleAdmin
 	}
+	account := NormalizeAccount(firstNonEmpty(cfg.Account, cfg.Email))
 	return &LocalPasswordAuthenticator{
-		email:        normalizeLocalEmail(cfg.Email),
+		account:      account,
+		email:        NormalizeAccount(cfg.Email),
 		name:         strings.TrimSpace(cfg.Name),
 		role:         role,
 		passwordHash: strings.TrimSpace(cfg.PasswordHash),
@@ -62,11 +67,11 @@ func NewLocalPasswordAuthenticator(cfg LocalPasswordConfig) *LocalPasswordAuthen
 }
 
 // Authenticate validates local credentials and returns a Provider user identity.
-func (a *LocalPasswordAuthenticator) Authenticate(_ context.Context, email, password string) (User, error) {
-	if a == nil || a.email == "" || a.passwordHash == "" {
+func (a *LocalPasswordAuthenticator) Authenticate(_ context.Context, account, password string) (User, error) {
+	if a == nil || a.account == "" || a.passwordHash == "" {
 		return User{}, ErrLocalPasswordNotConfigured
 	}
-	if normalizeLocalEmail(email) != a.email {
+	if NormalizeAccount(account) != a.account {
 		return User{}, ErrInvalidCredentials
 	}
 	if ok, err := VerifyPasswordPBKDF2(password, a.passwordHash); err != nil {
@@ -77,10 +82,11 @@ func (a *LocalPasswordAuthenticator) Authenticate(_ context.Context, email, pass
 
 	name := a.name
 	if name == "" {
-		name = a.email
+		name = a.account
 	}
 	return User{
-		ExternalID: "local:" + a.email,
+		ExternalID: "local:" + a.account,
+		Account:    a.account,
 		Email:      a.email,
 		Name:       name,
 		Role:       a.role,
@@ -134,8 +140,18 @@ func VerifyPasswordPBKDF2(password, encoded string) (bool, error) {
 	return subtle.ConstantTimeCompare(actual, expected) == 1, nil
 }
 
-func normalizeLocalEmail(email string) string {
-	return strings.ToLower(strings.TrimSpace(email))
+// NormalizeAccount canonicalizes local account identifiers.
+func NormalizeAccount(account string) string {
+	return strings.ToLower(strings.TrimSpace(account))
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, value := range values {
+		if strings.TrimSpace(value) != "" {
+			return value
+		}
+	}
+	return ""
 }
 
 func decodeLocalPasswordBase64(value string) ([]byte, error) {

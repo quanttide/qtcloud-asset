@@ -1,0 +1,68 @@
+name: Deploy Provider Package
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/deploy-provider.yml"
+      - "src/provider/**"
+  pull_request:
+    branches: [main]
+    paths:
+      - ".github/workflows/deploy-provider.yml"
+      - "src/provider/**"
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.25"
+
+      - name: Build provider package
+        run: |
+          mkdir -p build/provider
+          cd src/provider
+          GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o ../../build/provider/bootstrap ./cmd/provider
+          cd ../../build/provider
+          zip ../qtcloud-asset-provider-go-linux-amd64.zip bootstrap
+
+      - name: Upload package artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: qtcloud-asset-provider
+          path: build/qtcloud-asset-provider-go-linux-amd64.zip
+          retention-days: 3
+
+  deploy:
+    needs: package
+    runs-on: ubuntu-latest
+    if: github.repository == 'quanttide/qtcloud-asset' && github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    steps:
+      - name: Download package artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: qtcloud-asset-provider
+          path: build
+
+      - name: Set env vars
+        run: |
+          echo "ALIBABA_CLOUD_ACCESS_KEY_ID=${{ secrets.ALIYUN_ACCESS_KEY_ID }}" >> $GITHUB_ENV
+          echo "ALIBABA_CLOUD_ACCESS_KEY_SECRET=${{ secrets.ALIYUN_ACCESS_KEY_SECRET }}" >> $GITHUB_ENV
+
+      - name: Upload provider package to OSS
+        run: |
+          curl -L -o ossutil.zip https://gosspublic.alicdn.com/ossutil/v2/2.2.1/ossutil-2.2.1-linux-amd64.zip
+          unzip -q ossutil.zip
+          OSSUTIL="$(find . -type f -name ossutil -perm -111 | head -n 1)"
+          "$OSSUTIL" version
+          "$OSSUTIL" -i "$ALIBABA_CLOUD_ACCESS_KEY_ID" -k "$ALIBABA_CLOUD_ACCESS_KEY_SECRET" -e oss-cn-hangzhou.aliyuncs.com --region cn-hangzhou ls oss://qtcloud-asset/provider/
+          "$OSSUTIL" -i "$ALIBABA_CLOUD_ACCESS_KEY_ID" -k "$ALIBABA_CLOUD_ACCESS_KEY_SECRET" -e oss-cn-hangzhou.aliyuncs.com --region cn-hangzhou cp -f build/qtcloud-asset-provider-go-linux-amd64.zip oss://qtcloud-asset/provider/qtcloud-asset-provider-go-linux-amd64.zip

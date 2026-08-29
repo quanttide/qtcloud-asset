@@ -12,6 +12,7 @@ import (
 
 	"github.com/quanttide/qtcloud-asset/provider/internal/auth"
 	"github.com/quanttide/qtcloud-asset/provider/internal/config"
+	"github.com/quanttide/qtcloud-asset/provider/internal/storage"
 )
 
 type fakeIdentityProvider struct {
@@ -78,6 +79,22 @@ func TestSensitiveRoutesRequireAuthentication(t *testing.T) {
 
 		if res.Code != http.StatusUnauthorized {
 			t.Fatalf("expected %s to require authentication, got HTTP %d", target, res.Code)
+		}
+	}
+
+	for _, testCase := range []struct {
+		method string
+		target string
+		body   string
+	}{
+		{method: http.MethodPost, target: "/shares", body: `{}`},
+		{method: http.MethodDelete, target: "/shares/token"},
+	} {
+		req := httptest.NewRequest(testCase.method, testCase.target, strings.NewReader(testCase.body))
+		res := httptest.NewRecorder()
+		mux.ServeHTTP(res, req)
+		if res.Code != http.StatusUnauthorized {
+			t.Fatalf("expected unauthenticated %s %s request to return HTTP 401, got %d", testCase.method, testCase.target, res.Code)
 		}
 	}
 }
@@ -185,6 +202,58 @@ func TestLocalPasswordLoginRejectsBadPassword(t *testing.T) {
 	}
 }
 
+func TestBuiltInLocalAccountCanLoginWhenRDSIsNotConfigured(t *testing.T) {
+	cfg := &config.Config{
+		StudioOrigin:  "https://asset.cloud.quanttide.com",
+		StudioOrigins: []string{"https://asset.cloud.quanttide.com"},
+		UserStoreMode: "rds",
+	}
+	users, closeStore, err := storage.OpenUserStore(cfg)
+	if closeStore != nil {
+		t.Cleanup(func() {
+			if err := closeStore(); err != nil {
+				t.Fatalf("close user store: %v", err)
+			}
+		})
+	}
+	if err == nil {
+		t.Fatal("expected missing RDS configuration to be reported")
+	}
+	sessions := auth.NewManager(auth.ManagerOptions{
+		Store:        auth.NewMemorySessionStore(),
+		SessionTTL:   time.Hour,
+		CookieSecure: true,
+	})
+	handler := NewWithStores(cfg, nil, sessions, fakeIdentityProvider{}, users, auth.NewMemoryAuditLogStore())
+	mux := http.NewServeMux()
+	handler.RegisterRoutes(mux)
+
+	for _, account := range []string{"lixiang", "zhangguo", "liujingyi", "zhaoziyi", "tuyafang"} {
+		loginReq := httptest.NewRequest(http.MethodPost, "/auth/login", strings.NewReader(`{"account":"`+account+`","password":"123456"}`))
+		loginReq.Header.Set("Content-Type", "application/json")
+		loginReq.Header.Set("Origin", cfg.StudioOrigin)
+		loginRes := httptest.NewRecorder()
+		mux.ServeHTTP(loginRes, loginReq)
+
+		if loginRes.Code != http.StatusOK {
+			t.Fatalf("expected built-in account %q login HTTP 200, got %d: %s", account, loginRes.Code, loginRes.Body.String())
+		}
+		responseBody := loginRes.Body.String()
+		var body struct {
+			User auth.User `json:"user"`
+		}
+		if err := json.Unmarshal([]byte(responseBody), &body); err != nil {
+			t.Fatalf("decode %q login response: %v", account, err)
+		}
+		if body.User.Account != account || body.User.Name != account || body.User.Role != auth.RoleViewer {
+			t.Fatalf("unexpected built-in account user %q: %+v", account, body.User)
+		}
+		if strings.Contains(responseBody, "123456") || strings.Contains(responseBody, "password_hash") {
+			t.Fatalf("login response for %q must not expose password material: %s", account, responseBody)
+		}
+	}
+}
+
 func TestLocalPasswordLoginHasTightAttemptRateLimit(t *testing.T) {
 	mux, handler := newLocalPasswordAuthTestMuxWithHandler(t)
 	handler.localLoginRateLimiter = NewRateLimiter(2, time.Minute)
@@ -232,6 +301,114 @@ func TestProductionSessionCookiesAllowCrossSiteStudioRequests(t *testing.T) {
 	}
 	if cookie.SameSite != http.SameSiteNoneMode || !cookie.Secure || !cookie.HttpOnly {
 		t.Fatalf("production session cookie must be SameSite=None; Secure; HttpOnly, got %+v", cookie)
+	}
+}
+
+func TestStorelessHandlerUsesStableSignedSessionsAcrossInstances(t *testing.T) {
+	passwordHash, err := auth.HashPasswordPBKDF2("correct-password", 1000)
+	if err != nil {
+		t.Fatalf("hash test password: %v", err)
+	}
+	cfg := &config.Config{
+		BaseURL:               "https://api.quanttide.com/qtcloud-asset",
+		StudioOrigin:          "https://asset.cloud.quanttide.com",
+		StudioOrigins:         []string{"https://asset.cloud.quanttide.com"},
+		AuthMode:              "local",
+		LocalAuthAccount:      "admin",
+		LocalAuthEmail:        "admin@example.com",
+		LocalAuthName:         "Admin User",
+		LocalAuthRole:         "admin",
+		LocalAuthPasswordHash: passwordHash,
+	}
+
+	loginHandler := NewWithStoresAndShares(cfg, nil, nil, nil, nil, nil, nil)
+	loginMux := http.NewServeMux()
+	loginHandler.RegisterRoutes(loginMux)
+
+	loginReq := httptest.NewRequest(
+		http.MethodPost,
+		"/auth/login",
+		strings.NewReader(`{"account":"admin","password":"correct-password"}`),
+	)
+	loginReq.Header.Set("Content-Type", "application/json")
+	loginReq.Header.Set("Origin", cfg.StudioOrigin)
+	loginRes := httptest.NewRecorder()
+	loginMux.ServeHTTP(loginRes, loginReq)
+	if loginRes.Code != http.StatusOK {
+		t.Fatalf("expected local login HTTP 200, got %d: %s", loginRes.Code, loginRes.Body.String())
+	}
+	sessionCookie := findCookie(t, loginRes.Result().Cookies(), auth.SessionCookieName)
+	if !sessionCookie.Secure || sessionCookie.SameSite != http.SameSiteNoneMode {
+		t.Fatalf("production session cookie must be Secure and SameSite=None, got %+v", sessionCookie)
+	}
+
+	otherInstance := NewWithStoresAndShares(cfg, nil, nil, nil, nil, nil, nil)
+	otherMux := http.NewServeMux()
+	otherInstance.RegisterRoutes(otherMux)
+	meReq := httptest.NewRequest(http.MethodGet, "/auth/me", nil)
+	meReq.AddCookie(sessionCookie)
+	meRes := httptest.NewRecorder()
+	otherMux.ServeHTTP(meRes, meReq)
+	if meRes.Code != http.StatusOK {
+		t.Fatalf("signed session should authenticate on another handler instance, got %d: %s", meRes.Code, meRes.Body.String())
+	}
+}
+
+type emptyDurableUserStore struct {
+	*auth.MemoryUserStore
+}
+
+func (s emptyDurableUserStore) ListWithError() ([]auth.User, error) {
+	return s.List(), nil
+}
+
+func (emptyDurableUserStore) GetByIDWithError(string) (auth.User, bool, error) {
+	return auth.User{}, false, nil
+}
+
+func (s emptyDurableUserStore) GetByAccountWithError(account string) (auth.User, bool, error) {
+	user, ok := s.GetByAccount(account)
+	return user, ok, nil
+}
+
+func (s emptyDurableUserStore) UpdateRoleWithError(id string, role auth.Role) (auth.User, bool, error) {
+	user, ok := s.UpdateRole(id, role)
+	return user, ok, nil
+}
+
+func (s emptyDurableUserStore) DisableWithError(id string, disabledAt time.Time) (bool, error) {
+	return s.Disable(id, disabledAt), nil
+}
+
+func TestDurableUserStoreRejectsSignedSessionWithoutPersistedUser(t *testing.T) {
+	cfg := &config.Config{
+		BaseURL:      "https://api.quanttide.com/qtcloud-asset",
+		StudioOrigin: "https://asset.cloud.quanttide.com",
+	}
+	sessions := auth.NewManager(auth.ManagerOptions{
+		Store:        auth.NewMemorySessionStore(),
+		SessionTTL:   time.Hour,
+		CookieSecure: true,
+	})
+	users := emptyDurableUserStore{MemoryUserStore: auth.NewMemoryUserStore()}
+	handler := NewWithStores(cfg, nil, sessions, fakeIdentityProvider{}, users, auth.NewMemoryAuditLogStore())
+	mux := http.NewServeMux()
+	handler.RegisterRoutes(mux)
+
+	cookie, err := sessions.CreateSession(auth.User{
+		ID:   "missing-user",
+		Role: auth.RoleAdmin,
+	}, time.Now())
+	if err != nil {
+		t.Fatalf("create signed session: %v", err)
+	}
+	req := httptest.NewRequest(http.MethodGet, "/admin/users", nil)
+	req.AddCookie(cookie)
+	res := httptest.NewRecorder()
+	mux.ServeHTTP(res, req)
+
+	if res.Code != http.StatusUnauthorized {
+		t.Fatalf("expected missing persisted user HTTP 401, got %d: %s", res.Code, res.Body.String())
 	}
 }
 

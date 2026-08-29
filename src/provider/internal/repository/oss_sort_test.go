@@ -69,12 +69,16 @@ func TestObjectURLEscapesReservedObjectKeyCharacters(t *testing.T) {
 	}
 }
 
-func TestPrivateBucketObjectURLRequiresPositiveExpiry(t *testing.T) {
+func TestMetadataOnlyBucketObjectURLIsDisabled(t *testing.T) {
 	adapter := &OssAdapter{Endpoint: "https://oss-cn-hangzhou.aliyuncs.com"}
 
-	_, err := adapter.validateObjectURLRequest("qtadmin-private", "secret.txt", 0)
-	if err == nil {
-		t.Fatal("expected private bucket URL to require a positive expiry")
+	for _, bucketName := range []string{"qtadmin-private", "quanttide-terraform-state"} {
+		t.Run(bucketName, func(t *testing.T) {
+			_, err := adapter.validateObjectURLRequest(bucketName, "secret.txt", 600)
+			if err == nil {
+				t.Fatal("expected metadata-only bucket URL to be disabled")
+			}
+		})
 	}
 }
 
@@ -95,6 +99,22 @@ func TestNewOssAdapterStoresCredentials(t *testing.T) {
 
 	if adapter.Endpoint != "https://oss-cn-hangzhou.aliyuncs.com" || adapter.AccessKeyID != "ak" || adapter.AccessKeySecret != "secret" || adapter.SecurityToken != "token" {
 		t.Fatalf("unexpected adapter config: %+v", adapter)
+	}
+}
+
+func TestOssAdapterReusesClient(t *testing.T) {
+	adapter := NewOssAdapter("https://oss-cn-hangzhou.aliyuncs.com", "ak", "secret", "")
+
+	first, err := adapter.client()
+	if err != nil {
+		t.Fatalf("create first client: %v", err)
+	}
+	second, err := adapter.client()
+	if err != nil {
+		t.Fatalf("create second client: %v", err)
+	}
+	if first != second {
+		t.Fatal("expected OSS client to be reused")
 	}
 }
 
