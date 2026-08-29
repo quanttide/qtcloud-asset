@@ -97,19 +97,24 @@ List<int> buildStoredZip(Iterable<StoredZipEntry> entries) {
 }
 
 String _normalizeZipEntryName(String name) {
-  final parts = <String>[];
-  for (final part in name.replaceAll(r'\', '/').split('/')) {
-    if (part.isEmpty || part == '.') continue;
-    if (part == '..') {
-      if (parts.isNotEmpty) parts.removeLast();
-      continue;
+  if (name.isEmpty ||
+      name.startsWith('/') ||
+      name.endsWith('/') ||
+      name.contains(r'\') ||
+      name.contains('\u0000')) {
+    throw ArgumentError('ZIP entry name is unsafe');
+  }
+  for (final part in name.split('/')) {
+    if (part == '.' || part == '..') {
+      throw ArgumentError('ZIP entry name is unsafe');
     }
-    parts.add(part);
   }
-  if (parts.isEmpty) {
-    throw ArgumentError('ZIP entry name is empty');
+  for (final codeUnit in name.codeUnits) {
+    if (codeUnit < 0x20) {
+      throw ArgumentError('ZIP entry name is unsafe');
+    }
   }
-  return parts.join('/');
+  return name;
 }
 
 int _crc32(List<int> bytes) {

@@ -23,7 +23,7 @@
   - `GET /shares/{token}`：`7079455ebdba446d95cd7d9f29b58411`
   - `GET /shares/{token}/objects`：`a43fc641d01d4874a20df1fc9d63b40e`
   - `GET /shares/{token}/object-url`：`fcef0ad3b74844fb8ed0736c0c58beca`
-  - `GET /shares/{token}/download`：`76b65d990076487484724d8a7c7c5470`，返回类型为 `BINARY`，后端超时为 60 秒
+  - `GET /shares/{token}/download`：`76b65d990076487484724d8a7c7c5470`，返回类型为 `BINARY`，后端超时为 300 秒
   - `DELETE /shares/{token}`：`e85e6e97c8e84fc1a1a7f08aa0ffe9c7`
   - 七条 API 均为 `RELEASE/DEPLOYED`，并映射到函数计算后端；下载 API 的最新 `RELEASE` 生效版本为 `20260828215305552`。
 - 状态：✅ 符合
