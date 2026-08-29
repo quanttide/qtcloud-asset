@@ -74,3 +74,25 @@ type ObjectURLResponse struct {
 	URL       string `json:"url"`
 	ExpiresIn int64  `json:"expires_in"` // 有效期秒数（0 = 永久/公开）
 }
+
+// FolderShareResponse describes a public, read-only content share.
+type FolderShareResponse struct {
+	Token     string   `json:"token"`
+	Title     string   `json:"title"`
+	Bucket    string   `json:"bucket"`
+	Prefixes  []string `json:"prefixes,omitempty"`
+	Keys      []string `json:"keys,omitempty"`
+	URL       string   `json:"url"`
+	CreatedAt string   `json:"created_at"`
+}
+
+// FolderShareEnvelope is the response wrapper used by share metadata routes.
+type FolderShareEnvelope struct {
+	Share FolderShareResponse `json:"share"`
+}
+
+// FolderShareListResponse is the response for the authenticated share list.
+type FolderShareListResponse struct {
+	Shares []FolderShareResponse `json:"shares"`
+	Total  int                   `json:"total"`
+}

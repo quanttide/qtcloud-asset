@@ -12,6 +12,16 @@ func TestLoadUsesProductionGatewayBaseURLByDefault(t *testing.T) {
 	}
 }
 
+func TestLoadUsesPostgresRDSDriverByDefault(t *testing.T) {
+	t.Setenv("RDS_DRIVER", "")
+
+	cfg := Load()
+
+	if cfg.RDSDriver != "postgres" {
+		t.Fatalf("expected PostgreSQL RDS driver by default, got %q", cfg.RDSDriver)
+	}
+}
+
 func TestLoadUsesFormalStudioOriginAndKeepsCompatibilityOrigin(t *testing.T) {
 	t.Setenv("STUDIO_ORIGIN", "")
 
@@ -44,6 +54,7 @@ func TestLoadAllowsStudioOriginOverride(t *testing.T) {
 
 func TestLoadReadsLocalAuthConfiguration(t *testing.T) {
 	t.Setenv("AUTH_MODE", "local")
+	t.Setenv("LOCAL_AUTH_ACCOUNT", "admin")
 	t.Setenv("LOCAL_AUTH_EMAIL", "admin@example.com")
 	t.Setenv("LOCAL_AUTH_NAME", "Admin User")
 	t.Setenv("LOCAL_AUTH_ROLE", "admin")
@@ -51,7 +62,7 @@ func TestLoadReadsLocalAuthConfiguration(t *testing.T) {
 
 	cfg := Load()
 
-	if cfg.AuthMode != "local" || cfg.LocalAuthEmail != "admin@example.com" {
+	if cfg.AuthMode != "local" || cfg.LocalAuthAccount != "admin" || cfg.LocalAuthEmail != "admin@example.com" {
 		t.Fatalf("expected local auth config to load, got %#v", cfg)
 	}
 	if cfg.LocalAuthName != "Admin User" || cfg.LocalAuthRole != "admin" {
@@ -59,6 +70,18 @@ func TestLoadReadsLocalAuthConfiguration(t *testing.T) {
 	}
 	if cfg.LocalAuthPasswordHash != "pbkdf2_sha256$1000$salt$hash" {
 		t.Fatalf("expected local auth password hash to load, got %#v", cfg)
+	}
+}
+
+func TestLoadKeepsLegacyLocalAuthEmailAsAccountFallback(t *testing.T) {
+	t.Setenv("AUTH_MODE", "local")
+	t.Setenv("LOCAL_AUTH_ACCOUNT", "")
+	t.Setenv("LOCAL_AUTH_EMAIL", "admin@example.com")
+
+	cfg := Load()
+
+	if cfg.LocalAuthAccount != "admin@example.com" {
+		t.Fatalf("expected legacy local auth email to populate account fallback, got %#v", cfg)
 	}
 }
 
@@ -97,6 +120,46 @@ func TestLoadPrefersExplicitOSSSecretOverFCExecutionRoleCredentials(t *testing.T
 		cfg.OSSAccessKeySecret != "explicit-secret" ||
 		cfg.OSSSecurityToken != "explicit-token" {
 		t.Fatalf("expected explicit OSS credentials to take precedence, got %#v", cfg)
+	}
+}
+
+func TestLoadReadsSharePersistenceAndAllowlistConfiguration(t *testing.T) {
+	t.Setenv("RDS_DRIVER", "mysql")
+	t.Setenv("RDS_CONNECTION_STRING", "user:password@tcp(rds.internal:3306)/asset?parseTime=true")
+	t.Setenv("SHARE_STORE", "rds")
+	t.Setenv("SHARE_MIGRATION", "folder-shares-postgres-v1")
+	t.Setenv("SHARE_TOKEN_ENCRYPTION_KEY", "base64-key-material")
+	t.Setenv("SHAREABLE_BUCKETS", "qtcloud-asset-studio, qtcloud-data-studio,qtcloud-asset-studio")
+
+	cfg := Load()
+
+	if cfg.RDSDriver != "mysql" || cfg.RDSConnectionString == "" {
+		t.Fatalf("expected RDS configuration, got %#v", cfg)
+	}
+	if cfg.ShareStoreMode != "rds" || cfg.ShareTokenEncryptionKey != "base64-key-material" {
+		t.Fatalf("expected share persistence configuration, got %#v", cfg)
+	}
+	if cfg.ShareMigration != "folder-shares-postgres-v1" {
+		t.Fatalf("expected share migration configuration, got %#v", cfg)
+	}
+	if len(cfg.ShareableBuckets) != 2 ||
+		cfg.ShareableBuckets[0] != "qtcloud-asset-studio" ||
+		cfg.ShareableBuckets[1] != "qtcloud-data-studio" {
+		t.Fatalf("expected deduplicated share bucket allowlist, got %#v", cfg.ShareableBuckets)
+	}
+}
+
+func TestLoadReadsUserPersistenceConfiguration(t *testing.T) {
+	t.Setenv("USER_STORE", "memory")
+	t.Setenv("USER_MIGRATION", "users-postgres-v1")
+
+	cfg := Load()
+
+	if cfg.UserStoreMode != "memory" {
+		t.Fatalf("expected user store mode, got %q", cfg.UserStoreMode)
+	}
+	if cfg.UserMigration != "users-postgres-v1" {
+		t.Fatalf("expected user migration, got %q", cfg.UserMigration)
 	}
 }
 

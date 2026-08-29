@@ -5,6 +5,8 @@
 package repository
 
 import (
+	"io"
+
 	"github.com/quanttide/qtcloud-asset/provider/internal/schema"
 )
 
@@ -20,9 +22,19 @@ type BucketLister interface {
 	ListBuckets() ([]schema.Bucket, error)
 }
 
+// BucketACLReader reads the current OSS bucket ACL.
+type BucketACLReader interface {
+	GetBucketACL(bucketName string) (string, error)
+}
+
 // ObjectLister lists objects inside an OSS bucket (read-only).
 type ObjectLister interface {
 	ListObjects(bucketName string, params schema.ListObjectsParams) ([]schema.Object, string, bool, error)
+}
+
+// ObjectReader reads an object body from a bucket.
+type ObjectReader interface {
+	GetObject(bucketName, objectKey string) (io.ReadCloser, error)
 }
 
 // ObjectURLBuilder builds access URLs for objects.

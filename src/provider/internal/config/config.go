@@ -7,19 +7,28 @@ import (
 
 // Config holds the provider configuration.
 type Config struct {
-	Port                  string
-	BaseURL               string
-	StudioOrigin          string
-	StudioOrigins         []string
-	AuthMode              string
-	LocalAuthEmail        string
-	LocalAuthName         string
-	LocalAuthRole         string
-	LocalAuthPasswordHash string
-	OSSEndpoint           string
-	OSSAccessKeyID        string
-	OSSAccessKeySecret    string
-	OSSSecurityToken      string
+	Port                    string
+	BaseURL                 string
+	StudioOrigin            string
+	StudioOrigins           []string
+	AuthMode                string
+	LocalAuthAccount        string
+	LocalAuthEmail          string
+	LocalAuthName           string
+	LocalAuthRole           string
+	LocalAuthPasswordHash   string
+	OSSEndpoint             string
+	OSSAccessKeyID          string
+	OSSAccessKeySecret      string
+	OSSSecurityToken        string
+	RDSDriver               string
+	RDSConnectionString     string
+	UserStoreMode           string
+	UserMigration           string
+	ShareStoreMode          string
+	ShareMigration          string
+	ShareTokenEncryptionKey string
+	ShareableBuckets        []string
 }
 
 // Load reads configuration from environment variables.
@@ -57,19 +66,28 @@ func Load() *Config {
 	}
 
 	return &Config{
-		Port:                  getEnv("PROVIDER_PORT", "9000"),
-		BaseURL:               getEnv("PROVIDER_BASE_URL", "https://api.quanttide.com/qtcloud-asset"),
-		StudioOrigin:          studioOrigin,
-		StudioOrigins:         studioOrigins,
-		AuthMode:              strings.ToLower(getEnv("AUTH_MODE", "sso")),
-		LocalAuthEmail:        getEnv("LOCAL_AUTH_EMAIL", ""),
-		LocalAuthName:         getEnv("LOCAL_AUTH_NAME", ""),
-		LocalAuthRole:         getEnv("LOCAL_AUTH_ROLE", "admin"),
-		LocalAuthPasswordHash: getEnv("LOCAL_AUTH_PASSWORD_HASH", ""),
-		OSSEndpoint:           getEnv("OSS_ENDPOINT", "https://oss-cn-hangzhou.aliyuncs.com"),
-		OSSAccessKeyID:        accessKeyID,
-		OSSAccessKeySecret:    accessKeySecret,
-		OSSSecurityToken:      securityToken,
+		Port:                    getEnv("PROVIDER_PORT", "9000"),
+		BaseURL:                 getEnv("PROVIDER_BASE_URL", "https://api.quanttide.com/qtcloud-asset"),
+		StudioOrigin:            studioOrigin,
+		StudioOrigins:           studioOrigins,
+		AuthMode:                strings.ToLower(getEnv("AUTH_MODE", "sso")),
+		LocalAuthAccount:        getEnv("LOCAL_AUTH_ACCOUNT", getEnv("LOCAL_AUTH_EMAIL", "")),
+		LocalAuthEmail:          getEnv("LOCAL_AUTH_EMAIL", ""),
+		LocalAuthName:           getEnv("LOCAL_AUTH_NAME", ""),
+		LocalAuthRole:           getEnv("LOCAL_AUTH_ROLE", "admin"),
+		LocalAuthPasswordHash:   getEnv("LOCAL_AUTH_PASSWORD_HASH", ""),
+		OSSEndpoint:             getEnv("OSS_ENDPOINT", "https://oss-cn-hangzhou.aliyuncs.com"),
+		OSSAccessKeyID:          accessKeyID,
+		OSSAccessKeySecret:      accessKeySecret,
+		OSSSecurityToken:        securityToken,
+		RDSDriver:               getEnv("RDS_DRIVER", "postgres"),
+		RDSConnectionString:     getEnv("RDS_CONNECTION_STRING", ""),
+		UserStoreMode:           strings.ToLower(getEnv("USER_STORE", "rds")),
+		UserMigration:           getEnv("USER_MIGRATION", ""),
+		ShareStoreMode:          strings.ToLower(getEnv("SHARE_STORE", "rds")),
+		ShareMigration:          getEnv("SHARE_MIGRATION", ""),
+		ShareTokenEncryptionKey: getEnv("SHARE_TOKEN_ENCRYPTION_KEY", ""),
+		ShareableBuckets:        parseCSV(getEnv("SHAREABLE_BUCKETS", "qtcloud-asset-studio")),
 	}
 }
 
@@ -87,4 +105,21 @@ func contains(values []string, target string) bool {
 		}
 	}
 	return false
+}
+
+func parseCSV(raw string) []string {
+	seen := make(map[string]struct{})
+	values := make([]string, 0)
+	for _, item := range strings.Split(raw, ",") {
+		item = strings.TrimSpace(item)
+		if item == "" {
+			continue
+		}
+		if _, exists := seen[item]; exists {
+			continue
+		}
+		seen[item] = struct{}{}
+		values = append(values, item)
+	}
+	return values
 }

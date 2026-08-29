@@ -24,6 +24,13 @@ func (fakeBucketBackend) ListBuckets() ([]schema.Bucket, error) {
 	}, nil
 }
 
+func (fakeBucketBackend) GetBucketACL(bucketName string) (string, error) {
+	if bucketName == "qtadmin-private" || bucketName == "quanttide-terraform-state" {
+		return "private", nil
+	}
+	return "public-read", nil
+}
+
 func (fakeBucketBackend) ListObjects(bucketName string, params schema.ListObjectsParams) ([]schema.Object, string, bool, error) {
 	return []schema.Object{{Key: bucketName + "/index.html"}}, "", false, nil
 }
@@ -153,58 +160,46 @@ func TestViewerCannotGeneratePrivateObjectURL(t *testing.T) {
 	assertAuditEntry(t, auditLogs.List(), auth.AuditActionObjectURL, auth.AuditResultDenied)
 }
 
-func TestAdminCanGeneratePrivateObjectURL(t *testing.T) {
-	mux, cookie, _ := newAuthorizationTestMux(t, auth.User{ID: "admin-1", Role: auth.RoleAdmin})
+func TestAdminCannotGeneratePrivateObjectURL(t *testing.T) {
+	mux, cookie, auditLogs := newAuthorizationTestMux(t, auth.User{ID: "admin-1", Role: auth.RoleAdmin})
 	req := httptest.NewRequest(http.MethodGet, "/buckets/qtadmin-private/object-url?key=secret.txt&expires=600", nil)
 	req.AddCookie(cookie)
 	res := httptest.NewRecorder()
 
 	mux.ServeHTTP(res, req)
 
-	if res.Code != http.StatusOK {
-		t.Fatalf("expected admin to generate private object URL, got HTTP %d", res.Code)
+	if res.Code != http.StatusForbidden {
+		t.Fatalf("expected admin private object URL to be forbidden, got HTTP %d", res.Code)
 	}
-	var body schema.ObjectURLResponse
-	if err := json.NewDecoder(res.Body).Decode(&body); err != nil {
-		t.Fatalf("decode object URL response: %v", err)
-	}
-	if body.ExpiresIn != 600 {
-		t.Fatalf("expected requested private expiry 600, got %d", body.ExpiresIn)
-	}
+	assertAuditEntry(t, auditLogs.List(), auth.AuditActionObjectURL, auth.AuditResultDenied)
 }
 
-func TestPrivateObjectURLDefaultsToOneDay(t *testing.T) {
-	mux, cookie, _ := newAuthorizationTestMux(t, auth.User{ID: "admin-1", Role: auth.RoleAdmin})
-	req := httptest.NewRequest(http.MethodGet, "/buckets/qtadmin-private/object-url?key=secret.txt", nil)
-	req.AddCookie(cookie)
-	res := httptest.NewRecorder()
-
-	mux.ServeHTTP(res, req)
-
-	if res.Code != http.StatusOK {
-		t.Fatalf("expected admin default private object URL HTTP 200, got %d", res.Code)
-	}
-	var body schema.ObjectURLResponse
-	if err := json.NewDecoder(res.Body).Decode(&body); err != nil {
-		t.Fatalf("decode object URL response: %v", err)
-	}
-	if body.ExpiresIn != defaultPrivateObjectURLExpirySeconds {
-		t.Fatalf("expected default private expiry %d, got %d", defaultPrivateObjectURLExpirySeconds, body.ExpiresIn)
-	}
-}
-
-func TestPrivateObjectURLRejectsExpiryAboveMaximum(t *testing.T) {
+func TestAdminCannotGenerateTerraformStateObjectURL(t *testing.T) {
 	mux, cookie, auditLogs := newAuthorizationTestMux(t, auth.User{ID: "admin-1", Role: auth.RoleAdmin})
-	req := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/buckets/qtadmin-private/object-url?key=secret.txt&expires=%d", maxPrivateObjectURLExpirySeconds+1), nil)
+	req := httptest.NewRequest(http.MethodGet, "/buckets/quanttide-terraform-state/object-url?key=terraform.tfstate&expires=600", nil)
 	req.AddCookie(cookie)
 	res := httptest.NewRecorder()
 
 	mux.ServeHTTP(res, req)
 
-	if res.Code != http.StatusBadRequest {
-		t.Fatalf("expected excessive private object URL expiry HTTP 400, got %d", res.Code)
+	if res.Code != http.StatusForbidden {
+		t.Fatalf("expected admin terraform state object URL to be forbidden, got HTTP %d", res.Code)
 	}
-	assertAuditEntry(t, auditLogs.List(), auth.AuditActionObjectURL, auth.AuditResultFailure)
+	assertAuditEntry(t, auditLogs.List(), auth.AuditActionObjectURL, auth.AuditResultDenied)
+}
+
+func TestPrivateObjectURLIsRejectedBeforeExpiryValidation(t *testing.T) {
+	mux, cookie, auditLogs := newAuthorizationTestMux(t, auth.User{ID: "admin-1", Role: auth.RoleAdmin})
+	req := httptest.NewRequest(http.MethodGet, "/buckets/qtadmin-private/object-url?key=secret.txt&expires=bad", nil)
+	req.AddCookie(cookie)
+	res := httptest.NewRecorder()
+
+	mux.ServeHTTP(res, req)
+
+	if res.Code != http.StatusForbidden {
+		t.Fatalf("expected private object URL HTTP 403 before expiry validation, got %d", res.Code)
+	}
+	assertAuditEntry(t, auditLogs.List(), auth.AuditActionObjectURL, auth.AuditResultDenied)
 }
 
 func TestPublicObjectURLReportsPermanentExpiry(t *testing.T) {

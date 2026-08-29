@@ -61,7 +61,7 @@ func TestAdminCanInviteListAndChangeUserRole(t *testing.T) {
 	harness := newAdminTestHarness(t)
 	adminCookie := harness.sessionCookie(t, auth.User{ID: "admin-1", Email: "admin@example.com", Name: "Admin", Role: auth.RoleAdmin})
 
-	inviteReq := httptest.NewRequest(http.MethodPost, "/admin/users", bytes.NewBufferString(`{"email":"new.viewer@example.com","name":"New Viewer","role":"viewer"}`))
+	inviteReq := httptest.NewRequest(http.MethodPost, "/admin/users", bytes.NewBufferString(`{"email":"new.viewer@example.com","name":"New Viewer","role":"viewer","password":"viewer-password"}`))
 	inviteReq.AddCookie(adminCookie)
 	inviteRes := httptest.NewRecorder()
 	harness.mux.ServeHTTP(inviteRes, inviteReq)
@@ -133,6 +133,68 @@ func TestViewerCannotUseAdminUserRoutes(t *testing.T) {
 	assertAuditEntry(t, harness.audit.List(), auth.AuditActionListUsers, auth.AuditResultDenied)
 }
 
+func TestAdminCanInviteUserWithInitialPasswordAndUserCanLogin(t *testing.T) {
+	harness := newAdminTestHarness(t)
+	adminCookie := harness.sessionCookie(t, auth.User{ID: "admin-1", Email: "admin@example.com", Name: "Admin", Role: auth.RoleAdmin})
+
+	inviteReq := httptest.NewRequest(http.MethodPost, "/admin/users", bytes.NewBufferString(`{"account":"lixiang","name":"LiXiang","role":"viewer","password":"123456"}`))
+	inviteReq.Header.Set("Content-Type", "application/json")
+	inviteReq.AddCookie(adminCookie)
+	inviteRes := httptest.NewRecorder()
+	harness.mux.ServeHTTP(inviteRes, inviteReq)
+
+	if inviteRes.Code != http.StatusCreated {
+		t.Fatalf("expected invite HTTP 201, got %d: %s", inviteRes.Code, inviteRes.Body.String())
+	}
+	var invited struct {
+		User auth.User `json:"user"`
+	}
+	if err := json.NewDecoder(inviteRes.Body).Decode(&invited); err != nil {
+		t.Fatalf("decode invite response: %v", err)
+	}
+	if invited.User.Account != "lixiang" || invited.User.Name != "LiXiang" || invited.User.Role != auth.RoleViewer {
+		t.Fatalf("unexpected invited user: %+v", invited.User)
+	}
+	if bytes.Contains(inviteRes.Body.Bytes(), []byte("123456")) || bytes.Contains(inviteRes.Body.Bytes(), []byte("password_hash")) {
+		t.Fatalf("invite response must not expose password material: %s", inviteRes.Body.String())
+	}
+	if bytes.Contains(inviteRes.Body.Bytes(), []byte(`"email"`)) {
+		t.Fatalf("account-only invite response must not expose an empty email field: %s", inviteRes.Body.String())
+	}
+
+	loginReq := httptest.NewRequest(http.MethodPost, "/auth/login", bytes.NewBufferString(`{"account":"lixiang","password":"123456"}`))
+	loginReq.Header.Set("Content-Type", "application/json")
+	loginReq.Header.Set("Origin", "https://asset.cloud.quanttide.com")
+	loginRes := httptest.NewRecorder()
+	harness.mux.ServeHTTP(loginRes, loginReq)
+
+	if loginRes.Code != http.StatusOK {
+		t.Fatalf("expected invited user local login HTTP 200, got %d: %s", loginRes.Code, loginRes.Body.String())
+	}
+	sessionCookie := findCookie(t, loginRes.Result().Cookies(), auth.SessionCookieName)
+	if !sessionCookie.HttpOnly || !sessionCookie.Secure {
+		t.Fatalf("invited user login session cookie must be secure HttpOnly, got %+v", sessionCookie)
+	}
+
+	meReq := httptest.NewRequest(http.MethodGet, "/auth/me", nil)
+	meReq.AddCookie(sessionCookie)
+	meRes := httptest.NewRecorder()
+	harness.mux.ServeHTTP(meRes, meReq)
+
+	if meRes.Code != http.StatusOK {
+		t.Fatalf("expected authenticated /auth/me for invited user, got HTTP %d", meRes.Code)
+	}
+	var meBody struct {
+		User auth.User `json:"user"`
+	}
+	if err := json.NewDecoder(meRes.Body).Decode(&meBody); err != nil {
+		t.Fatalf("decode /auth/me response: %v", err)
+	}
+	if meBody.User.Account != "lixiang" || meBody.User.Name != "LiXiang" || meBody.User.Role != auth.RoleViewer {
+		t.Fatalf("unexpected authenticated invited user: %+v", meBody.User)
+	}
+}
+
 func TestAdminDisableUserRevokesSessions(t *testing.T) {
 	harness := newAdminTestHarness(t)
 	adminCookie := harness.sessionCookie(t, auth.User{ID: "admin-1", Email: "admin@example.com", Name: "Admin", Role: auth.RoleAdmin})
@@ -200,7 +262,7 @@ func TestAdminUserRoutesValidateInput(t *testing.T) {
 	harness := newAdminTestHarness(t)
 	adminCookie := harness.sessionCookie(t, auth.User{ID: "admin-1", Email: "admin@example.com", Name: "Admin", Role: auth.RoleAdmin})
 
-	req := httptest.NewRequest(http.MethodPost, "/admin/users", bytes.NewBufferString(`{"email":"not-an-email","name":"Bad","role":"owner"}`))
+	req := httptest.NewRequest(http.MethodPost, "/admin/users", bytes.NewBufferString(`{"email":"not-an-email","name":"Bad","role":"owner","password":"123456"}`))
 	req.AddCookie(adminCookie)
 	res := httptest.NewRecorder()
 	harness.mux.ServeHTTP(res, req)
@@ -215,7 +277,7 @@ func TestAdminUserMutationsRejectUnregisteredOrigin(t *testing.T) {
 	harness := newAdminTestHarness(t)
 	adminCookie := harness.sessionCookie(t, auth.User{ID: "admin-1", Email: "admin@example.com", Name: "Admin", Role: auth.RoleAdmin})
 
-	req := httptest.NewRequest(http.MethodPost, "/admin/users", bytes.NewBufferString(`{"email":"new.viewer@example.com","name":"New Viewer","role":"viewer"}`))
+	req := httptest.NewRequest(http.MethodPost, "/admin/users", bytes.NewBufferString(`{"email":"new.viewer@example.com","name":"New Viewer","role":"viewer","password":"viewer-password"}`))
 	req.Header.Set("Origin", "https://evil.example.com")
 	req.AddCookie(adminCookie)
 	res := httptest.NewRecorder()
