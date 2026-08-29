@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+### Changed
+- 本地登录和管理员邀请从邮箱主键改为账号主键，保留旧 `email` 请求体和 `LOCAL_AUTH_EMAIL` 作为兼容 fallback
+- 明确对象链接仅支持公开桶；私密桶和 `quanttide-terraform-state` 不生成访问链接
+
+## [0.1.1] - 2026-08-27
+
 ### Added
 - CLI 新增 `oss` 子命令（list / ls / url），复用 Provider 只读接口管理 OSS
 - Provider 列表接口支持排序（`sort`/`order`）与对象分页（`limit`/`marker`）

@@ -39,10 +39,10 @@ resource "alicloud_fcv3_function" "this" {
   description          = "QtCloud Asset provider"
   runtime              = "custom.debian12"
   handler              = "not-used"
-  memory_size          = 512
-  cpu                  = 0.5
+  memory_size          = 1024
+  cpu                  = 1
   disk_size            = 512
-  timeout              = 60
+  timeout              = 300
   instance_concurrency = 10
   internet_access      = true
 

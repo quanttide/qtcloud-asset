@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CORSConfiguration>
+  <CORSRule>
+    <AllowedOrigin>https://asset.cloud.quanttide.com</AllowedOrigin>
+    <AllowedOrigin>https://asset.quanttide.com</AllowedOrigin>
+    <AllowedOrigin>http://localhost:8090</AllowedOrigin>
+    <AllowedOrigin>http://127.0.0.1:8090</AllowedOrigin>
+    <AllowedMethod>GET</AllowedMethod>
+    <AllowedMethod>HEAD</AllowedMethod>
+    <AllowedHeader>Content-Type</AllowedHeader>
+    <AllowedHeader>Range</AllowedHeader>
+    <ExposeHeader>Content-Length</ExposeHeader>
+    <ExposeHeader>Content-Range</ExposeHeader>
+    <ExposeHeader>Content-Type</ExposeHeader>
+    <MaxAgeSeconds>600</MaxAgeSeconds>
+  </CORSRule>
+</CORSConfiguration>

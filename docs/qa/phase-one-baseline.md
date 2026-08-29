@@ -59,6 +59,7 @@
 - `https://api.quanttide.com/qtcloud-asset/health`、`/config`、`/buckets`、对象列表和公开对象 URL 均返回 200。
 - Provider 已挂载 `qtcloud-asset-provider-role`，函数环境不再保存长期 OSS AccessKey。
 - `-private` 桶对象 URL 在 Provider 中被拒绝，Studio 不显示复制链接入口。
+- 文件夹分享使用 RDS 持久化，分享创建和公开访问均实时校验 OSS `public-read` ACL，并受 `SHAREABLE_BUCKETS` 白名单约束。
 
 ## 待处理问题
 

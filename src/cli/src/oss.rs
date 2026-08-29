@@ -101,7 +101,7 @@ impl Client {
         Ok((resp.objects, resp.next_marker, resp.truncated))
     }
 
-    /// 生成对象访问链接。私密桶 expires 最大 604800 秒，公开桶忽略此参数。
+    /// 生成公开桶对象访问链接；私密桶不支持对象链接。
     pub fn object_url(&self, bucket: &str, key: &str, expires: i64) -> Result<String> {
         #[derive(Deserialize)]
         struct Resp {

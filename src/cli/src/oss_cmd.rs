@@ -66,7 +66,7 @@ pub struct OssUrlArgs {
     /// 对象 key
     key: String,
 
-    /// 链接有效期（秒），私密桶最大 604800，公开桶忽略此参数
+    /// 兼容参数，公开桶忽略有效期；私密桶不支持对象链接
     #[arg(long, default_value_t = 86400)]
     expires: i64,
 

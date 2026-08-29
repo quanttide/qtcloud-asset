@@ -23,5 +23,5 @@
 ### Security
 - [ ] `src/provider/` 登录策略：明确本地账号密码登录的内测退场条件和管理员账号轮换流程。
 - [ ] `src/provider/` 凭证迁移：将长期 OSS AK/SK 使用路径迁移到 RAM 角色、临时凭证或 KMS 管控链路。
-- [ ] `src/provider/` 签名链接策略：对私密桶对象签名 URL 的默认有效期和最大有效期做产品化确认。
+- [x] `src/provider/` 签名链接策略：确认私密桶和 `quanttide-terraform-state` 不生成对象访问链接，公开桶使用永久直链。
 - [ ] `./` 变更授权：API 网关、DNS、CDN、证书、RAM 权限和 OSS 删除操作继续按生产变更清单单独授权。

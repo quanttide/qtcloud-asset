@@ -8,10 +8,10 @@
 - [x] Provider 采用 Go 技术栈，`OssAdapter` 作为 `SourceAdapter` 首个实现
 - [x] 只读端点 `/buckets`：列出 OSS 桶（含 region、存储类型、创建时间）
 - [x] 只读端点 `/buckets/{name}/objects`：列出桶内对象
-- [x] 端点 `/buckets/{name}/object-url`：生成对象访问链接，私密桶走签名 URL、公开桶走永久直链
+- [x] 端点 `/buckets/{name}/object-url`：仅生成公开桶永久直链，私密桶拒绝对象链接请求
 - [x] Studio 桶列表页：按用途分类筛选、搜索、创建时间排序
 - [x] Studio 文件浏览页：目录层级下钻、搜索、日期/大小排序
-- [x] Studio 复制访问链接：有效期自选（1 天 / 7 天 / 30 天）
+- [x] Studio 复制访问链接：公开桶直接复制永久直链，私密桶不提供链接分享
 - [x] CLI 新增 `oss` 子命令（list / ls / url），复用 Provider 只读接口
 
 ### Changed
@@ -23,11 +23,11 @@
 
 ### Added
 - [x] 身份源选型：飞书/Lark SSO 优先，必要时启用邀请码/邮箱验证码
-- [ ] 身份源接入：平台 SSO 或真实身份源仍待后续接入
 - [x] 登录态与会话：`/auth/login`、`/auth/callback`、`/auth/logout`、`/auth/me`
 - [x] 本地账号密码登录：内测使用 `AUTH_MODE=local`、PBKDF2-SHA256 密码哈希和服务端会话
 - [x] 角色体系：`viewer` / `admin`
 - [x] 私密桶仅授权人员可见，公开桶继续只读
+- [x] 私密桶对象只展示元数据，不生成访问链接
 - [x] 访问审计：用户、IP、bucket、action、result
 - [x] 审计日志持久化：Provider 输出结构化 `qtcloud_asset_audit`，函数计算 stdout 接入 SLS
 - [x] 管理员邀请 / 禁用用户
@@ -40,7 +40,6 @@
 - [x] 平台 API 网关 CORS 收口到已登记来源
 - [x] 会话 cookie、安全头、管理写接口 Origin 校验
 - [x] 登录与敏感接口限流
-- [ ] AK/SK 凭证迁移到阿里云 KMS
 
 ## [0.1.2] — 身份源与发布收口
 
@@ -51,14 +50,16 @@
 - [ ] PR 检查确认不包含 `plan.md`、`plans.md` 或 `plan-a.md`
 
 ### Changed
+- [x] 本地登录和管理员邀请从邮箱主键改为账号主键，保留旧邮箱配置兼容 fallback
 - [ ] 决定 `qtcloud-asset/provider/` 是否迁到专用 Provider 制品桶或制品仓库
 - [ ] 明确旧入口 `asset.quanttide.com` 的保留、跳转或下线策略
 - [ ] 同步 `CHANGELOG.md`、`README.md`、`src/provider/README.md` 和 `docs/prd/oss-integration.md`
 
 ### Security
 - [ ] 明确本地账号密码登录的内测退场条件和管理员账号轮换流程
-- [ ] 对私密桶对象签名 URL 的默认有效期和最大有效期做产品化确认
+- [x] 确认私密桶和 `quanttide-terraform-state` 不生成对象访问链接
 - [ ] 明确 API 网关、DNS、CDN、证书、RAM 权限和 OSS 删除操作的单独授权清单
+- [ ] 将长期 OSS AK/SK 使用路径迁移到 RAM 角色、临时凭证或 KMS 管控链路
 
 ## [0.2.0] — 补齐与加固
 
@@ -71,7 +72,7 @@
 - [x] 在 `.quanttide/asset/contract.yaml` 登记 35 个 OSS 桶为资产条目
 
 ### Security
-- [ ] 确认私密桶链接默认有效期与档位（是否含「永久」）
+- [x] 私密桶不提供链接分享；未来如需访问，另行设计授权与审计机制
 
 ## [0.3.0] — 全景与多源
 

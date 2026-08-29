@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -5,6 +7,10 @@ import 'package:http/testing.dart';
 import 'package:qtcloud_studio/main.dart';
 
 void main() {
+  test('share archive timeout allows the production archive window', () {
+    expect(shareArchiveTimeout, const Duration(seconds: 300));
+  });
+
   test('ProviderApiClient trims base URL and exposes login URI', () {
     final client = ProviderApiClient(
       baseUrl: 'https://api.example.com///',
@@ -38,18 +44,20 @@ void main() {
         expect(request.method, 'POST');
         expect(request.url.path, '/auth/login');
         expect(request.headers['Content-Type'], contains('application/json'));
-        expect(request.body, contains('admin@example.com'));
-        expect(request.body, contains('correct-password'));
+        expect(jsonDecode(request.body), {
+          'account': 'admin',
+          'password': 'correct-password',
+        });
         return http.Response(_adminUserBody, 200);
       }),
     );
 
     final user = await client.login(
-      email: 'admin@example.com',
+      account: 'admin',
       password: 'correct-password',
     );
 
-    expect(user.email, 'admin@example.com');
+    expect(user.account, 'admin');
     expect(user.role, 'admin');
   });
 
@@ -149,6 +157,125 @@ void main() {
     expect(url, 'https://oss.example.com/folder/a%20b.txt');
   });
 
+  test('ProviderApiClient creates and reads public folder shares', () async {
+    final requests = <http.Request>[];
+    final client = ProviderApiClient(
+      baseUrl: 'https://api.example.com',
+      httpClient: MockClient((request) async {
+        requests.add(request);
+        if (request.method == 'POST' && request.url.path == '/shares') {
+          expect(jsonDecode(request.body), {
+            'title': '公开资料',
+            'bucket': 'qtcloud-asset-studio',
+            'prefixes': ['docs/', 'design/'],
+          });
+          return http.Response.bytes(utf8.encode(_shareBody), 201);
+        }
+        expect(request.method, 'GET');
+        expect(request.url.path, '/shares/share-token');
+        return http.Response.bytes(utf8.encode(_shareBody), 200);
+      }),
+    );
+
+    final created = await client.createShare(
+      title: '公开资料',
+      bucketName: 'qtcloud-asset-studio',
+      prefixes: const ['docs/', 'design/'],
+    );
+    final loaded = await client.fetchShare('share-token');
+
+    expect(created.token, 'share-token');
+    expect(loaded.prefixes, ['design/', 'docs/']);
+    expect(requests.map((request) => '${request.method} ${request.url.path}'), [
+      'POST /shares',
+      'GET /shares/share-token',
+    ]);
+  });
+
+  test('ProviderApiClient fetches shared objects and shared object URLs',
+      () async {
+    final requested = <String>[];
+    final client = ProviderApiClient(
+      baseUrl: 'https://api.example.com',
+      httpClient: MockClient((request) async {
+        requested.add(request.url.toString());
+        if (request.url.path.endsWith('/objects')) {
+          return http.Response(_sharedObjectsBody, 200);
+        }
+        return http.Response(
+          '{"url":"https://oss.example.com/docs/readme.md","expires_in":0}',
+          200,
+        );
+      }),
+    );
+
+    final objects = await client.fetchShareObjects(
+      token: 'share token',
+      prefix: 'docs/',
+    );
+    final url = await client.fetchShareObjectUrl(
+      token: 'share token',
+      objectKey: 'docs/readme.md',
+    );
+
+    expect(objects.map((object) => object.key), ['docs/readme.md']);
+    expect(url, 'https://oss.example.com/docs/readme.md');
+    expect(requested.first, contains('/shares/share%20token/objects'));
+    expect(requested.first, contains('prefix=docs%2F'));
+    expect(requested.last, contains('/shares/share%20token/object-url'));
+  });
+
+  test('ProviderApiClient fetches a shared ZIP archive', () async {
+    final requested = <String>[];
+    final client = ProviderApiClient(
+      baseUrl: 'https://api.example.com',
+      httpClient: MockClient((request) async {
+        requested.add(request.url.toString());
+        return http.Response.bytes([0x50, 0x4b, 0x03, 0x04], 200);
+      }),
+    );
+
+    final archive = await client.fetchShareArchive('share token');
+
+    expect(archive, [0x50, 0x4b, 0x03, 0x04]);
+    expect(requested, [
+      'https://api.example.com/shares/share%20token/download',
+    ]);
+  });
+
+  test('ProviderApiClient uses a separate client for public object bytes',
+      () async {
+    final apiRequests = <String>[];
+    final objectRequests = <String>[];
+    final apiClient = MockClient((request) async {
+      apiRequests.add(request.url.toString());
+      return http.Response(
+        '{"url":"https://oss.example.com/docs/readme.md","expires_in":0}',
+        200,
+      );
+    });
+    final objectClient = MockClient((request) async {
+      objectRequests.add(request.url.toString());
+      return http.Response.bytes(utf8.encode('content'), 200);
+    });
+
+    final client = ProviderApiClient(
+      baseUrl: 'https://api.example.com',
+      httpClient: apiClient,
+      publicObjectHttpClient: objectClient,
+    );
+    final bytes = await client.fetchShareObjectBytes(
+      token: 'share-token',
+      objectKey: 'docs/readme.md',
+    );
+
+    expect(bytes, utf8.encode('content'));
+    expect(apiRequests, [
+      'https://api.example.com/shares/share-token/object-url?key=docs%2Freadme.md',
+    ]);
+    expect(objectRequests, ['https://oss.example.com/docs/readme.md']);
+  });
+
   test('ProviderApiClient supports admin user management endpoints', () async {
     final requested = <String>[];
     final bodies = <String>[];
@@ -174,9 +301,10 @@ void main() {
 
     final users = await client.fetchUsers();
     final invited = await client.inviteUser(
-      email: 'new@example.com',
+      account: 'new-user',
       name: 'New User',
       role: 'admin',
+      password: '123456',
     );
     final updated =
         await client.updateUserRole(userId: 'user-1', role: 'admin');
@@ -184,7 +312,7 @@ void main() {
     await client.revokeUserSessions('user-1');
 
     expect(users, hasLength(1));
-    expect(invited.email, 'new@example.com');
+    expect(invited.account, 'new-user');
     expect(updated.role, 'admin');
     expect(requested, [
       'GET /admin/users',
@@ -193,7 +321,12 @@ void main() {
       'POST /admin/users/user-1/disable',
       'POST /admin/users/user-1/sessions/revoke',
     ]);
-    expect(bodies[0], contains('new@example.com'));
+    expect(jsonDecode(bodies[0]), {
+      'account': 'new-user',
+      'name': 'New User',
+      'role': 'admin',
+      'password': '123456',
+    });
     expect(bodies[1], contains('admin'));
   });
 
@@ -201,7 +334,10 @@ void main() {
     final client = ProviderApiClient(
       baseUrl: 'https://api.example.com',
       httpClient: MockClient(
-        (_) async => http.Response('{"error":"gateway closed"}', 503),
+        (_) async => http.Response(
+          '{"error":"Service Unavailable","message":"gateway closed"}',
+          503,
+        ),
       ),
     );
 
@@ -261,6 +397,7 @@ const _adminUserBody = '''
 {
   "user": {
     "id": "admin-1",
+    "account": "admin",
     "email": "admin@example.com",
     "name": "Admin User",
     "role": "admin",
@@ -338,7 +475,7 @@ const _invitedUserBody = '''
 {
   "user": {
     "id": "new-1",
-    "email": "new@example.com",
+    "account": "new-user",
     "name": "New User",
     "role": "admin",
     "status": "active"
@@ -355,5 +492,35 @@ const _updatedUserBody = '''
     "role": "admin",
     "status": "active"
   }
+}
+''';
+
+const _shareBody = '''
+{
+  "share": {
+    "token": "share-token",
+    "title": "公开资料",
+    "bucket": "qtcloud-asset-studio",
+    "prefixes": ["design/", "docs/"],
+    "url": "https://asset.cloud.quanttide.com/#/share/share-token",
+    "created_at": "2026-08-27T10:00:00Z"
+  }
+}
+''';
+
+const _sharedObjectsBody = '''
+{
+  "bucket": "qtcloud-asset-studio",
+  "objects": [
+    {
+      "key": "docs/readme.md",
+      "size": 128,
+      "type": "Normal",
+      "storage_class": "Standard",
+      "last_modified": "2026-08-27 10:00:00"
+    }
+  ],
+  "truncated": false,
+  "next_marker": ""
 }
 ''';
