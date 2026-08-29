@@ -70,7 +70,7 @@ docker run -p 9000:9000 qtcloud-asset-provider
 
 业务权限按 `viewer` 和 `admin` 两级执行。`viewer` 的桶清单隐藏 `-private` 桶和 `quanttide-terraform-state`，只能访问公开桶对象元数据和公开链接；`admin` 可以查看全部桶、访问私密桶对象元数据，但任何角色都不能为私密桶生成对象链接。公开桶直链返回 `expires_in=0`。未登录返回 401，已登录但权限不足或账号被禁用返回 403。管理写接口会校验浏览器 `Origin`，未登记来源返回 403；无 `Origin` 的服务端/CLI 调用保留给后续 CLI 接入。
 
-分享只允许白名单内、且 OSS 当前 ACL 为 `public-read` 的桶，单次分享固定一个桶，可包含多个以 `/` 结尾的对象前缀和明确文件 key。`POST /shares` 使用 `prefixes` 和 `keys` 表示分享目标，最多 128 个目标；公开页面只读，不提供上传、删除或权限变更。文件对象链接仍由 Provider 按分享 token、前缀或明确 key 范围和当前桶 ACL 重新校验。分享页的“下载全部”调用 Provider 生成 ZIP，保留原始对象路径和文件名（包括隐藏文件）；单次归档最多 4096 个文件、源文件总大小最多 512 MiB。正式入口默认使用 RDS；仅显式设置 `SHARE_STORE=memory` 时才启用不持久的内存实现，用于本地开发和测试。
+分享只允许白名单内、且 OSS 当前 ACL 为 `public-read` 的桶，单次分享固定一个桶，可包含多个以 `/` 结尾的对象前缀和明确文件 key。`POST /shares` 使用 `prefixes` 和 `keys` 表示分享目标，最多 128 个目标；公开页面只读，不提供上传、删除或权限变更。文件对象链接仍由 Provider 按分享 token、前缀或明确 key 范围和当前桶 ACL 重新校验。Provider 提供 `/shares/{token}/download` ZIP 接口，保留原始对象路径和文件名（包括隐藏文件）；Studio 分享页为规避网关大响应超时，当前优先逐个读取分享对象并在浏览器端生成 ZIP，单次浏览器打包总大小最多 100 MiB。正式入口默认使用 RDS；仅显式设置 `SHARE_STORE=memory` 时才启用不持久的内存实现，用于本地开发和测试。
 
 ## 配置
 

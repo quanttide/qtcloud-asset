@@ -1,5 +1,7 @@
 // Basic widget smoke test for 量潮资产云 Studio.
 
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -79,8 +81,8 @@ void main() {
     expect(find.text('对象存储桶'), findsNothing);
 
     await tester.enterText(
-      find.byKey(const Key('login-email')),
-      'viewer@example.com',
+      find.byKey(const Key('login-account')),
+      'viewer',
     );
     await tester.enterText(
       find.byKey(const Key('login-password')),
@@ -184,10 +186,14 @@ void main() {
     WidgetTester tester,
   ) async {
     final requested = <String>[];
+    final bodies = <String>[];
     final client = ProviderApiClient(
       baseUrl: 'https://api.example.com',
       httpClient: MockClient((request) async {
         requested.add('${request.method} ${request.url.path}');
+        if (request.method == 'POST') {
+          bodies.add(request.body);
+        }
         return switch ((request.method, request.url.path)) {
           ('GET', '/admin/users') => http.Response(_usersBody, 200),
           ('POST', '/admin/users') => http.Response(_invitedUserBody, 201),
@@ -206,13 +212,19 @@ void main() {
     expect(find.text('Admin User'), findsOneWidget);
     expect(find.text('Viewer User'), findsOneWidget);
 
-    await tester.enterText(
-        find.byKey(const Key('invite-email')), 'new@example.com');
+    await tester.enterText(find.byKey(const Key('invite-account')), 'new-user');
     await tester.enterText(find.byKey(const Key('invite-name')), 'New User');
+    await tester.enterText(find.byKey(const Key('invite-password')), '123456');
     await tester.tap(find.text('邀请'));
     await tester.pumpAndSettle();
 
     expect(requested, contains('POST /admin/users'));
+    expect(jsonDecode(bodies.single), {
+      'account': 'new-user',
+      'name': 'New User',
+      'role': 'viewer',
+      'password': '123456',
+    });
     expect(find.text('邀请已创建'), findsOneWidget);
   });
 
@@ -256,8 +268,8 @@ void main() {
     expect(find.text('已退出当前会话，请重新登录。'), findsOneWidget);
 
     await tester.enterText(
-      find.byKey(const Key('login-email')),
-      'viewer@example.com',
+      find.byKey(const Key('login-account')),
+      'viewer',
     );
     await tester.enterText(
       find.byKey(const Key('login-password')),
@@ -814,22 +826,20 @@ void main() {
     );
   });
 
-  testWidgets('private bucket cards do not open object browser', (
+  testWidgets('private bucket cards stay blocked without admin browse access', (
     WidgetTester tester,
   ) async {
-    const buckets = [
-      Bucket(
-        name: 'qtadmin-private',
-        region: 'cn-hangzhou',
-        storageClass: 'Standard',
-        createdAt: '2026-07-18',
-      ),
-    ];
-
     await tester.pumpWidget(
-      MaterialApp(
+      const MaterialApp(
         home: Scaffold(
-          body: BucketListView(buckets: Future.value(buckets)),
+          body: BucketCard(
+            bucket: Bucket(
+              name: 'qtadmin-private',
+              region: 'cn-hangzhou',
+              storageClass: 'Standard',
+              createdAt: '2026-07-18',
+            ),
+          ),
         ),
       ),
     );
@@ -840,6 +850,51 @@ void main() {
 
     expect(find.byType(BucketObjectsScreen), findsNothing);
     expect(find.text('私密桶仅展示元数据'), findsOneWidget);
+  });
+
+  testWidgets('admin private bucket cards open object browser', (
+    WidgetTester tester,
+  ) async {
+    const buckets = [
+      Bucket(
+        name: 'qtadmin-private',
+        region: 'cn-hangzhou',
+        storageClass: 'Standard',
+        createdAt: '2026-07-18',
+      ),
+    ];
+    final requested = <String>[];
+    final client = ProviderApiClient(
+      baseUrl: 'https://api.example.com',
+      httpClient: MockClient((request) async {
+        requested.add('${request.method} ${request.url.path}');
+        return switch ((request.method, request.url.path)) {
+          ('GET', '/buckets/qtadmin-private/objects') =>
+            http.Response(_objectsBody, 200),
+          _ => http.Response('{"error":"unexpected"}', 500),
+        };
+      }),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: BucketListView(
+            buckets: Future.value(buckets),
+            client: client,
+            showMetadataOnlyBuckets: true,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('qtadmin-private'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(BucketObjectsScreen), findsOneWidget);
+    expect(find.text('root.txt'), findsOneWidget);
+    expect(requested, contains('GET /buckets/qtadmin-private/objects'));
   });
 
   test('metadata-only buckets cannot expose object links', () {
@@ -908,6 +963,7 @@ const _authMeBody = '''
   "user": {
     "id": "user-1",
     "external_id": "lark-user-1",
+    "account": "viewer",
     "email": "viewer@example.com",
     "name": "Viewer User",
     "role": "viewer",
@@ -923,6 +979,7 @@ const _adminAuthMeBody = '''
   "user": {
     "id": "admin-1",
     "external_id": "lark-admin-1",
+    "account": "admin",
     "email": "admin@example.com",
     "name": "Admin User",
     "role": "admin",
@@ -972,6 +1029,7 @@ const _usersBody = '''
     {
       "id": "admin-1",
       "external_id": "lark-admin-1",
+      "account": "admin",
       "email": "admin@example.com",
       "name": "Admin User",
       "role": "admin",
@@ -982,6 +1040,7 @@ const _usersBody = '''
     {
       "id": "viewer-1",
       "external_id": "lark-viewer-1",
+      "account": "viewer",
       "email": "viewer@example.com",
       "name": "Viewer User",
       "role": "viewer",
@@ -997,13 +1056,29 @@ const _invitedUserBody = '''
 {
   "user": {
     "id": "new-1",
-    "external_id": "new@example.com",
-    "email": "new@example.com",
+    "external_id": "managed:new-user",
+    "account": "new-user",
     "name": "New User",
     "role": "viewer",
     "status": "active",
     "created_at": "2026-08-25T00:00:00Z",
     "last_login_at": "0001-01-01T00:00:00Z"
   }
+}
+''';
+
+const _objectsBody = '''
+{
+  "objects": [
+    {
+      "key": "root.txt",
+      "size": 512,
+      "type": "Normal",
+      "storage_class": "Standard",
+      "last_modified": "2026-08-24 09:00:00"
+    }
+  ],
+  "truncated": false,
+  "next_marker": ""
 }
 ''';

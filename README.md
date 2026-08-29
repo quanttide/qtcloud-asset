@@ -65,7 +65,8 @@ Provider 需要以下环境变量：
 | `OSS_ACCESS_KEY_SECRET` | 阿里云 AccessKey Secret |
 | `OSS_ENDPOINT` | OSS 端点，默认 `https://oss-cn-hangzhou.aliyuncs.com` |
 | `AUTH_MODE` | 认证模式，默认 `sso`；内测账号密码登录使用 `local` |
-| `LOCAL_AUTH_EMAIL` | 本地账号登录邮箱，仅 `AUTH_MODE=local` 时使用 |
+| `LOCAL_AUTH_ACCOUNT` | 本地登录账号，仅 `AUTH_MODE=local` 时使用 |
+| `LOCAL_AUTH_EMAIL` | 兼容旧配置的邮箱字段，可为空 |
 | `LOCAL_AUTH_PASSWORD_HASH` | PBKDF2-SHA256 密码哈希，不写入明文密码 |
 
 ### CLI 工具
@@ -82,18 +83,19 @@ CLI 支持本地资产扫描、验证与归档，也支持通过 `oss` 子命令
 ```bash
 cargo run -- oss list                # 列出所有桶
 cargo run -- oss ls <桶名>           # 列出桶内对象
-cargo run -- oss url <桶名> <key>    # 生成对象访问链接
+cargo run -- oss url <桶名> <key>    # 生成公开桶对象访问链接
 ```
 
 ## 已实现能力
 
-- Provider 只读端点：按角色列出桶、列出对象、生成公开桶直链；`viewer` 隐藏 `-private` 与 `quanttide-terraform-state`，`admin` 可查看全部并为私密桶生成限时签名 URL
+- Provider 只读端点：按角色列出桶、列出对象、生成公开桶直链；`viewer` 隐藏 `-private` 与 `quanttide-terraform-state`，`admin` 可查看全部但不能生成私密桶对象链接
 - Provider 账号门禁：SSO 占位入口、本地账号密码登录、`viewer` / `admin` 鉴权、管理员用户管理接口
 - Provider 审计：结构化 `qtcloud_asset_audit` stdout 日志，生产函数计算可通过 SLS 持久查询
 - Studio 桶列表：按用途分类筛选、搜索、创建时间排序
 - Studio 文件浏览：目录层级下钻、搜索、日期/大小排序
 - Studio 登录页：账号密码登录、当前用户展示、退出登录和管理员入口
-- Studio 复制对象链接：公开桶返回直链，`admin` 可为私密桶生成限时签名 URL，`viewer` 无权访问私密桶对象能力
+- Studio 复制对象链接：仅公开桶返回直链；私密桶只展示对象元数据，不提供链接分享
+- Studio 文件/文件夹分享：公开桶支持选择单个或多个文件、文件夹生成一个只读分享页链接；分享页支持单文件下载和 ZIP 下载全部；私密桶不显示分享入口
 - CLI `oss` 子命令：命令行方式复用上述只读能力
 
 ## 契约定义

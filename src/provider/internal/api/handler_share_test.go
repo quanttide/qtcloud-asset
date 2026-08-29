@@ -20,6 +20,13 @@ import (
 
 type shareTestBackend struct{}
 
+type shareBackend interface {
+	ListBuckets() ([]schema.Bucket, error)
+	GetBucketACL(string) (string, error)
+	ListObjects(string, schema.ListObjectsParams) ([]schema.Object, string, bool, error)
+	ObjectURL(string, string, int64) (string, error)
+}
+
 func (shareTestBackend) ListBuckets() ([]schema.Bucket, error) {
 	return []schema.Bucket{
 		{Name: "qtcloud-asset-studio"},
@@ -49,6 +56,30 @@ func (shareTestBackend) ObjectURL(bucketName, objectKey string, expiresIn int64)
 	return fmt.Sprintf("https://%s.example.com/%s", bucketName, objectKey), nil
 }
 
+type trackingShareBackend struct {
+	calls []schema.ListObjectsParams
+}
+
+func (b *trackingShareBackend) ListBuckets() ([]schema.Bucket, error) {
+	return []schema.Bucket{{Name: "qtcloud-asset-studio"}}, nil
+}
+
+func (b *trackingShareBackend) GetBucketACL(string) (string, error) {
+	return "public-read", nil
+}
+
+func (b *trackingShareBackend) ListObjects(_ string, params schema.ListObjectsParams) ([]schema.Object, string, bool, error) {
+	b.calls = append(b.calls, params)
+	if params.Prefix == "design/logo.svg" {
+		return []schema.Object{{Key: "design/logo.svg", Size: 20, Type: "Normal"}}, "provider-marker", true, nil
+	}
+	return []schema.Object{{Key: "other/secret.txt", Size: 40, Type: "Normal"}}, "unshared-marker", true, nil
+}
+
+func (b *trackingShareBackend) ObjectURL(bucketName, objectKey string, expiresIn int64) (string, error) {
+	return fmt.Sprintf("https://%s.example.com/%s", bucketName, objectKey), nil
+}
+
 type shareTestHarness struct {
 	mux      *http.ServeMux
 	sessions *auth.Manager
@@ -57,6 +88,10 @@ type shareTestHarness struct {
 }
 
 func newShareTestHarness(t *testing.T, user auth.User) (shareTestHarness, *http.Cookie) {
+	return newShareTestHarnessWithBackend(t, user, shareTestBackend{})
+}
+
+func newShareTestHarnessWithBackend(t *testing.T, user auth.User, backend shareBackend) (shareTestHarness, *http.Cookie) {
 	t.Helper()
 
 	cfg := &config.Config{
@@ -80,9 +115,9 @@ func newShareTestHarness(t *testing.T, user auth.User) (shareTestHarness, *http.
 		t.Fatalf("create test session: %v", err)
 	}
 	buckets := service.NewBucketService(
-		shareTestBackend{},
-		shareTestBackend{},
-		shareTestBackend{},
+		backend,
+		backend,
+		backend,
 	)
 	audit := auth.NewMemoryAuditLogStore()
 	handler := NewWithStores(
@@ -223,6 +258,78 @@ func TestViewerCanCreateAndAnonymouslyBrowseIndividualFileShare(t *testing.T) {
 	}
 	if len(objects.Objects) != 1 || objects.Objects[0].Key != "design/logo.svg" {
 		t.Fatalf("unexpected file share objects: %+v", objects.Objects)
+	}
+}
+
+func TestIndividualFileShareDoesNotExposeProviderPagination(t *testing.T) {
+	backend := &trackingShareBackend{}
+	harness, cookie := newShareTestHarnessWithBackend(t, auth.User{
+		ID:   "viewer-1",
+		Role: auth.RoleViewer,
+	}, backend)
+
+	req := httptest.NewRequest(
+		http.MethodPost,
+		"/shares",
+		bytes.NewBufferString(`{"title":"单文件","bucket":"qtcloud-asset-studio","keys":["design/logo.svg"]}`),
+	)
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Origin", "https://asset.cloud.quanttide.com")
+	req.AddCookie(cookie)
+	res := httptest.NewRecorder()
+	harness.mux.ServeHTTP(res, req)
+	if res.Code != http.StatusCreated {
+		t.Fatalf("create file share HTTP %d: %s", res.Code, res.Body.String())
+	}
+
+	var envelope schema.FolderShareEnvelope
+	if err := json.NewDecoder(res.Body).Decode(&envelope); err != nil {
+		t.Fatalf("decode file share response: %v", err)
+	}
+	rootReq := httptest.NewRequest(
+		http.MethodGet,
+		"/shares/"+envelope.Share.Token+"/objects",
+		nil,
+	)
+	rootRes := httptest.NewRecorder()
+	harness.mux.ServeHTTP(rootRes, rootReq)
+	if rootRes.Code != http.StatusOK {
+		t.Fatalf("list file share root HTTP %d: %s", rootRes.Code, rootRes.Body.String())
+	}
+
+	var rootObjects schema.ObjectListResponse
+	if err := json.NewDecoder(rootRes.Body).Decode(&rootObjects); err != nil {
+		t.Fatalf("decode file share root: %v", err)
+	}
+	if len(rootObjects.Objects) != 1 || rootObjects.Objects[0].Key != "design/" {
+		t.Fatalf("unexpected file share root: %+v", rootObjects)
+	}
+	if rootObjects.NextMarker != "" || rootObjects.Truncated {
+		t.Fatalf("provider pagination must not escape file share root: %+v", rootObjects)
+	}
+
+	objectsReq := httptest.NewRequest(
+		http.MethodGet,
+		"/shares/"+envelope.Share.Token+"/objects?prefix=design/",
+		nil,
+	)
+	objectsRes := httptest.NewRecorder()
+	harness.mux.ServeHTTP(objectsRes, objectsReq)
+	if objectsRes.Code != http.StatusOK {
+		t.Fatalf("list file share folder HTTP %d: %s", objectsRes.Code, objectsRes.Body.String())
+	}
+	var objects schema.ObjectListResponse
+	if err := json.NewDecoder(objectsRes.Body).Decode(&objects); err != nil {
+		t.Fatalf("decode file share folder: %v", err)
+	}
+	if len(objects.Objects) != 1 || objects.Objects[0].Key != "design/logo.svg" {
+		t.Fatalf("unexpected file share folder: %+v", objects.Objects)
+	}
+	if objects.NextMarker != "" || objects.Truncated {
+		t.Fatalf("provider pagination must not escape file share folder: %+v", objects)
+	}
+	if len(backend.calls) != 1 || backend.calls[0].Prefix != "design/logo.svg" {
+		t.Fatalf("expected exact-key lookup, got %+v", backend.calls)
 	}
 }
 

@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'dart:convert';
 
 import 'package:qtcloud_studio/main.dart';
 
@@ -229,14 +230,11 @@ void main() {
       lessThan(tester.getTopLeft(find.text('folder/z-last.txt')).dy),
     );
 
-    await tester.tap(find.byTooltip('复制链接').first);
-    await _pumpAsync(tester);
-    expect(find.text('选择链接有效期'), findsOneWidget);
-
-    await tester.tap(find.text('1 天'));
+    await tester.tap(find.byTooltip('复制公开链接').first);
     await _pumpAsync(tester);
 
     expect(clipboardWrites, ['https://oss.example.com/nested.txt']);
+    expect(find.text('公开链接已复制'), findsOneWidget);
 
     await tester.tap(find.text('返回上级'));
     await _pumpAsync(tester);
@@ -257,7 +255,166 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('root.txt'), findsOneWidget);
-    expect(find.byTooltip('复制链接'), findsNothing);
+    expect(find.text('私密桶仅展示对象元数据，不支持链接分享。'), findsOneWidget);
+    expect(find.byTooltip('复制公开链接'), findsNothing);
+    expect(find.byTooltip('选择文件'), findsNothing);
+    expect(find.byTooltip('分享文件夹'), findsNothing);
+  });
+
+  testWidgets('BucketObjectsScreen creates a folder share link',
+      (WidgetTester tester) async {
+    final clipboardWrites = <String>[];
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(SystemChannels.platform, (call) async {
+      if (call.method == 'Clipboard.setData') {
+        final arguments = Map<Object?, Object?>.from(call.arguments as Map);
+        clipboardWrites.add(arguments['text'] as String);
+      }
+      return null;
+    });
+    addTearDown(() {
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(SystemChannels.platform, null);
+    });
+
+    final client = _objectClient((request) async {
+      if (request.method == 'POST' && request.url.path == '/shares') {
+        expect(jsonDecode(request.body), {
+          'title': '公开文件夹',
+          'bucket': 'qtcloud-asset-studio',
+          'prefixes': ['folder/'],
+        });
+        return http.Response.bytes(
+          utf8.encode(_shareResponseBody),
+          201,
+          headers: {'content-type': 'application/json; charset=utf-8'},
+        );
+      }
+      return http.Response(_objectsBody, 200);
+    });
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: BucketObjectsScreen(
+          bucketName: 'qtcloud-asset-studio',
+          client: client,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('分享'), findsOneWidget);
+    await tester.tap(find.byTooltip('分享文件夹'));
+    await tester.pumpAndSettle();
+    expect(find.text('创建分享链接'), findsOneWidget);
+
+    await tester.tap(find.text('创建链接'));
+    await tester.pumpAndSettle();
+
+    expect(
+      clipboardWrites,
+      ['https://asset.cloud.quanttide.com/#/share/share-token'],
+    );
+    expect(find.text('分享链接已复制'), findsOneWidget);
+  });
+
+  testWidgets('BucketObjectsScreen selects files and folders with select all',
+      (WidgetTester tester) async {
+    final requestBodies = <Map<String, dynamic>>[];
+    final client = _objectClient((request) async {
+      if (request.method == 'POST' && request.url.path == '/shares') {
+        requestBodies.add(jsonDecode(request.body) as Map<String, dynamic>);
+        return http.Response.bytes(
+          utf8.encode(_shareResponseBody),
+          201,
+          headers: {'content-type': 'application/json; charset=utf-8'},
+        );
+      }
+      return http.Response(_objectsBody, 200);
+    });
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: BucketObjectsScreen(
+          bucketName: 'qtcloud-asset-studio',
+          client: client,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('选择文件'));
+    await tester.pump();
+    expect(find.byType(Checkbox), findsNWidgets(2));
+
+    await tester.tap(find.byTooltip('全选'));
+    await tester.pump();
+    expect(
+      find.byWidgetPredicate(
+        (widget) => widget is Checkbox && widget.value == true,
+      ),
+      findsNWidgets(2),
+    );
+
+    await tester.tap(find.byTooltip('取消全选'));
+    await tester.pump();
+    expect(
+      find.byWidgetPredicate(
+        (widget) => widget is Checkbox && widget.value == true,
+      ),
+      findsNothing,
+    );
+
+    await tester.tap(find.byType(Checkbox).first);
+    await tester.pump();
+    await tester.tap(find.text('分享所选'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('创建链接'));
+    await tester.pumpAndSettle();
+
+    expect(requestBodies, hasLength(1));
+    expect(requestBodies.single['prefixes'], isEmpty);
+    expect(requestBodies.single['keys'], ['root.txt']);
+  });
+
+  testWidgets('BucketObjectsScreen shares multiple folders together',
+      (WidgetTester tester) async {
+    final requestBodies = <Map<String, dynamic>>[];
+    final client = _objectClient((request) async {
+      if (request.method == 'POST' && request.url.path == '/shares') {
+        requestBodies.add(jsonDecode(request.body) as Map<String, dynamic>);
+        return http.Response.bytes(
+          utf8.encode(_shareResponseBody),
+          201,
+          headers: {'content-type': 'application/json; charset=utf-8'},
+        );
+      }
+      return http.Response(_multipleFoldersObjectsBody, 200);
+    });
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: BucketObjectsScreen(
+          bucketName: 'qtcloud-asset-studio',
+          client: client,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('选择文件'));
+    await tester.pump();
+    await tester.tap(find.text('folder/'));
+    await tester.tap(find.text('examples/'));
+    await tester.pump();
+    await tester.tap(find.text('分享所选'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('创建链接'));
+    await tester.pumpAndSettle();
+
+    expect(requestBodies, hasLength(1));
+    expect(requestBodies.single['prefixes'],
+        containsAll(['folder/', 'examples/']));
   });
 
   testWidgets('BucketObjectsScreen renders provider errors',
@@ -276,6 +433,32 @@ void main() {
 
     expect(find.textContaining('加载文件失败'), findsOneWidget);
     expect(find.textContaining('denied'), findsOneWidget);
+  });
+
+  testWidgets('BucketObjectsScreen handles an expired session',
+      (WidgetTester tester) async {
+    var authRequired = false;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: BucketObjectsScreen(
+          bucketName: 'qtcloud-asset-studio',
+          client: _objectClient(
+            (_) async => http.Response(
+              '{"error":"Unauthorized","message":"authentication required"}',
+              401,
+            ),
+          ),
+          onAuthRequired: () => authRequired = true,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('登录状态已失效'), findsOneWidget);
+    expect(find.text('请返回登录页后重新登录。'), findsOneWidget);
+
+    await tester.tap(find.text('返回登录'));
+    expect(authRequired, isTrue);
   });
 
   testWidgets('BucketObjectsScreen reports copy link failures',
@@ -299,13 +482,42 @@ void main() {
 
     await tester.tap(find.text('folder/'));
     await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('复制链接').first);
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('7 天'));
+    await tester.tap(find.byTooltip('复制公开链接').first);
     await tester.pumpAndSettle();
 
-    expect(find.textContaining('生成链接失败'), findsOneWidget);
-    expect(find.textContaining('private bucket'), findsOneWidget);
+    expect(find.textContaining('复制公开链接失败'), findsOneWidget);
+    expect(find.textContaining('当前桶或文件不允许公开访问'), findsOneWidget);
+  });
+
+  testWidgets('BucketObjectsScreen reports folder share failures',
+      (WidgetTester tester) async {
+    final client = _objectClient((request) async {
+      if (request.method == 'POST' && request.url.path == '/shares') {
+        return http.Response(
+          '{"error":"Service Unavailable","message":"bucket access policy could not be verified"}',
+          503,
+        );
+      }
+      return http.Response(_objectsBody, 200);
+    });
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: BucketObjectsScreen(
+          bucketName: 'qtcloud-asset-studio',
+          client: client,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('分享文件夹'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('创建链接'));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('创建分享失败'), findsOneWidget);
+    expect(find.textContaining('公开权限校验失败'), findsOneWidget);
   });
 }
 
@@ -346,6 +558,42 @@ const _objectsBody = '''
       "type": "Normal",
       "storage_class": "Standard",
       "last_modified": "2026-08-24 11:00:00"
+    }
+  ],
+  "truncated": false,
+  "next_marker": ""
+}
+''';
+
+const _shareResponseBody = '''
+{
+  "share": {
+    "token": "share-token",
+    "title": "公开文件夹",
+    "bucket": "qtcloud-asset-studio",
+    "prefixes": ["folder/"],
+    "url": "https://asset.cloud.quanttide.com/#/share/share-token",
+    "created_at": "2026-08-27T10:00:00Z"
+  }
+}
+''';
+
+const _multipleFoldersObjectsBody = '''
+{
+  "objects": [
+    {
+      "key": "folder/file.txt",
+      "size": 512,
+      "type": "Normal",
+      "storage_class": "Standard",
+      "last_modified": "2026-08-24 09:00:00"
+    },
+    {
+      "key": "examples/demo.txt",
+      "size": 256,
+      "type": "Normal",
+      "storage_class": "Standard",
+      "last_modified": "2026-08-24 10:00:00"
     }
   ],
   "truncated": false,

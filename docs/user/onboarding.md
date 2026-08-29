@@ -43,8 +43,9 @@ git status --short --branch
 | `OSS_ACCESS_KEY_SECRET` | 本地需要 | 本地开发用 AccessKey Secret |
 | `OSS_SESSION_TOKEN` | 临时凭证需要 | 本地开发用临时凭证 token |
 | `AUTH_MODE` | 否 | 默认 `sso`；本地账号密码登录用 `local` |
-| `LOCAL_AUTH_EMAIL` | local 需要 | 本地登录邮箱 |
-| `LOCAL_AUTH_NAME` | 否 | 本地登录展示名，空值时使用邮箱 |
+| `LOCAL_AUTH_ACCOUNT` | local 需要 | 本地登录账号 |
+| `LOCAL_AUTH_EMAIL` | 否 | 兼容旧配置的邮箱字段，可为空 |
+| `LOCAL_AUTH_NAME` | 否 | 本地登录展示名，空值时使用账号 |
 | `LOCAL_AUTH_ROLE` | 否 | 本地登录角色，`viewer` 或 `admin`，默认 `admin` |
 | `LOCAL_AUTH_PASSWORD_HASH` | local 需要 | PBKDF2-SHA256 密码哈希，不写明文密码 |
 
@@ -53,7 +54,7 @@ Windows PowerShell 示例：
 ```powershell
 $env:OSS_ENDPOINT = "https://oss-cn-hangzhou.aliyuncs.com"
 $env:AUTH_MODE = "local"
-$env:LOCAL_AUTH_EMAIL = "your.name@example.com"
+$env:LOCAL_AUTH_ACCOUNT = "admin"
 $env:LOCAL_AUTH_ROLE = "admin"
 $env:LOCAL_AUTH_PASSWORD_HASH = "pbkdf2_sha256$..."
 ```
@@ -62,7 +63,9 @@ $env:LOCAL_AUTH_PASSWORD_HASH = "pbkdf2_sha256$..."
 
 ## 生成本地密码哈希
 
-本地账号密码登录不读取明文密码，只读取 `LOCAL_AUTH_PASSWORD_HASH`。可以用 Provider 内置 Go 函数在测试或临时小工具中生成 PBKDF2-SHA256 哈希。生成后只保存哈希，不保存明文。
+本地管理员账号密码登录不读取明文密码，只读取 `LOCAL_AUTH_PASSWORD_HASH`。可以用 Provider 内置 Go 函数在测试或临时小工具中生成 PBKDF2-SHA256 哈希。生成后只保存哈希，不保存明文。
+
+管理员进入 Studio 的用户管理页邀请新用户时，需要填写账号、姓名、角色和初始密码。Provider 会立即把初始密码转换成 PBKDF2-SHA256 哈希，只把哈希写入用户记录；用户列表、登录响应和审计日志不会回显明文密码或哈希。被邀请用户随后可以用账号和初始密码登录。
 
 如果只是验证链路，也可以请已有维护者提供一次性内测哈希值。不要在仓库里新增真实密码或真实哈希。
 
@@ -104,7 +107,7 @@ flutter run -d web-server --web-port 8090 --dart-define=PROVIDER_BASE_URL=http:/
 http://127.0.0.1:8090/
 ```
 
-未登录时会看到登录页。使用本地 `AUTH_MODE=local` 配置的邮箱和密码登录。登录成功后应能看到桶列表、分类、搜索和对象浏览入口。
+未登录时会看到登录页。使用本地 `AUTH_MODE=local` 配置的账号和密码登录。登录成功后应能看到桶列表、分类、搜索和对象浏览入口。
 
 ## 运行 CLI
 
@@ -172,7 +175,11 @@ git diff --check
 
 ### 登录页提示服务尚未配置
 
-默认 `AUTH_MODE=sso` 时，`GET /auth/login` 是 SSO 占位入口，未接入平台 SSO 会返回 503。内测请使用 `AUTH_MODE=local` 并配置 `LOCAL_AUTH_EMAIL` 与 `LOCAL_AUTH_PASSWORD_HASH`。
+默认 `AUTH_MODE=sso` 时，`GET /auth/login` 是 SSO 占位入口，未接入平台 SSO 会返回 503。内测请使用 `AUTH_MODE=local` 并配置 `LOCAL_AUTH_ACCOUNT` 与 `LOCAL_AUTH_PASSWORD_HASH`；旧环境里的 `LOCAL_AUTH_EMAIL` 仍可作为账号兼容 fallback。
+
+### 被邀请用户提示密码错误
+
+确认邀请时已经填写初始密码。当前内测版不发送邮件邀请链接，也不支持用户自助重置密码；如果初始密码忘记，需要管理员重新邀请或后续补充重置密码能力。
 
 ### 桶列表返回 401
 

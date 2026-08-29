@@ -16,3 +16,4 @@
 | [phase-five-online-acceptance.md](./phase-five-online-acceptance.md) | 阶段五线上验收记录 | ✅ |
 | [phase-six-cleanup-rollback.md](./phase-six-cleanup-rollback.md) | 阶段六清理和回滚准备记录 | ✅ |
 | [phase-six-qtcloud-asset-inventory.md](./phase-six-qtcloud-asset-inventory.md) | 阶段六旧桶对象清单 | ✅ |
+| [phase-seven-folder-sharing.md](./phase-seven-folder-sharing.md) | 阶段七文件夹分享上线记录 | ✅ |

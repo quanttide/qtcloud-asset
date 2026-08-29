@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 
+import 'client_zip.dart';
+import 'download_url.dart';
 import 'login_redirect.dart';
 import 'provider_http_client.dart';
 
@@ -18,6 +20,11 @@ const _bucketGridRowsPerPage = 3;
 const _bucketGridMinCardWidth = 180.0;
 const _bucketGridSpacing = 8.0;
 const _bucketGridMainExtent = 104.0;
+// Provider ignores expires for public links but expects a positive value.
+const _objectUrlRequestExpirySeconds = 86400;
+const shareArchiveTimeout = Duration(seconds: 300);
+const maxBrowserArchiveBytes = 100 * 1024 * 1024;
+const shareObjectDownloadTimeout = Duration(seconds: 60);
 
 enum BucketSortMode { none, name, createdAt, createdAtThenName }
 
@@ -41,6 +48,7 @@ class ProviderApiException implements Exception {
 class ProviderUser {
   const ProviderUser({
     required this.id,
+    required this.account,
     required this.email,
     required this.name,
     required this.role,
@@ -48,6 +56,7 @@ class ProviderUser {
   });
 
   final String id;
+  final String account;
   final String email;
   final String name;
   final String role;
@@ -56,6 +65,7 @@ class ProviderUser {
   factory ProviderUser.fromJson(Map<String, dynamic> json) {
     return ProviderUser(
       id: json['id'] as String? ?? '',
+      account: json['account'] as String? ?? json['email'] as String? ?? '',
       email: json['email'] as String? ?? '',
       name: json['name'] as String? ?? '',
       role: json['role'] as String? ?? '',
@@ -63,28 +73,34 @@ class ProviderUser {
     );
   }
 
-  String get displayName => name.isNotEmpty ? name : email;
+  String get displayName => name.isNotEmpty ? name : account;
 }
 
 class ProviderApiClient {
-  ProviderApiClient({String baseUrl = providerBaseUrl, http.Client? httpClient})
-      : baseUrl = baseUrl.replaceFirst(RegExp(r'/+$'), ''),
-        _httpClient = httpClient ?? createProviderHttpClient();
+  ProviderApiClient({
+    String baseUrl = providerBaseUrl,
+    http.Client? httpClient,
+    http.Client? publicObjectHttpClient,
+  })  : baseUrl = baseUrl.replaceFirst(RegExp(r'/+$'), ''),
+        _httpClient = httpClient ?? createProviderHttpClient(),
+        _publicObjectHttpClient = publicObjectHttpClient ??
+            (httpClient ?? createPublicObjectHttpClient());
 
   final String baseUrl;
   final http.Client _httpClient;
+  final http.Client _publicObjectHttpClient;
 
   Uri get loginUri => Uri.parse('$baseUrl/auth/login');
 
   Future<ProviderUser> login({
-    required String email,
+    required String account,
     required String password,
   }) async {
     final response = await _httpClient
         .post(
           _uri('/auth/login'),
           headers: {'Content-Type': 'application/json'},
-          body: jsonEncode({'email': email, 'password': password}),
+          body: jsonEncode({'account': account, 'password': password}),
         )
         .timeout(const Duration(seconds: 15));
     _ensureSuccess(response);
@@ -182,6 +198,134 @@ class ProviderApiClient {
     return body['url'] as String;
   }
 
+  Future<FolderShare> createShare({
+    required String title,
+    required String bucketName,
+    List<String> prefixes = const [],
+    List<String> keys = const [],
+  }) async {
+    final requestBody = <String, dynamic>{
+      'title': title,
+      'bucket': bucketName,
+      'prefixes': prefixes,
+    };
+    if (keys.isNotEmpty) {
+      requestBody['keys'] = keys;
+    }
+    final response = await _httpClient
+        .post(
+          _uri('/shares'),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode(requestBody),
+        )
+        .timeout(const Duration(seconds: 20));
+    if (response.statusCode == 401) {
+      throw const AuthRequiredException();
+    }
+    _ensureSuccess(response, allowedStatusCodes: {201});
+    final body = jsonDecode(response.body) as Map<String, dynamic>;
+    return FolderShare.fromJson(body['share'] as Map<String, dynamic>);
+  }
+
+  Future<FolderShare> fetchShare(String token) async {
+    final encodedToken = Uri.encodeComponent(token);
+    final response = await _httpClient
+        .get(_uri('/shares/$encodedToken'))
+        .timeout(const Duration(seconds: 20));
+    _ensureSuccess(response);
+    final body = jsonDecode(response.body) as Map<String, dynamic>;
+    return FolderShare.fromJson(body['share'] as Map<String, dynamic>);
+  }
+
+  Future<List<FolderShare>> fetchShares() async {
+    final response = await _httpClient
+        .get(_uri('/shares'))
+        .timeout(const Duration(seconds: 20));
+    if (response.statusCode == 401) {
+      throw const AuthRequiredException();
+    }
+    _ensureSuccess(response);
+    final body = jsonDecode(response.body) as Map<String, dynamic>;
+    final list = body['shares'] as List<dynamic>? ?? const [];
+    return list
+        .map((item) => FolderShare.fromJson(item as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<List<OssObject>> fetchShareObjects({
+    required String token,
+    String prefix = '',
+  }) async {
+    final encodedToken = Uri.encodeComponent(token);
+    return fetchAllObjectPages((marker) async {
+      final query = <String, String>{'prefix': prefix};
+      if (marker.isNotEmpty) query['marker'] = marker;
+      final response = await _httpClient
+          .get(_uri('/shares/$encodedToken/objects', queryParameters: query))
+          .timeout(const Duration(seconds: 20));
+      _ensureSuccess(response);
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    });
+  }
+
+  Future<String> fetchShareObjectUrl({
+    required String token,
+    required String objectKey,
+  }) async {
+    final encodedToken = Uri.encodeComponent(token);
+    final response = await _httpClient
+        .get(
+          _uri(
+            '/shares/$encodedToken/object-url',
+            queryParameters: {'key': objectKey},
+          ),
+        )
+        .timeout(const Duration(seconds: 20));
+    _ensureSuccess(response);
+    final body = jsonDecode(response.body) as Map<String, dynamic>;
+    return body['url'] as String;
+  }
+
+  Future<List<int>> fetchShareArchive(String token) async {
+    final encodedToken = Uri.encodeComponent(token);
+    final response = await _httpClient
+        .get(_uri('/shares/$encodedToken/download'))
+        .timeout(shareArchiveTimeout);
+    _ensureSuccess(response);
+    return response.bodyBytes;
+  }
+
+  Future<List<int>> fetchShareObjectBytes({
+    required String token,
+    required String objectKey,
+  }) async {
+    final link = await fetchShareObjectUrl(
+      token: token,
+      objectKey: objectKey,
+    );
+    final response = await _publicObjectHttpClient
+        .get(Uri.parse(link))
+        .timeout(shareObjectDownloadTimeout);
+    if (response.statusCode != 200) {
+      throw ProviderApiException(
+        response.statusCode,
+        'failed to read shared object',
+      );
+    }
+    return response.bodyBytes;
+  }
+
+  Future<void> revokeShare(String token) async {
+    final encodedToken = Uri.encodeComponent(token);
+    final response = await _httpClient
+        .delete(_uri('/shares/$encodedToken'))
+        .timeout(const Duration(seconds: 20));
+    if (response.statusCode == 401) {
+      throw const AuthRequiredException();
+    }
+    _ensureSuccess(response, allowedStatusCodes: {204});
+  }
+
   Future<List<ProviderUser>> fetchUsers() async {
     final response = await _httpClient
         .get(_uri('/admin/users'))
@@ -198,8 +342,9 @@ class ProviderApiClient {
   }
 
   Future<ProviderUser> inviteUser({
-    required String email,
+    required String account,
     required String name,
+    required String password,
     String role = 'viewer',
   }) async {
     final response = await _httpClient
@@ -207,9 +352,10 @@ class ProviderApiClient {
           _uri('/admin/users'),
           headers: {'Content-Type': 'application/json'},
           body: jsonEncode({
-            'email': email,
+            'account': account,
             'name': name,
             'role': role,
+            'password': password,
           }),
         )
         .timeout(const Duration(seconds: 15));
@@ -274,7 +420,8 @@ class ProviderApiClient {
   String _errorMessage(http.Response response) {
     try {
       final body = jsonDecode(response.body) as Map<String, dynamic>;
-      return body['error']?.toString() ??
+      return body['message']?.toString() ??
+          body['error']?.toString() ??
           response.reasonPhrase ??
           'request failed';
     } catch (_) {
@@ -345,6 +492,7 @@ class QtCloudAssetStudio extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final shareToken = shareTokenFromUri(Uri.base);
     return MaterialApp(
       title: '量潮资产云',
       debugShowCheckedModeBanner: false,
@@ -352,12 +500,36 @@ class QtCloudAssetStudio extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF2563EB)),
         useMaterial3: true,
       ),
-      home: DashboardScreen(
-        client: client,
-        loginRedirect: loginRedirect,
-      ),
+      home: shareToken == null
+          ? DashboardScreen(
+              client: client,
+              loginRedirect: loginRedirect,
+            )
+          : PublicShareScreen(token: shareToken, client: client),
     );
   }
+}
+
+String? shareTokenFromUri(Uri uri) {
+  String? tokenFromSegments(List<String> segments) {
+    final shareIndex = segments.indexOf('share');
+    if (shareIndex == -1 || shareIndex == segments.length - 1) {
+      return null;
+    }
+    final token = segments[shareIndex + 1].trim();
+    return token.isEmpty ? null : token;
+  }
+
+  final pathToken = tokenFromSegments(uri.pathSegments);
+  if (pathToken != null) return pathToken;
+
+  if (uri.fragment.isEmpty) return null;
+  final fragmentPath =
+      uri.fragment.startsWith('/') ? uri.fragment.substring(1) : uri.fragment;
+  final fragmentUri = Uri.tryParse('https://asset.local/$fragmentPath');
+  return fragmentUri == null
+      ? null
+      : tokenFromSegments(fragmentUri.pathSegments);
 }
 
 class Bucket {
@@ -475,6 +647,42 @@ class OssObject {
   }
 }
 
+class FolderShare {
+  const FolderShare({
+    required this.token,
+    required this.title,
+    required this.bucket,
+    required this.prefixes,
+    required this.keys,
+    required this.url,
+    required this.createdAt,
+  });
+
+  final String token;
+  final String title;
+  final String bucket;
+  final List<String> prefixes;
+  final List<String> keys;
+  final String url;
+  final String createdAt;
+
+  factory FolderShare.fromJson(Map<String, dynamic> json) {
+    return FolderShare(
+      token: json['token'] as String? ?? '',
+      title: json['title'] as String? ?? '公开文件夹',
+      bucket: json['bucket'] as String? ?? '',
+      prefixes: (json['prefixes'] as List<dynamic>? ?? const [])
+          .whereType<String>()
+          .toList(),
+      keys: (json['keys'] as List<dynamic>? ?? const [])
+          .whereType<String>()
+          .toList(),
+      url: json['url'] as String? ?? '',
+      createdAt: json['created_at'] as String? ?? '',
+    );
+  }
+}
+
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key, this.client, this.loginRedirect});
 
@@ -493,7 +701,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   bool _loggedOut = false;
   bool _loginSubmitting = false;
   String? _loginError;
-  final _loginEmailController = TextEditingController();
+  final _loginAccountController = TextEditingController();
   final _loginPasswordController = TextEditingController();
   String? _selectedCategory; // null = 全部
   String _searchText = '';
@@ -522,7 +730,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   @override
   void dispose() {
-    _loginEmailController.dispose();
+    _loginAccountController.dispose();
     _loginPasswordController.dispose();
     super.dispose();
   }
@@ -559,6 +767,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
     });
   }
 
+  void _handleSessionExpired() {
+    if (!mounted) return;
+    Navigator.of(context).popUntil((route) => route.isFirst);
+    setState(() {
+      _loggedOut = true;
+      _loginError = '登录状态已失效，请重新登录。';
+      _health = null;
+      _buckets = null;
+    });
+  }
+
   Future<void> _logout() async {
     try {
       await _client.logout();
@@ -575,9 +794,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Future<void> _login() async {
-    final email = _loginEmailController.text.trim();
+    final account = _loginAccountController.text.trim();
     final password = _loginPasswordController.text;
-    if (email.isEmpty || password.isEmpty) {
+    if (account.isEmpty || password.isEmpty) {
       setState(() {
         _loginError = '请输入账号和密码。';
       });
@@ -589,7 +808,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       _loginError = null;
     });
     try {
-      final user = await _client.login(email: email, password: password);
+      final user = await _client.login(account: account, password: password);
       if (!mounted) return;
       setState(() {
         _loggedOut = false;
@@ -754,7 +973,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       return _AuthScaffold(
         title: '量潮资产云',
         child: _LoginPanel(
-          emailController: _loginEmailController,
+          accountController: _loginAccountController,
           passwordController: _loginPasswordController,
           message: logoutMessage,
           error: _loginError,
@@ -784,7 +1003,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             return _AuthScaffold(
               title: '量潮资产云',
               child: _LoginPanel(
-                emailController: _loginEmailController,
+                accountController: _loginAccountController,
                 passwordController: _loginPasswordController,
                 error: _loginError,
                 submitting: _loginSubmitting,
@@ -816,6 +1035,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
             title: const Text('量潮资产云'),
             actions: [
               _CurrentUserBadge(user: user),
+              IconButton(
+                tooltip: '我的分享',
+                onPressed: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => MySharesScreen(client: _client),
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.share),
+              ),
               if (user.role == 'admin')
                 IconButton(
                   tooltip: '用户管理',
@@ -879,6 +1109,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         sortMode: _bucketSortMode,
                         sortAscending: _sortAscending,
                         createdAtDescending: _createdAtDescending,
+                        onAuthRequired: _handleSessionExpired,
                       ),
                     ),
                     const SizedBox(height: 16),
@@ -970,7 +1201,7 @@ class _AuthStatusPanel extends StatelessWidget {
 
 class _LoginPanel extends StatelessWidget {
   const _LoginPanel({
-    required this.emailController,
+    required this.accountController,
     required this.passwordController,
     required this.submitting,
     required this.onSubmit,
@@ -978,7 +1209,7 @@ class _LoginPanel extends StatelessWidget {
     this.error,
   });
 
-  final TextEditingController emailController;
+  final TextEditingController accountController;
   final TextEditingController passwordController;
   final bool submitting;
   final VoidCallback onSubmit;
@@ -1013,10 +1244,10 @@ class _LoginPanel extends StatelessWidget {
             ],
             const SizedBox(height: 18),
             TextField(
-              key: const Key('login-email'),
-              controller: emailController,
+              key: const Key('login-account'),
+              controller: accountController,
               enabled: !submitting,
-              keyboardType: TextInputType.emailAddress,
+              keyboardType: TextInputType.text,
               autofillHints: const [AutofillHints.username],
               decoration: const InputDecoration(
                 labelText: '账号',
@@ -1110,6 +1341,222 @@ class _CurrentUserBadge extends StatelessWidget {
   }
 }
 
+class MySharesScreen extends StatefulWidget {
+  const MySharesScreen({super.key, required this.client});
+
+  final ProviderApiClient client;
+
+  @override
+  State<MySharesScreen> createState() => _MySharesScreenState();
+}
+
+class _MySharesScreenState extends State<MySharesScreen> {
+  late Future<List<FolderShare>> _shares;
+
+  @override
+  void initState() {
+    super.initState();
+    _shares = widget.client.fetchShares();
+  }
+
+  void _refreshShares() {
+    setState(() {
+      _shares = widget.client.fetchShares();
+    });
+  }
+
+  void _showMessage(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(content: Text(message)),
+      );
+  }
+
+  Future<void> _copyShareUrl(FolderShare share) async {
+    try {
+      await Clipboard.setData(ClipboardData(text: share.url));
+      _showMessage('分享链接已复制');
+    } catch (error) {
+      _showMessage('复制分享失败：$error');
+    }
+  }
+
+  Future<void> _revokeShare(FolderShare share) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('确认撤销分享'),
+          content: const Text('撤销后这个分享链接将立即失效。'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('取消'),
+            ),
+            FilledButton.icon(
+              onPressed: () => Navigator.of(context).pop(true),
+              icon: const Icon(Icons.link_off, size: 18),
+              label: const Text('撤销'),
+            ),
+          ],
+        );
+      },
+    );
+    if (confirmed != true || !mounted) return;
+
+    try {
+      await widget.client.revokeShare(share.token);
+      if (!mounted) return;
+      _refreshShares();
+      _showMessage('分享已撤销');
+    } catch (error) {
+      _showMessage('撤销分享失败：$error');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF7F8FA),
+      appBar: AppBar(
+        title: const Text('我的分享'),
+        actions: [
+          IconButton(
+            tooltip: '刷新分享',
+            onPressed: _refreshShares,
+            icon: const Icon(Icons.refresh),
+          ),
+        ],
+      ),
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 960),
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: FutureBuilder<List<FolderShare>>(
+              future: _shares,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState != ConnectionState.done) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                if (snapshot.hasError) {
+                  final message = snapshot.error is AuthRequiredException
+                      ? '登录状态已过期，请返回重新登录'
+                      : '加载分享失败：${snapshot.error}';
+                  return Center(
+                    child: Text(
+                      message,
+                      style: TextStyle(color: Colors.red.shade700),
+                      textAlign: TextAlign.center,
+                    ),
+                  );
+                }
+                final shares = snapshot.data ?? const [];
+                if (shares.isEmpty) {
+                  return const Center(child: Text('暂无分享链接'));
+                }
+                return ListView.separated(
+                  itemCount: shares.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 8),
+                  itemBuilder: (context, index) {
+                    final share = shares[index];
+                    return _ShareRow(
+                      share: share,
+                      onCopy: () => _copyShareUrl(share),
+                      onRevoke: () => _revokeShare(share),
+                    );
+                  },
+                );
+              },
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ShareRow extends StatelessWidget {
+  const _ShareRow({
+    required this.share,
+    required this.onCopy,
+    required this.onRevoke,
+  });
+
+  final FolderShare share;
+  final VoidCallback onCopy;
+  final VoidCallback onRevoke;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Icon(Icons.folder_shared, color: Color(0xFF2563EB)),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    share.title,
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    share.bucket,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Color(0xFF6B7280),
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: [
+                      for (final prefix in share.prefixes)
+                        Chip(
+                          label: Text(prefix),
+                          visualDensity: VisualDensity.compact,
+                        ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            IconButton(
+              tooltip: '复制分享链接',
+              onPressed: onCopy,
+              icon: const Icon(Icons.copy),
+              color: const Color(0xFF2563EB),
+            ),
+            IconButton(
+              tooltip: '撤销分享',
+              onPressed: onRevoke,
+              icon: const Icon(Icons.link_off),
+              color: Colors.red.shade700,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class AdminUsersScreen extends StatefulWidget {
   const AdminUsersScreen({super.key, required this.client});
 
@@ -1120,8 +1567,9 @@ class AdminUsersScreen extends StatefulWidget {
 }
 
 class _AdminUsersScreenState extends State<AdminUsersScreen> {
-  final _emailController = TextEditingController();
+  final _accountController = TextEditingController();
   final _nameController = TextEditingController();
+  final _passwordController = TextEditingController();
   late Future<List<ProviderUser>> _users;
   String _inviteRole = 'viewer';
   bool _submitting = false;
@@ -1134,8 +1582,9 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
 
   @override
   void dispose() {
-    _emailController.dispose();
+    _accountController.dispose();
     _nameController.dispose();
+    _passwordController.dispose();
     super.dispose();
   }
 
@@ -1146,10 +1595,15 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
   }
 
   Future<void> _inviteUser() async {
-    final email = _emailController.text.trim();
+    final account = _accountController.text.trim();
     final name = _nameController.text.trim();
-    if (email.isEmpty || name.isEmpty) {
-      _showMessage('请填写邮箱和姓名');
+    final password = _passwordController.text.trim();
+    if (account.isEmpty || name.isEmpty || password.isEmpty) {
+      _showMessage('请填写账号、姓名和初始密码');
+      return;
+    }
+    if (password.length < 6 || password.length > 128) {
+      _showMessage('初始密码需为 6-128 位');
       return;
     }
 
@@ -1158,12 +1612,14 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
     });
     try {
       await widget.client.inviteUser(
-        email: email,
+        account: account,
         name: name,
+        password: password,
         role: _inviteRole,
       );
-      _emailController.clear();
+      _accountController.clear();
       _nameController.clear();
+      _passwordController.clear();
       await _refreshUsers();
       _showMessage('邀请已创建');
     } catch (error) {
@@ -1236,8 +1692,9 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _InviteUserCard(
-                  emailController: _emailController,
+                  accountController: _accountController,
                   nameController: _nameController,
+                  passwordController: _passwordController,
                   role: _inviteRole,
                   submitting: _submitting,
                   onRoleChanged: (value) {
@@ -1295,16 +1752,18 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
 
 class _InviteUserCard extends StatelessWidget {
   const _InviteUserCard({
-    required this.emailController,
+    required this.accountController,
     required this.nameController,
+    required this.passwordController,
     required this.role,
     required this.submitting,
     required this.onRoleChanged,
     required this.onSubmit,
   });
 
-  final TextEditingController emailController;
+  final TextEditingController accountController;
   final TextEditingController nameController;
+  final TextEditingController passwordController;
   final String role;
   final bool submitting;
   final ValueChanged<String?> onRoleChanged;
@@ -1323,10 +1782,10 @@ class _InviteUserCard extends StatelessWidget {
               Expanded(
                 flex: 2,
                 child: TextField(
-                  key: const Key('invite-email'),
-                  controller: emailController,
+                  key: const Key('invite-account'),
+                  controller: accountController,
                   decoration: const InputDecoration(
-                    labelText: '邮箱',
+                    labelText: '账号',
                     isDense: true,
                   ),
                 ),
@@ -1339,6 +1798,21 @@ class _InviteUserCard extends StatelessWidget {
                   controller: nameController,
                   decoration: const InputDecoration(
                     labelText: '姓名',
+                    isDense: true,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                flex: 2,
+                child: TextField(
+                  key: const Key('invite-password'),
+                  controller: passwordController,
+                  obscureText: true,
+                  enableSuggestions: false,
+                  autocorrect: false,
+                  decoration: const InputDecoration(
+                    labelText: '初始密码',
                     isDense: true,
                   ),
                 ),
@@ -1365,15 +1839,24 @@ class _InviteUserCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   TextField(
-                    key: const Key('invite-email'),
-                    controller: emailController,
-                    decoration: const InputDecoration(labelText: '邮箱'),
+                    key: const Key('invite-account'),
+                    controller: accountController,
+                    decoration: const InputDecoration(labelText: '账号'),
                   ),
                   const SizedBox(height: 8),
                   TextField(
                     key: const Key('invite-name'),
                     controller: nameController,
                     decoration: const InputDecoration(labelText: '姓名'),
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    key: const Key('invite-password'),
+                    controller: passwordController,
+                    obscureText: true,
+                    enableSuggestions: false,
+                    autocorrect: false,
+                    decoration: const InputDecoration(labelText: '初始密码'),
                   ),
                   const SizedBox(height: 8),
                   DropdownButton<String>(
@@ -1441,7 +1924,7 @@ class _AdminUserRow extends StatelessWidget {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    '${user.email} · ${user.status}',
+                    '${user.account} · ${user.status}',
                     style: const TextStyle(
                       fontSize: 12,
                       color: Color(0xFF6B7280),
@@ -1493,6 +1976,7 @@ class BucketListView extends StatefulWidget {
     this.sortMode = BucketSortMode.none,
     this.sortAscending = true,
     this.createdAtDescending = true,
+    this.onAuthRequired,
   });
 
   final Future<List<Bucket>>? buckets;
@@ -1503,6 +1987,7 @@ class BucketListView extends StatefulWidget {
   final BucketSortMode sortMode;
   final bool sortAscending;
   final bool createdAtDescending;
+  final VoidCallback? onAuthRequired;
 
   @override
   State<BucketListView> createState() => _BucketListViewState();
@@ -1618,6 +2103,9 @@ class _BucketListViewState extends State<BucketListView> {
                       return BucketCard(
                         bucket: pageData[index],
                         client: widget.client,
+                        canBrowseMetadataOnlyObjects:
+                            widget.showMetadataOnlyBuckets,
+                        onAuthRequired: widget.onAuthRequired,
                       );
                     },
                   ),
@@ -1764,10 +2252,18 @@ class _FilterChip extends StatelessWidget {
 }
 
 class BucketCard extends StatelessWidget {
-  const BucketCard({super.key, required this.bucket, this.client});
+  const BucketCard({
+    super.key,
+    required this.bucket,
+    this.client,
+    this.canBrowseMetadataOnlyObjects = false,
+    this.onAuthRequired,
+  });
 
   final Bucket bucket;
   final ProviderApiClient? client;
+  final bool canBrowseMetadataOnlyObjects;
+  final VoidCallback? onAuthRequired;
 
   @override
   Widget build(BuildContext context) {
@@ -1777,7 +2273,9 @@ class BucketCard extends StatelessWidget {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       child: InkWell(
         onTap: () {
-          if (!bucket.canBrowseObjects) {
+          final canBrowseObjects =
+              bucket.canBrowseObjects || canBrowseMetadataOnlyObjects;
+          if (!canBrowseObjects) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text('私密桶仅展示元数据')),
             );
@@ -1788,6 +2286,7 @@ class BucketCard extends StatelessWidget {
               builder: (_) => BucketObjectsScreen(
                 bucketName: bucket.name,
                 client: client,
+                onAuthRequired: onAuthRequired,
               ),
             ),
           );
@@ -1911,10 +2410,16 @@ class _ProviderStatusCard extends StatelessWidget {
 }
 
 class BucketObjectsScreen extends StatefulWidget {
-  const BucketObjectsScreen({super.key, required this.bucketName, this.client});
+  const BucketObjectsScreen({
+    super.key,
+    required this.bucketName,
+    this.client,
+    this.onAuthRequired,
+  });
 
   final String bucketName;
   final ProviderApiClient? client;
+  final VoidCallback? onAuthRequired;
 
   @override
   State<BucketObjectsScreen> createState() => _BucketObjectsScreenState();
@@ -1928,6 +2433,8 @@ class _BucketObjectsScreenState extends State<BucketObjectsScreen> {
   bool _dateDesc = true; // 日期默认新到旧
   bool _sizeDesc = true; // 大小默认大到小
   String _currentPrefix = ''; // 当前目录 prefix（'' = 根目录）
+  bool _shareSelectionMode = false;
+  final Set<String> _selectedObjectKeys = <String>{};
 
   @override
   void initState() {
@@ -1986,58 +2493,164 @@ class _BucketObjectsScreenState extends State<BucketObjectsScreen> {
     return trimmed.substring(0, idx + 1);
   }
 
-  /// 生成对象访问链接并复制到剪贴板。
-  Future<void> _copyObjectUrl(OssObject object, int expiresSeconds) async {
-    final link = await _client.fetchObjectUrl(
-      bucketName: widget.bucketName,
-      objectKey: object.key,
-      expiresSeconds: expiresSeconds,
-    );
-
-    await Clipboard.setData(ClipboardData(text: link));
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('链接已复制：$link')),
-      );
-    }
-  }
-
-  /// 弹出有效期选择对话框，选完后生成链接。
-  Future<void> _showExpiryDialog(OssObject object) async {
-    final expiry = await showDialog<int>(
-      context: context,
-      builder: (context) {
-        return SimpleDialog(
-          title: const Text('选择链接有效期'),
-          children: [
-            _expiryOption(context, '1 天', 86400),
-            _expiryOption(context, '7 天', 604800),
-          ],
-        );
-      },
-    );
-    if (expiry == null) return; // 用户取消
-
+  /// 生成公开对象访问链接并复制到剪贴板。
+  Future<void> _copyObjectUrl(OssObject object) async {
     try {
-      await _copyObjectUrl(object, expiry);
+      final link = await _client.fetchObjectUrl(
+        bucketName: widget.bucketName,
+        objectKey: object.key,
+        expiresSeconds: _objectUrlRequestExpirySeconds,
+      );
+
+      await Clipboard.setData(ClipboardData(text: link));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('公开链接已复制')),
+        );
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('生成链接失败：$e')),
+          SnackBar(content: Text(_objectUrlFailureMessage(e))),
         );
       }
     }
   }
 
-  Widget _expiryOption(BuildContext context, String label, int seconds) {
-    return SimpleDialogOption(
-      onPressed: () => Navigator.of(context).pop(seconds),
-      child: Text(label),
-    );
+  String _objectUrlFailureMessage(Object error) {
+    if (error is AuthRequiredException) {
+      return '复制公开链接失败：登录状态已失效，请重新登录';
+    }
+    if (error is ProviderApiException) {
+      switch (error.statusCode) {
+        case 403:
+          return '复制公开链接失败：当前桶或文件不允许公开访问';
+        case 503:
+          return '复制公开链接失败：公开权限校验失败，请稍后重试';
+        default:
+          return '复制公开链接失败（HTTP ${error.statusCode}）：${error.message}';
+      }
+    }
+    return '复制公开链接失败：$error';
+  }
+
+  String _shareFailureMessage(Object error) {
+    if (error is AuthRequiredException) {
+      return '创建分享失败：登录状态已失效，请重新登录';
+    }
+    if (error is ProviderApiException) {
+      switch (error.statusCode) {
+        case 403:
+          return '创建分享失败：当前桶或文件夹不允许公开分享';
+        case 503:
+          return '创建分享失败：公开权限校验失败，请检查桶 ACL 或稍后重试';
+        default:
+          return '创建分享失败（HTTP ${error.statusCode}）：${error.message}';
+      }
+    }
+    return '创建分享失败：$error';
   }
 
   Future<List<OssObject>> _fetchObjects() async {
     return _client.fetchObjects(widget.bucketName);
+  }
+
+  void _toggleSelection(String key) {
+    setState(() {
+      if (!_selectedObjectKeys.add(key)) {
+        _selectedObjectKeys.remove(key);
+      }
+    });
+  }
+
+  Future<void> _selectAllCurrentDirectory() async {
+    try {
+      final objects = await _objects;
+      var children = _directChildren(objects);
+      if (_searchText.isNotEmpty) {
+        final query = _searchText.toLowerCase();
+        children = children
+            .where((object) => object.key.toLowerCase().contains(query))
+            .toList();
+      }
+      if (!mounted) return;
+      setState(() {
+        _selectedObjectKeys.addAll(children.map((object) => object.key));
+      });
+    } catch (_) {
+      // The list itself presents the load error; keep the selection action quiet.
+    }
+  }
+
+  void _clearSelection() {
+    setState(_selectedObjectKeys.clear);
+  }
+
+  Future<void> _showShareDialog({
+    List<String> prefixes = const [],
+    List<String> keys = const [],
+  }) async {
+    if (!canExposeObjectLinks(widget.bucketName)) return;
+    var titleValue = keys.isEmpty
+        ? '公开文件夹'
+        : prefixes.isEmpty
+            ? '公开文件'
+            : '公开内容';
+    final title = await showDialog<String>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('创建分享链接'),
+          content: TextFormField(
+            initialValue: titleValue,
+            autofocus: true,
+            maxLength: 120,
+            onChanged: (value) => titleValue = value.trim(),
+            decoration: const InputDecoration(
+              labelText: '分享标题',
+              hintText: '例如：设计资料',
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('取消'),
+            ),
+            FilledButton.icon(
+              onPressed: () => Navigator.of(context).pop(titleValue),
+              icon: const Icon(Icons.link, size: 18),
+              label: const Text('创建链接'),
+            ),
+          ],
+        );
+      },
+    );
+    if (!mounted || title == null) return;
+
+    try {
+      final share = await _client.createShare(
+        title: title,
+        bucketName: widget.bucketName,
+        prefixes: prefixes,
+        keys: keys,
+      );
+      await Clipboard.setData(ClipboardData(text: share.url));
+      if (mounted) {
+        setState(() {
+          _shareSelectionMode = false;
+          _selectedObjectKeys.clear();
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('分享链接已复制')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(_shareFailureMessage(e))),
+        );
+      }
+    }
   }
 
   @override
@@ -2132,9 +2745,101 @@ class _BucketObjectsScreenState extends State<BucketObjectsScreen> {
                         });
                       },
                     ),
+                    if (canExposeObjectLinks(widget.bucketName)) ...[
+                      const SizedBox(width: 4),
+                      Tooltip(
+                        message: _shareSelectionMode ? '退出选择' : '选择文件',
+                        child: TextButton.icon(
+                          onPressed: () {
+                            setState(() {
+                              _shareSelectionMode = !_shareSelectionMode;
+                              _selectedObjectKeys.clear();
+                            });
+                          },
+                          icon: Icon(
+                            _shareSelectionMode ? Icons.close : Icons.checklist,
+                            size: 18,
+                          ),
+                          label: Text(_shareSelectionMode ? '完成选择' : '选择文件'),
+                        ),
+                      ),
+                      if (_shareSelectionMode)
+                        Tooltip(
+                          message: '全选',
+                          child: IconButton(
+                            onPressed: _selectAllCurrentDirectory,
+                            icon: const Icon(Icons.select_all),
+                            color: const Color(0xFF2563EB),
+                            visualDensity: VisualDensity.compact,
+                          ),
+                        ),
+                      if (_shareSelectionMode)
+                        Tooltip(
+                          message: '取消全选',
+                          child: IconButton(
+                            onPressed: _clearSelection,
+                            icon: const Icon(Icons.deselect),
+                            color: const Color(0xFF2563EB),
+                            visualDensity: VisualDensity.compact,
+                          ),
+                        ),
+                      if (_shareSelectionMode)
+                        Tooltip(
+                          message: '分享所选文件',
+                          child: FilledButton.icon(
+                            onPressed: _selectedObjectKeys.isEmpty
+                                ? null
+                                : () {
+                                    final selected =
+                                        _selectedObjectKeys.toList();
+                                    _showShareDialog(
+                                      prefixes: selected
+                                          .where((key) => key.endsWith('/'))
+                                          .toList(),
+                                      keys: selected
+                                          .where((key) => !key.endsWith('/'))
+                                          .toList(),
+                                    );
+                                  },
+                            icon: const Icon(Icons.share_outlined),
+                            label: const Text('分享所选'),
+                          ),
+                        ),
+                    ],
                   ],
                 ),
                 const SizedBox(height: 16),
+                if (!canExposeObjectLinks(widget.bucketName)) ...[
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFF7ED),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: const Color(0xFFFED7AA)),
+                    ),
+                    child: const Row(
+                      children: [
+                        Icon(
+                          Icons.info_outline,
+                          color: Color(0xFFC2410C),
+                          size: 18,
+                        ),
+                        SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            '私密桶仅展示对象元数据，不支持链接分享。',
+                            style: TextStyle(color: Color(0xFF9A3412)),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                ],
                 Expanded(
                   child: FutureBuilder<List<OssObject>>(
                     future: _objects,
@@ -2143,6 +2848,16 @@ class _BucketObjectsScreenState extends State<BucketObjectsScreen> {
                         return const Center(child: CircularProgressIndicator());
                       }
                       if (snapshot.hasError) {
+                        if (snapshot.error is AuthRequiredException) {
+                          return _AuthStatusPanel(
+                            icon: Icons.lock_outline,
+                            title: '登录状态已失效',
+                            message: '请返回登录页后重新登录。',
+                            actionLabel: '返回登录',
+                            onAction: widget.onAuthRequired ??
+                                () => Navigator.of(context).maybePop(),
+                          );
+                        }
                         return Center(
                           child: Text(
                             '加载文件失败：${snapshot.error}',
@@ -2183,17 +2898,31 @@ class _BucketObjectsScreenState extends State<BucketObjectsScreen> {
                           final obj = data[index];
                           return _ObjectRow(
                             object: obj,
+                            selectionMode: _shareSelectionMode,
+                            isSelected: _selectedObjectKeys.contains(obj.key),
+                            onSelect: () => _toggleSelection(obj.key),
                             onTap: obj.isDir
                                 ? () {
+                                    if (_shareSelectionMode) {
+                                      _toggleSelection(obj.key);
+                                      return;
+                                    }
                                     setState(() {
                                       _currentPrefix = obj.key;
                                     });
                                   }
+                                : _shareSelectionMode
+                                    ? () => _toggleSelection(obj.key)
+                                    : null,
+                            onShare: obj.isDir &&
+                                    !_shareSelectionMode &&
+                                    canExposeObjectLinks(widget.bucketName)
+                                ? () => _showShareDialog(prefixes: [obj.key])
                                 : null,
                             onCopyLink: obj.isDir ||
                                     !canExposeObjectLinks(widget.bucketName)
                                 ? null
-                                : () => _showExpiryDialog(obj),
+                                : () => _copyObjectUrl(obj),
                           );
                         },
                       );
@@ -2204,6 +2933,414 @@ class _BucketObjectsScreenState extends State<BucketObjectsScreen> {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class PublicShareScreen extends StatefulWidget {
+  const PublicShareScreen({
+    super.key,
+    required this.token,
+    this.client,
+    this.onDownload,
+    this.onDownloadBytes,
+  });
+
+  final String token;
+  final ProviderApiClient? client;
+  final DownloadUrlHandler? onDownload;
+  final DownloadBytesHandler? onDownloadBytes;
+
+  @override
+  State<PublicShareScreen> createState() => _PublicShareScreenState();
+}
+
+class _PublicShareScreenState extends State<PublicShareScreen> {
+  late final ProviderApiClient _client;
+  late final Future<FolderShare> _shareFuture;
+  Future<List<OssObject>>? _objectsFuture;
+  String _currentPrefix = '';
+  bool _downloadingAll = false;
+  int _downloadedAllFiles = 0;
+  int _downloadAllFileCount = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _client = widget.client ?? ProviderApiClient();
+    _shareFuture = _loadShare();
+  }
+
+  Future<FolderShare> _loadShare() async {
+    final share = await _client.fetchShare(widget.token);
+    if (mounted) {
+      final initialPrefix = share.prefixes.length == 1 && share.keys.isEmpty
+          ? share.prefixes.first
+          : '';
+      setState(() {
+        _currentPrefix = initialPrefix;
+        _objectsFuture = _loadObjects(initialPrefix);
+      });
+    }
+    return share;
+  }
+
+  Future<List<OssObject>> _loadObjects(String prefix) {
+    return _client.fetchShareObjects(
+      token: widget.token,
+      prefix: prefix,
+    );
+  }
+
+  List<OssObject> _directChildren(
+    List<OssObject> all,
+    String prefix,
+  ) {
+    final files = <OssObject>[];
+    final dirs = <String>{};
+    for (final object in all) {
+      if (!object.key.startsWith(prefix)) continue;
+      final rest = object.key.substring(prefix.length);
+      if (rest.isEmpty) continue;
+      final slash = rest.indexOf('/');
+      if (slash == -1) {
+        files.add(object);
+      } else {
+        dirs.add(prefix + rest.substring(0, slash + 1));
+      }
+    }
+    final result = <OssObject>[...files];
+    for (final directory in dirs) {
+      result.add(
+        OssObject(
+          key: directory,
+          size: 0,
+          type: 'Directory',
+          storageClass: '',
+          lastModified: '',
+        ),
+      );
+    }
+    return result;
+  }
+
+  String _parentPrefix(String prefix) {
+    final trimmed =
+        prefix.endsWith('/') ? prefix.substring(0, prefix.length - 1) : prefix;
+    final index = trimmed.lastIndexOf('/');
+    return index == -1 ? '' : trimmed.substring(0, index + 1);
+  }
+
+  bool _canGoUp(FolderShare share) {
+    return _currentPrefix.isNotEmpty &&
+        !share.prefixes.contains(_currentPrefix);
+  }
+
+  String _objectLabel(OssObject object, String prefix) {
+    final relative = object.key.startsWith(prefix)
+        ? object.key.substring(prefix.length)
+        : object.key;
+    if (object.isDir) {
+      return '${relative.split('/').where((part) => part.isNotEmpty).last}/';
+    }
+    return relative;
+  }
+
+  Future<void> _copyObjectUrl(OssObject object) async {
+    try {
+      final link = await _client.fetchShareObjectUrl(
+        token: widget.token,
+        objectKey: object.key,
+      );
+      await Clipboard.setData(ClipboardData(text: link));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('文件链接已复制')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('复制文件链接失败：$e')),
+        );
+      }
+    }
+  }
+
+  String _downloadFileName(String key) {
+    final fileName =
+        key.split('/').where((segment) => segment.isNotEmpty).lastOrNull;
+    return fileName == null || fileName.isEmpty ? 'download' : fileName;
+  }
+
+  Future<void> _downloadObject(OssObject object) async {
+    try {
+      final link = await _client.fetchShareObjectUrl(
+        token: widget.token,
+        objectKey: object.key,
+      );
+      final handler = widget.onDownload ?? triggerDownload;
+      await handler(Uri.parse(link), _downloadFileName(object.key));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('下载已开始')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('下载文件失败：$e')),
+        );
+      }
+    }
+  }
+
+  String _downloadArchiveName(FolderShare share) {
+    var title = share.title.trim();
+    title = title.replaceAll(RegExp(r'''[\\/:*?"<>|]'''), '_');
+    title = title.replaceAll(RegExp(r'[\x00-\x1f]'), '_').trim();
+    if (title.isEmpty) title = 'share';
+    return '$title.zip';
+  }
+
+  Future<void> _downloadAll(FolderShare share) async {
+    if (_downloadingAll) return;
+    setState(() {
+      _downloadingAll = true;
+      _downloadedAllFiles = 0;
+      _downloadAllFileCount = 0;
+    });
+    try {
+      final objects = await _loadObjects('');
+      final files = objects.where((object) => !object.isDir).toList();
+      if (files.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('这个分享没有可下载的文件')),
+          );
+        }
+        return;
+      }
+
+      final declaredSize = files.fold<int>(
+        0,
+        (total, file) => total + file.size,
+      );
+      if (declaredSize > maxBrowserArchiveBytes) {
+        throw StateError('分享文件总大小超过 100 MB，请分批下载');
+      }
+
+      if (mounted) {
+        setState(() {
+          _downloadAllFileCount = files.length;
+        });
+      }
+      final entries = <StoredZipEntry>[];
+      var downloadedBytes = 0;
+      for (final file in files) {
+        final bytes = await _client.fetchShareObjectBytes(
+          token: widget.token,
+          objectKey: file.key,
+        );
+        downloadedBytes += bytes.length;
+        if (downloadedBytes > maxBrowserArchiveBytes) {
+          throw StateError('分享文件总大小超过 100 MB，请分批下载');
+        }
+        entries.add(StoredZipEntry(name: file.key, bytes: bytes));
+        if (mounted) {
+          setState(() {
+            _downloadedAllFiles++;
+          });
+        }
+      }
+
+      final archive = buildStoredZip(entries);
+      final fileName = _downloadArchiveName(share);
+      final handler = widget.onDownloadBytes ?? triggerBytesDownload;
+      await handler(archive, fileName);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('已开始下载：$fileName')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        final message = e is StateError ? e.message : '$e';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('下载全部文件失败：$message')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _downloadingAll = false;
+          _downloadedAllFiles = 0;
+          _downloadAllFileCount = 0;
+        });
+      }
+    }
+  }
+
+  void _openPrefix(String prefix) {
+    setState(() {
+      _currentPrefix = prefix;
+      _objectsFuture = _loadObjects(prefix);
+    });
+  }
+
+  Widget _buildRoot(FolderShare share) {
+    final folders = share.prefixes
+        .map(
+          (prefix) => OssObject(
+            key: prefix,
+            size: 0,
+            type: 'Directory',
+            storageClass: '',
+            lastModified: '',
+          ),
+        )
+        .toList();
+    return ListView.builder(
+      itemCount: folders.length,
+      itemBuilder: (context, index) {
+        final folder = folders[index];
+        return _ObjectRow(
+          object: folder,
+          displayName: _objectLabel(folder, ''),
+          onTap: () => _openPrefix(folder.key),
+        );
+      },
+    );
+  }
+
+  Widget _buildObjects(FolderShare share, List<OssObject> objects) {
+    final data = _directChildren(objects, _currentPrefix);
+    if (data.isEmpty) {
+      return const Center(child: Text('这个分享文件夹暂时没有文件'));
+    }
+    return ListView.builder(
+      itemCount: data.length,
+      itemBuilder: (context, index) {
+        final object = data[index];
+        return _ObjectRow(
+          object: object,
+          displayName: _objectLabel(object, _currentPrefix),
+          onTap: object.isDir ? () => _openPrefix(object.key) : null,
+          onCopyLink: object.isDir ? null : () => _copyObjectUrl(object),
+          onDownload: object.isDir ? null : () => _downloadObject(object),
+        );
+      },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF7F8FA),
+      appBar: AppBar(
+        title: FutureBuilder<FolderShare>(
+          future: _shareFuture,
+          builder: (context, snapshot) {
+            return Text(snapshot.data?.title ?? '公开分享');
+          },
+        ),
+      ),
+      body: FutureBuilder<FolderShare>(
+        future: _shareFuture,
+        builder: (context, shareSnapshot) {
+          if (shareSnapshot.connectionState != ConnectionState.done) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (shareSnapshot.hasError || !shareSnapshot.hasData) {
+            return const Center(
+              child: Text('分享链接不存在或已被撤销'),
+            );
+          }
+          final share = shareSnapshot.data!;
+          return Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 960),
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '${share.bucket} · 只读分享',
+                      style: TextStyle(color: Colors.grey.shade600),
+                    ),
+                    const SizedBox(height: 12),
+                    if (_canGoUp(share))
+                      TextButton.icon(
+                        onPressed: () {
+                          final parent = _parentPrefix(_currentPrefix);
+                          setState(() {
+                            _currentPrefix = parent;
+                            _objectsFuture = _loadObjects(parent);
+                          });
+                        },
+                        icon: const Icon(Icons.arrow_upward, size: 18),
+                        label: const Text('返回上级'),
+                      ),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: Tooltip(
+                        message: '下载全部',
+                        child: FilledButton.icon(
+                          onPressed: _downloadingAll
+                              ? null
+                              : () => _downloadAll(share),
+                          icon: _downloadingAll
+                              ? const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Icon(Icons.download_outlined),
+                          label: Text(
+                            _downloadingAll
+                                ? '正在打包 $_downloadedAllFiles/$_downloadAllFileCount…'
+                                : '下载全部',
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Expanded(
+                      child: _objectsFuture == null
+                          ? _buildRoot(share)
+                          : FutureBuilder<List<OssObject>>(
+                              future: _objectsFuture,
+                              builder: (context, objectSnapshot) {
+                                if (objectSnapshot.connectionState !=
+                                    ConnectionState.done) {
+                                  return const Center(
+                                    child: CircularProgressIndicator(),
+                                  );
+                                }
+                                if (objectSnapshot.hasError) {
+                                  return Center(
+                                    child: Text(
+                                      '加载分享内容失败：${objectSnapshot.error}',
+                                    ),
+                                  );
+                                }
+                                return _buildObjects(
+                                  share,
+                                  objectSnapshot.data ?? const [],
+                                );
+                              },
+                            ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
       ),
     );
   }
@@ -2262,11 +3399,27 @@ class _SortButton extends StatelessWidget {
 }
 
 class _ObjectRow extends StatelessWidget {
-  const _ObjectRow({required this.object, this.onTap, this.onCopyLink});
+  const _ObjectRow({
+    required this.object,
+    this.displayName,
+    this.onTap,
+    this.onCopyLink,
+    this.onDownload,
+    this.onShare,
+    this.selectionMode = false,
+    this.isSelected = false,
+    this.onSelect,
+  });
 
   final OssObject object;
+  final String? displayName;
   final VoidCallback? onTap;
   final VoidCallback? onCopyLink;
+  final VoidCallback? onDownload;
+  final VoidCallback? onShare;
+  final bool selectionMode;
+  final bool isSelected;
+  final VoidCallback? onSelect;
 
   @override
   Widget build(BuildContext context) {
@@ -2281,17 +3434,28 @@ class _ObjectRow extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           child: Row(
             children: [
+              if (selectionMode)
+                Checkbox(
+                  value: isSelected,
+                  onChanged: onSelect == null ? null : (_) => onSelect!(),
+                  visualDensity: VisualDensity.compact,
+                ),
               Icon(
                 isDir ? Icons.folder : Icons.insert_drive_file,
-                color: isDir ? const Color(0xFFF59E0B) : Colors.grey.shade600,
+                color: isDir
+                    ? (isSelected
+                        ? const Color(0xFF2563EB)
+                        : const Color(0xFFF59E0B))
+                    : Colors.grey.shade600,
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
                   // 目录显示去掉前缀、只显示目录名
-                  isDir
-                      ? '${object.key.split('/').where((s) => s.isNotEmpty).last}/'
-                      : object.key,
+                  displayName ??
+                      (isDir
+                          ? '${object.key.split('/').where((s) => s.isNotEmpty).last}/'
+                          : object.key),
                   style: const TextStyle(fontSize: 14),
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -2307,15 +3471,40 @@ class _ObjectRow extends StatelessWidget {
                 style: TextStyle(color: Colors.grey.shade500, fontSize: 12),
               ),
               const SizedBox(width: 8),
+              if (onDownload != null)
+                IconButton(
+                  tooltip: '下载文件',
+                  onPressed: onDownload,
+                  icon: const Icon(Icons.download_outlined, size: 18),
+                  color: const Color(0xFF2563EB),
+                  visualDensity: VisualDensity.compact,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                ),
               if (onCopyLink != null)
                 IconButton(
-                  tooltip: '复制链接',
+                  tooltip: '复制公开链接',
                   onPressed: onCopyLink,
                   icon: const Icon(Icons.link, size: 18),
                   color: const Color(0xFF2563EB),
                   visualDensity: VisualDensity.compact,
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(),
+                ),
+              if (onShare != null)
+                Tooltip(
+                  message: '分享文件夹',
+                  child: TextButton.icon(
+                    onPressed: onShare,
+                    icon: const Icon(Icons.share_outlined, size: 18),
+                    label: const Text('分享'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: const Color(0xFF2563EB),
+                      visualDensity: VisualDensity.compact,
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      minimumSize: const Size(0, 36),
+                    ),
+                  ),
                 ),
               if (isDir) const Icon(Icons.chevron_right, color: Colors.grey),
             ],

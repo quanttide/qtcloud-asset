@@ -1283,27 +1283,127 @@ func (h *Handler) listShareObjects(w http.ResponseWriter, r *http.Request) {
 		params.Limit = limit
 	}
 
-	objects, nextMarker, truncated, err := h.buckets.ListObjectsAuthorized(record.Bucket, params)
-	if err != nil {
-		log.Printf("list shared objects in %s error: %v", record.Bucket, err)
-		h.recordAudit("", auth.AuditActionViewShare, auth.AuditResultFailure, r, time.Now())
-		respondError(w, http.StatusInternalServerError, "failed to list shared objects")
-		return
-	}
-	filtered := objects[:0]
-	for _, object := range objects {
-		if share.AllowsObject(record.Prefixes, record.Keys, object.Key) {
-			filtered = append(filtered, object)
+	var objects []schema.Object
+	var nextMarker string
+	var truncated bool
+	if shareHasFolderAncestor(record.Prefixes, prefix) {
+		objects, nextMarker, truncated, err = h.buckets.ListObjectsAuthorized(record.Bucket, params)
+		if err != nil {
+			log.Printf("list shared objects in %s error: %v", record.Bucket, err)
+			h.recordAudit("", auth.AuditActionViewShare, auth.AuditResultFailure, r, time.Now())
+			respondError(w, http.StatusInternalServerError, "failed to list shared objects")
+			return
+		}
+		filtered := objects[:0]
+		for _, object := range objects {
+			if share.AllowsObject(record.Prefixes, record.Keys, object.Key) {
+				filtered = append(filtered, object)
+			}
+		}
+		objects = filtered
+	} else {
+		objects, nextMarker, truncated, err = h.listSyntheticShareObjects(record, prefix, params)
+		if err != nil {
+			log.Printf("list synthetic shared objects in %s error: %v", record.Bucket, err)
+			h.recordAudit("", auth.AuditActionViewShare, auth.AuditResultFailure, r, time.Now())
+			respondError(w, http.StatusInternalServerError, "failed to list shared objects")
+			return
 		}
 	}
 	respondJSON(w, http.StatusOK, schema.ObjectListResponse{
 		Bucket:     record.Bucket,
-		Objects:    filtered,
-		Total:      len(filtered),
+		Objects:    objects,
+		Total:      len(objects),
 		NextMarker: nextMarker,
 		Truncated:  truncated,
 	})
 	h.recordAudit("", auth.AuditActionViewShare, auth.AuditResultSuccess, r, time.Now())
+}
+
+func shareHasFolderAncestor(prefixes []string, requested string) bool {
+	if requested == "" {
+		return false
+	}
+	for _, prefix := range prefixes {
+		if strings.HasPrefix(requested, prefix) {
+			return true
+		}
+	}
+	return false
+}
+
+func (h *Handler) listSyntheticShareObjects(record share.Record, requested string, params schema.ListObjectsParams) ([]schema.Object, string, bool, error) {
+	objectsByKey := make(map[string]schema.Object)
+	for _, prefix := range record.Prefixes {
+		if child, ok := shareDirectoryChild(prefix, requested); ok {
+			objectsByKey[child] = schema.Object{Key: child, Type: "Directory"}
+		}
+	}
+	for _, key := range record.Keys {
+		if !strings.HasPrefix(key, requested) {
+			continue
+		}
+		rest := strings.TrimPrefix(key, requested)
+		if slash := strings.IndexByte(rest, '/'); slash >= 0 {
+			child := requested + rest[:slash+1]
+			objectsByKey[child] = schema.Object{Key: child, Type: "Directory"}
+			continue
+		}
+		object, err := h.lookupSharedObject(record.Bucket, key)
+		if err != nil {
+			return nil, "", false, err
+		}
+		objectsByKey[key] = object
+	}
+
+	objects := make([]schema.Object, 0, len(objectsByKey))
+	for _, object := range objectsByKey {
+		objects = append(objects, object)
+	}
+	sort.SliceStable(objects, func(i, j int) bool {
+		return objects[i].Key < objects[j].Key
+	})
+	if params.Marker != "" {
+		filtered := objects[:0]
+		for _, object := range objects {
+			if object.Key > params.Marker {
+				filtered = append(filtered, object)
+			}
+		}
+		objects = filtered
+	}
+	if params.Limit > 0 && len(objects) > params.Limit {
+		nextMarker := objects[params.Limit-1].Key
+		return objects[:params.Limit], nextMarker, true, nil
+	}
+	return objects, "", false, nil
+}
+
+func shareDirectoryChild(candidate, requested string) (string, bool) {
+	if !strings.HasPrefix(candidate, requested) || candidate == requested {
+		return "", false
+	}
+	rest := strings.TrimPrefix(candidate, requested)
+	slash := strings.IndexByte(rest, '/')
+	if slash < 0 {
+		return "", false
+	}
+	return requested + rest[:slash+1], true
+}
+
+func (h *Handler) lookupSharedObject(bucketName, key string) (schema.Object, error) {
+	objects, _, _, err := h.buckets.ListObjectsAuthorized(bucketName, schema.ListObjectsParams{
+		Prefix: key,
+	})
+	if err != nil {
+		return schema.Object{}, err
+	}
+	for _, object := range objects {
+		if object.Key == key && object.Type != "Directory" && !strings.HasSuffix(object.Key, "/") {
+			return object, nil
+		}
+	}
+	return schema.Object{Key: key, Type: "Normal"}, nil
 }
 
 func (h *Handler) shareObjectURL(w http.ResponseWriter, r *http.Request) {
