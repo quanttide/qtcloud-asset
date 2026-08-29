@@ -17,14 +17,22 @@ void main() {
     });
   });
 
-  test('buildStoredZip normalizes unsafe entry paths', () {
-    final archive = buildStoredZip([
-      const StoredZipEntry(name: r'../../docs/./readme.md', bytes: [1, 2, 3]),
-    ]);
-
-    final entries = _readStoredZip(archive);
-    expect(entries.keys, contains('docs/readme.md'));
-    expect(entries.keys, isNot(contains('../../docs/./readme.md')));
+  test('buildStoredZip rejects unsafe entry paths', () {
+    expect(
+      () => buildStoredZip([
+        const StoredZipEntry(
+          name: r'../../docs/./readme.md',
+          bytes: [1, 2, 3],
+        ),
+      ]),
+      throwsArgumentError,
+    );
+    expect(
+      () => buildStoredZip([
+        const StoredZipEntry(name: r'docs\readme.md', bytes: [1, 2, 3]),
+      ]),
+      throwsArgumentError,
+    );
   });
 }
 
