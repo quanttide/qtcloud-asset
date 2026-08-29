@@ -12,6 +12,7 @@ import (
 
 	"github.com/quanttide/qtcloud-asset/provider/internal/auth"
 	"github.com/quanttide/qtcloud-asset/provider/internal/config"
+	"github.com/quanttide/qtcloud-asset/provider/internal/storage"
 )
 
 type fakeIdentityProvider struct {
@@ -197,6 +198,58 @@ func TestLocalPasswordLoginRejectsBadPassword(t *testing.T) {
 	for _, cookie := range loginRes.Result().Cookies() {
 		if cookie.Name == auth.SessionCookieName {
 			t.Fatalf("invalid local login must not set session cookie: %+v", cookie)
+		}
+	}
+}
+
+func TestBuiltInLocalAccountCanLoginWhenRDSIsNotConfigured(t *testing.T) {
+	cfg := &config.Config{
+		StudioOrigin:  "https://asset.cloud.quanttide.com",
+		StudioOrigins: []string{"https://asset.cloud.quanttide.com"},
+		UserStoreMode: "rds",
+	}
+	users, closeStore, err := storage.OpenUserStore(cfg)
+	if closeStore != nil {
+		t.Cleanup(func() {
+			if err := closeStore(); err != nil {
+				t.Fatalf("close user store: %v", err)
+			}
+		})
+	}
+	if err == nil {
+		t.Fatal("expected missing RDS configuration to be reported")
+	}
+	sessions := auth.NewManager(auth.ManagerOptions{
+		Store:        auth.NewMemorySessionStore(),
+		SessionTTL:   time.Hour,
+		CookieSecure: true,
+	})
+	handler := NewWithStores(cfg, nil, sessions, fakeIdentityProvider{}, users, auth.NewMemoryAuditLogStore())
+	mux := http.NewServeMux()
+	handler.RegisterRoutes(mux)
+
+	for _, account := range []string{"lixiang", "zhangguo", "liujingyi", "zhaoziyi", "tuyafang"} {
+		loginReq := httptest.NewRequest(http.MethodPost, "/auth/login", strings.NewReader(`{"account":"`+account+`","password":"123456"}`))
+		loginReq.Header.Set("Content-Type", "application/json")
+		loginReq.Header.Set("Origin", cfg.StudioOrigin)
+		loginRes := httptest.NewRecorder()
+		mux.ServeHTTP(loginRes, loginReq)
+
+		if loginRes.Code != http.StatusOK {
+			t.Fatalf("expected built-in account %q login HTTP 200, got %d: %s", account, loginRes.Code, loginRes.Body.String())
+		}
+		responseBody := loginRes.Body.String()
+		var body struct {
+			User auth.User `json:"user"`
+		}
+		if err := json.Unmarshal([]byte(responseBody), &body); err != nil {
+			t.Fatalf("decode %q login response: %v", account, err)
+		}
+		if body.User.Account != account || body.User.Name != account || body.User.Role != auth.RoleViewer {
+			t.Fatalf("unexpected built-in account user %q: %+v", account, body.User)
+		}
+		if strings.Contains(responseBody, "123456") || strings.Contains(responseBody, "password_hash") {
+			t.Fatalf("login response for %q must not expose password material: %s", account, responseBody)
 		}
 	}
 }

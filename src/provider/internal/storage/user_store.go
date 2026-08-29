@@ -460,11 +460,11 @@ func OpenUserStore(cfg *config.Config) (auth.UserStore, func() error, error) {
 		return auth.NewUnavailableUserStore(err), nil, err
 	}
 	if cfg.UserStoreMode == "memory" {
-		return auth.NewMemoryUserStore(), nil, nil
+		return newBuiltInMemoryUserStore(), nil, nil
 	}
 	if cfg.RDSConnectionString == "" {
 		err := errors.New("RDS_CONNECTION_STRING is missing")
-		return auth.NewUnavailableUserStore(err), nil, err
+		return newBuiltInMemoryUserStore(), nil, err
 	}
 
 	driver, _, err := normalizeShareStoreDriver(cfg.RDSDriver)
@@ -489,4 +489,15 @@ func OpenUserStore(cfg *config.Config) (auth.UserStore, func() error, error) {
 		return auth.NewUnavailableUserStore(err), nil, err
 	}
 	return store, db.Close, nil
+}
+
+func newBuiltInMemoryUserStore() *auth.MemoryUserStore {
+	store := auth.NewMemoryUserStore()
+	now := time.Now().UTC()
+	for _, user := range auth.BuiltInLocalUsers() {
+		if _, err := store.UpsertManaged(user, now); err != nil {
+			log.Printf("seed built-in local user %s: %v", user.Account, err)
+		}
+	}
+	return store
 }

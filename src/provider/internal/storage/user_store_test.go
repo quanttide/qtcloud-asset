@@ -214,16 +214,34 @@ func TestOpenUserStoreUsesMemoryOnlyWhenRDSIsNotConfigured(t *testing.T) {
 	}
 }
 
-func TestOpenUserStoreFailsClosedWithoutRDSConfiguration(t *testing.T) {
+func TestOpenUserStoreSeedsBuiltInUsersWithoutRDSConfiguration(t *testing.T) {
 	store, closeStore, err := OpenUserStore(&config.Config{UserStoreMode: "rds"})
 	if err == nil {
 		t.Fatal("expected missing RDS configuration to return an error")
 	}
 	if closeStore != nil {
-		t.Fatal("unavailable user store should not have a close function")
+		t.Fatal("memory user store should not have a close function")
 	}
-	if _, ok := store.(*auth.UnavailableUserStore); !ok {
-		t.Fatalf("expected unavailable user store, got %T", store)
+	memoryStore, ok := store.(*auth.MemoryUserStore)
+	if !ok {
+		t.Fatalf("expected built-in memory user store, got %T", store)
+	}
+
+	for _, account := range []string{"lixiang", "zhangguo", "liujingyi", "zhaoziyi", "tuyafang"} {
+		user, ok := memoryStore.GetByAccount(account)
+		if !ok {
+			t.Fatalf("expected built-in account %q", account)
+		}
+		if user.Name != account || user.Role != auth.RoleViewer || user.Status != auth.UserStatusActive {
+			t.Fatalf("unexpected built-in user %q: %+v", account, user)
+		}
+		verified, err := auth.VerifyPasswordPBKDF2("123456", user.PasswordHash)
+		if err != nil {
+			t.Fatalf("verify built-in user %q password hash: %v", account, err)
+		}
+		if !verified {
+			t.Fatalf("expected built-in user %q password to verify", account)
+		}
 	}
 }
 

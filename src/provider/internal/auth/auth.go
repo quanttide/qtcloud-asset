@@ -220,6 +220,59 @@ func NewMemoryUserStore() *MemoryUserStore {
 	}
 }
 
+// BuiltInLocalUsers returns the temporary named accounts used while the
+// production user database connection is still pending.
+func BuiltInLocalUsers() []User {
+	users := []User{
+		{
+			ID:           "usr_builtin_lixiang",
+			ExternalID:   "builtin:lixiang",
+			Account:      "lixiang",
+			Name:         "lixiang",
+			Role:         RoleViewer,
+			Status:       UserStatusActive,
+			PasswordHash: "pbkdf2_sha256$120000$wAz4KZUeXGR+K7/U8IdWrw$71HD1M47fqLq1uHSRLm5xjuX4C6xlzCGWJ20NxRWRE4",
+		},
+		{
+			ID:           "usr_builtin_zhangguo",
+			ExternalID:   "builtin:zhangguo",
+			Account:      "zhangguo",
+			Name:         "zhangguo",
+			Role:         RoleViewer,
+			Status:       UserStatusActive,
+			PasswordHash: "pbkdf2_sha256$120000$+E3DwpXlTktEZ+Ki8j3Z5A$+4v8EwfX65ZNPzEeK8sBnjjql6xcLXG1lx5+DhrWSzs",
+		},
+		{
+			ID:           "usr_builtin_liujingyi",
+			ExternalID:   "builtin:liujingyi",
+			Account:      "liujingyi",
+			Name:         "liujingyi",
+			Role:         RoleViewer,
+			Status:       UserStatusActive,
+			PasswordHash: "pbkdf2_sha256$120000$7qPzhD23Y1sWtxr1Fl8XeQ$4qGRyjR7nthyKv+ftImNq8k+Y0CFCeEqpOeUAamsGaQ",
+		},
+		{
+			ID:           "usr_builtin_zhaoziyi",
+			ExternalID:   "builtin:zhaoziyi",
+			Account:      "zhaoziyi",
+			Name:         "zhaoziyi",
+			Role:         RoleViewer,
+			Status:       UserStatusActive,
+			PasswordHash: "pbkdf2_sha256$120000$OjDMYWJ8ieEvgdQq+I7dgw$uNpeh1EAcHMpO18yOC2u4t1psWB7HdeGi+hnjwp8ub8",
+		},
+		{
+			ID:           "usr_builtin_tuyafang",
+			ExternalID:   "builtin:tuyafang",
+			Account:      "tuyafang",
+			Name:         "tuyafang",
+			Role:         RoleViewer,
+			Status:       UserStatusActive,
+			PasswordHash: "pbkdf2_sha256$120000$T2m/+LpUuEYOl5Wbmkp4pA$QoGGGdXW9UJsc7loILyM75y+JAJlgijCy50E6VTJNSc",
+		},
+	}
+	return append([]User(nil), users...)
+}
+
 // UpsertFromIdentity creates or updates a user from an external identity.
 func (s *MemoryUserStore) UpsertFromIdentity(user User, now time.Time) (User, error) {
 	s.mu.Lock()
