@@ -903,6 +903,72 @@ void main() {
     expect(canExposeObjectLinks('qtcloud-asset-studio'), isTrue);
   });
 
+  test('legacy bucket names map to the four display categories', () {
+    expect(
+      const Bucket(
+        name: 'qtcloud-learn-admin',
+        region: 'cn-hangzhou',
+        storageClass: 'Standard',
+        createdAt: '2026-08-23',
+      ).category,
+      'Studio',
+    );
+    expect(
+      const Bucket(
+        name: 'qtcloud-course-admin',
+        region: 'cn-hangzhou',
+        storageClass: 'Standard',
+        createdAt: '2026-08-23',
+      ).category,
+      'Studio',
+    );
+    expect(
+      const Bucket(
+        name: 'qtcloud-learn-data',
+        region: 'cn-hangzhou',
+        storageClass: 'Standard',
+        createdAt: '2026-08-23',
+      ).category,
+      'Private',
+    );
+    expect(
+      const Bucket(
+        name: 'qtcloud-secret-data',
+        region: 'cn-hangzhou',
+        storageClass: 'Standard',
+        createdAt: '2026-08-23',
+      ).category,
+      'Private',
+    );
+    expect(
+      const Bucket(
+        name: 'quanttide-terraform-state',
+        region: 'cn-hangzhou',
+        storageClass: 'Standard',
+        createdAt: '2026-08-23',
+      ).category,
+      'Private',
+    );
+    expect(
+      const Bucket(
+        name: 'qtclass-video',
+        region: 'cn-hangzhou',
+        storageClass: 'Standard',
+        createdAt: '2026-08-23',
+      ).category,
+      'Site',
+    );
+    expect(
+      const Bucket(
+        name: 'qtcloud-asset',
+        region: 'cn-hangzhou',
+        storageClass: 'Standard',
+        createdAt: '2026-08-23',
+      ).category,
+      'Studio',
+    );
+  });
+
   test('object pagination follows every continuation marker', () async {
     final requestedMarkers = <String>[];
     final pages = <String, Map<String, dynamic>>{
