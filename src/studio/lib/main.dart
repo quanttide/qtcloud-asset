@@ -439,6 +439,16 @@ bool isMetadataOnlyBucket(String bucketName) {
       bucketName == 'quanttide-terraform-state';
 }
 
+const Map<String, String> legacyBucketCategories = {
+  'qtcloud-learn-admin': 'Studio',
+  'qtcloud-course-admin': 'Studio',
+  'qtcloud-learn-data': 'Private',
+  'qtcloud-secret-data': 'Private',
+  'quanttide-terraform-state': 'Private',
+  'qtclass-video': 'Site',
+  'qtcloud-asset': 'Studio',
+};
+
 List<Bucket> visibleBucketsForRole(String role, Iterable<Bucket> buckets) {
   if (role == 'admin') return List<Bucket>.of(buckets);
   return buckets.where((bucket) => !isMetadataOnlyBucket(bucket.name)).toList();
@@ -555,6 +565,9 @@ class Bucket {
   }
 
   String get category {
+    final legacyCategory = legacyBucketCategories[name];
+    if (legacyCategory != null) return legacyCategory;
+
     if (name.endsWith('-studio')) return 'Studio';
     if (name.endsWith('-private')) return 'Private';
     if (name.endsWith('-site')) return 'Site';
