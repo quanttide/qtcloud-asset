@@ -21,6 +21,9 @@ import (
 
 func main() {
 	cfg := config.Load()
+	if err := cfg.Validate(); err != nil {
+		log.Fatalf("invalid provider configuration: %v", err)
+	}
 	if cfg.UserMigration != "" {
 		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 		err := storage.ApplyUserMigration(ctx, cfg)

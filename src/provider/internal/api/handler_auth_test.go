@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -14,6 +15,10 @@ import (
 	"github.com/quanttide/qtcloud-asset/provider/internal/config"
 	"github.com/quanttide/qtcloud-asset/provider/internal/storage"
 )
+
+func testAppSecretKey() string {
+	return base64.StdEncoding.EncodeToString(make([]byte, 32))
+}
 
 type fakeIdentityProvider struct {
 	user auth.User
@@ -29,6 +34,31 @@ func (p fakeIdentityProvider) LoginURL(state string) (string, error) {
 
 func (p fakeIdentityProvider) Exchange(context.Context, string, string) (auth.User, error) {
 	return p.user, nil
+}
+
+func TestSessionSigningKeyUsesAppSecretKey(t *testing.T) {
+	cfg := &config.Config{
+		AppSecretKey:          testAppSecretKey(),
+		LocalAuthPasswordHash: "password-hash-one",
+		AuthMode:              "local",
+	}
+
+	first := sessionSigningKeyForConfig(cfg)
+	if len(first) == 0 {
+		t.Fatal("expected application secret key to produce a session signing key")
+	}
+
+	cfg.LocalAuthPasswordHash = "password-hash-two"
+	second := sessionSigningKeyForConfig(cfg)
+	if string(first) != string(second) {
+		t.Fatal("session signing key must not depend on local password hash")
+	}
+
+	cfg.AppSecretKey = base64.StdEncoding.EncodeToString([]byte("different application secret key"))
+	third := sessionSigningKeyForConfig(cfg)
+	if string(first) == string(third) {
+		t.Fatal("different application secret keys must produce different session signing keys")
+	}
 }
 
 func newAuthTestMux(t *testing.T) *http.ServeMux {
@@ -313,6 +343,7 @@ func TestStorelessHandlerUsesStableSignedSessionsAcrossInstances(t *testing.T) {
 		BaseURL:               "https://api.quanttide.com/qtcloud-asset",
 		StudioOrigin:          "https://asset.cloud.quanttide.com",
 		StudioOrigins:         []string{"https://asset.cloud.quanttide.com"},
+		AppSecretKey:          testAppSecretKey(),
 		AuthMode:              "local",
 		LocalAuthAccount:      "admin",
 		LocalAuthEmail:        "admin@example.com",

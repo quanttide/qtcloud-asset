@@ -1,6 +1,52 @@
 package config
 
-import "testing"
+import (
+	"encoding/base64"
+	"testing"
+)
+
+func testAppSecretKey() string {
+	return base64.StdEncoding.EncodeToString(make([]byte, 32))
+}
+
+func TestLoadReadsAppSecretKey(t *testing.T) {
+	t.Setenv("APP_SECRET_KEY", testAppSecretKey())
+
+	cfg := Load()
+
+	if cfg.AppSecretKey != testAppSecretKey() {
+		t.Fatal("expected application secret key to load")
+	}
+}
+
+func TestValidateRequiresValidAppSecretKey(t *testing.T) {
+	tests := []struct {
+		name  string
+		value string
+	}{
+		{name: "missing", value: ""},
+		{name: "invalid base64", value: "not-base64"},
+		{name: "wrong length", value: base64.StdEncoding.EncodeToString(make([]byte, 31))},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := &Config{AppSecretKey: tt.value}
+
+			if err := cfg.Validate(); err == nil {
+				t.Fatal("expected invalid application secret key to fail validation")
+			}
+		})
+	}
+}
+
+func TestValidateAccepts32ByteAppSecretKey(t *testing.T) {
+	cfg := &Config{AppSecretKey: testAppSecretKey()}
+
+	if err := cfg.Validate(); err != nil {
+		t.Fatalf("expected valid application secret key, got %v", err)
+	}
+}
 
 func TestLoadUsesProductionGatewayBaseURLByDefault(t *testing.T) {
 	t.Setenv("PROVIDER_BASE_URL", "")

@@ -11,6 +11,8 @@ build/
 # Data and env
 data/
 .env
+.env.*
+!.env.example
 
 # Local verification artifacts
 .codex-temp/
@@ -33,3 +35,5 @@ terraform/
 manifests/iac/.terraform/
 manifests/iac/terraform.tfstate
 manifests/iac/terraform.tfstate.backup
+*.tfvars
+*.tfvars.json
