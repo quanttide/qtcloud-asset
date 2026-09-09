@@ -27,6 +27,7 @@ const (
 )
 
 const defaultSessionTTL = 12 * time.Hour
+const sessionSigningContext = "qtcloud-asset/provider/session-signing/v1"
 
 // Role is the first-pass access role used by Plan A.
 type Role string
@@ -638,6 +639,14 @@ type ManagerOptions struct {
 	CookieSecure      bool
 	SameSite          http.SameSite
 	SessionSigningKey []byte
+}
+
+// DeriveSessionSigningKey derives a session-specific HMAC key from the
+// application secret without reusing the application secret directly.
+func DeriveSessionSigningKey(appSecret []byte) []byte {
+	mac := hmac.New(sha256.New, appSecret)
+	_, _ = mac.Write([]byte(sessionSigningContext))
+	return mac.Sum(nil)
 }
 
 // Manager creates and validates server-side sessions.

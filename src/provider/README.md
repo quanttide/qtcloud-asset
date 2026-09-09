@@ -25,6 +25,10 @@
 ```bash
 cd src/provider
 
+# 本地开发必须先注入应用密钥；不要把真实值写入文件
+# APP_SECRET_KEY 应为标准 Base64 编码的 32 字节随机值
+export APP_SECRET_KEY='replace-with-local-base64-secret'
+
 # 直接运行
 go run ./cmd/provider
 
@@ -79,6 +83,7 @@ docker run -p 9000:9000 qtcloud-asset-provider
 | `PROVIDER_PORT` | `9000` | 监听端口 |
 | `PROVIDER_BASE_URL` | `https://api.quanttide.com/qtcloud-asset` | 服务基础 URL |
 | `STUDIO_ORIGIN` | `https://asset.cloud.quanttide.com` | 正式 Studio 来源；默认 CORS 白名单同时保留 `https://asset.quanttide.com` |
+| `APP_SECRET_KEY` | （无默认值） | 必填；标准 Base64 编码的 32 字节应用密钥，仅 Provider 服务端使用，用于会话签名 |
 | `AUTH_MODE` | `sso` | 认证模式；内测账号密码登录设为 `local` |
 | `LOCAL_AUTH_ACCOUNT` | （空） | 本地登录账号 |
 | `LOCAL_AUTH_EMAIL` | （空） | 兼容旧配置的邮箱字段，可为空 |
@@ -98,6 +103,18 @@ docker run -p 9000:9000 qtcloud-asset-provider
 | `SHARE_MIGRATION` | （空） | 受控一次性迁移标识；仅支持 `folder-shares-postgres-v1`，成功后必须移除 |
 | `SHARE_TOKEN_ENCRYPTION_KEY` | （空） | 32 字节 AES-256 密钥的 base64 值；生产分享功能必填 |
 | `SHAREABLE_BUCKETS` | `qtcloud-asset-studio` | 允许创建分享的 OSS 桶名逗号分隔白名单 |
+
+`APP_SECRET_KEY` 不得写入源码、Flutter Web 构建产物、日志、普通文档或 Git 历史。开发环境应通过当前 shell 的环境变量注入；生产环境应配置为阿里云函数计算的函数环境变量。GitHub Actions 中的同名 Secret 只作为部署流程的密钥来源，当前 Provider workflow 不会自动更新 FC 函数环境变量，因此首次配置或轮换时必须同步更新 FC 运行时配置。更换该密钥会使已有登录会话失效，用户需要重新登录。
+
+生成 32 字节随机密钥并编码为 Base64 的 PowerShell 示例：
+
+```powershell
+$rng = [System.Security.Cryptography.RandomNumberGenerator]::Create()
+$bytes = New-Object byte[] 32
+$rng.GetBytes($bytes)
+[Convert]::ToBase64String($bytes)
+$rng.Dispose()
+```
 
 ## 开发
 

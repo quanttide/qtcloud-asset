@@ -112,10 +112,14 @@ func sameSiteForSessionCookie(cookieSecure bool) http.SameSite {
 }
 
 func sessionSigningKeyForConfig(cfg *config.Config) []byte {
-	if cfg == nil || cfg.AuthMode != "local" || cfg.LocalAuthPasswordHash == "" {
+	if cfg == nil {
 		return nil
 	}
-	return []byte("qtcloud-local-session:" + cfg.LocalAuthPasswordHash)
+	appSecret, err := config.ParseAppSecretKey(cfg.AppSecretKey)
+	if err != nil {
+		return nil
+	}
+	return auth.DeriveSessionSigningKey(appSecret)
 }
 
 // NewWithAuth creates a Handler with explicit authentication dependencies.

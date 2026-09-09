@@ -46,8 +46,9 @@ Provider 通过 `OssAdapter` 只读发现 OSS 桶与对象，Studio 负责可视
 无需 Docker，直接本地跑即可。先启动 Provider，再启动 Studio：
 
 ```bash
-# 1. 启动服务端（需配置 OSS 凭证，见下方环境变量）
+# 1. 启动服务端（需配置 APP_SECRET_KEY 和 OSS 凭证，见下方环境变量）
 cd src/provider
+export APP_SECRET_KEY='replace-with-local-base64-secret'
 go run ./cmd/provider
 
 # 2. 启动客户端（另开终端）
@@ -61,6 +62,7 @@ Provider 需要以下环境变量：
 
 | 环境变量 | 说明 |
 |---------|------|
+| `APP_SECRET_KEY` | Provider 应用级密钥；必须是标准 Base64 编码的 32 字节随机值，仅服务端使用 |
 | `OSS_ACCESS_KEY_ID` | 阿里云 AccessKey ID |
 | `OSS_ACCESS_KEY_SECRET` | 阿里云 AccessKey Secret |
 | `OSS_ENDPOINT` | OSS 端点，默认 `https://oss-cn-hangzhou.aliyuncs.com` |
@@ -68,6 +70,8 @@ Provider 需要以下环境变量：
 | `LOCAL_AUTH_ACCOUNT` | 本地登录账号，仅 `AUTH_MODE=local` 时使用 |
 | `LOCAL_AUTH_EMAIL` | 兼容旧配置的邮箱字段，可为空 |
 | `LOCAL_AUTH_PASSWORD_HASH` | PBKDF2-SHA256 密码哈希，不写入明文密码 |
+
+`APP_SECRET_KEY` 不得注入 Flutter Web，也不得提交到仓库。生产环境配置在函数计算运行时环境变量中；GitHub Secret 可以用于部署流程管理，但当前 Provider workflow 只上传发布包，不会自动修改函数计算环境变量。
 
 ### CLI 工具
 

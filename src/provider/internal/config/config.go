@@ -1,9 +1,14 @@
 package config
 
 import (
+	"encoding/base64"
+	"errors"
+	"fmt"
 	"os"
 	"strings"
 )
+
+const appSecretKeySize = 32
 
 // Config holds the provider configuration.
 type Config struct {
@@ -11,6 +16,7 @@ type Config struct {
 	BaseURL                 string
 	StudioOrigin            string
 	StudioOrigins           []string
+	AppSecretKey            string
 	AuthMode                string
 	LocalAuthAccount        string
 	LocalAuthEmail          string
@@ -70,6 +76,7 @@ func Load() *Config {
 		BaseURL:                 getEnv("PROVIDER_BASE_URL", "https://api.quanttide.com/qtcloud-asset"),
 		StudioOrigin:            studioOrigin,
 		StudioOrigins:           studioOrigins,
+		AppSecretKey:            getEnv("APP_SECRET_KEY", ""),
 		AuthMode:                strings.ToLower(getEnv("AUTH_MODE", "sso")),
 		LocalAuthAccount:        getEnv("LOCAL_AUTH_ACCOUNT", getEnv("LOCAL_AUTH_EMAIL", "")),
 		LocalAuthEmail:          getEnv("LOCAL_AUTH_EMAIL", ""),
@@ -89,6 +96,31 @@ func Load() *Config {
 		ShareTokenEncryptionKey: getEnv("SHARE_TOKEN_ENCRYPTION_KEY", ""),
 		ShareableBuckets:        parseCSV(getEnv("SHAREABLE_BUCKETS", "qtcloud-asset-studio")),
 	}
+}
+
+// Validate checks startup configuration that is required for safe operation.
+func (c *Config) Validate() error {
+	if c == nil {
+		return errors.New("provider config is missing")
+	}
+	_, err := ParseAppSecretKey(c.AppSecretKey)
+	return err
+}
+
+// ParseAppSecretKey decodes and validates the application secret key.
+func ParseAppSecretKey(raw string) ([]byte, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return nil, errors.New("APP_SECRET_KEY is missing")
+	}
+	key, err := base64.StdEncoding.DecodeString(raw)
+	if err != nil {
+		return nil, fmt.Errorf("APP_SECRET_KEY must be standard base64: %w", err)
+	}
+	if len(key) != appSecretKeySize {
+		return nil, fmt.Errorf("APP_SECRET_KEY must decode to %d bytes", appSecretKeySize)
+	}
+	return key, nil
 }
 
 func getEnv(key, fallback string) string {

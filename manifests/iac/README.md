@@ -34,6 +34,7 @@ terraform destroy
 - Studio 正式域名：`asset.cloud.quanttide.com`
 - Provider API：`https://api.quanttide.com/qtcloud-asset`
 - Provider 发布包桶：`qtcloud-asset`，对象前缀为 `provider/`
+- Provider `APP_SECRET_KEY`：在函数计算运行时环境变量中配置，不写入 Terraform 变量或状态文件
 - 平台仓库负责 API 网关、DNS 和证书；本项目不创建或修改这些资源
 
 `qtcloud-asset-studio` 已存在时，不要直接执行创建计划。先导入现有桶：
