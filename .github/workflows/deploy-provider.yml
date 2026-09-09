@@ -57,6 +57,21 @@ jobs:
         run: |
           echo "ALIBABA_CLOUD_ACCESS_KEY_ID=${{ secrets.ALIYUN_ACCESS_KEY_ID }}" >> $GITHUB_ENV
           echo "ALIBABA_CLOUD_ACCESS_KEY_SECRET=${{ secrets.ALIYUN_ACCESS_KEY_SECRET }}" >> $GITHUB_ENV
+          echo "PROVIDER_FUNCTION_NAME=qtcloud-asset-provider" >> $GITHUB_ENV
+          echo "PROVIDER_CODE_BUCKET=qtcloud-asset" >> $GITHUB_ENV
+          echo "PROVIDER_CODE_OBJECT=provider/qtcloud-asset-provider-go-linux-amd64.zip" >> $GITHUB_ENV
+          echo "ALIYUN_CLI_VERSION=3.4.11" >> $GITHUB_ENV
+          echo "ALIYUN_FC_PLUGIN_VERSION=0.7.2" >> $GITHUB_ENV
+
+      - name: Setup Alibaba Cloud CLI
+        run: |
+          curl -L -o aliyun-cli.tgz "https://aliyuncli.alicdn.com/aliyun-cli-linux-${ALIYUN_CLI_VERSION}-amd64.tgz"
+          tar -xzf aliyun-cli.tgz
+          chmod +x aliyun
+          sudo mv aliyun /usr/local/bin/aliyun
+          aliyun version
+          aliyun plugin install --name aliyun-cli-fc --version "${ALIYUN_FC_PLUGIN_VERSION}"
+          aliyun fc version
 
       - name: Upload provider package to OSS
         run: |
@@ -66,3 +81,18 @@ jobs:
           "$OSSUTIL" version
           "$OSSUTIL" -i "$ALIBABA_CLOUD_ACCESS_KEY_ID" -k "$ALIBABA_CLOUD_ACCESS_KEY_SECRET" -e oss-cn-hangzhou.aliyuncs.com --region cn-hangzhou ls oss://qtcloud-asset/provider/
           "$OSSUTIL" -i "$ALIBABA_CLOUD_ACCESS_KEY_ID" -k "$ALIBABA_CLOUD_ACCESS_KEY_SECRET" -e oss-cn-hangzhou.aliyuncs.com --region cn-hangzhou cp -f build/qtcloud-asset-provider-go-linux-amd64.zip oss://qtcloud-asset/provider/qtcloud-asset-provider-go-linux-amd64.zip
+
+      - name: Update provider function code
+        run: |
+          aliyun fc update-function \
+            --function-name "$PROVIDER_FUNCTION_NAME" \
+            --code ossBucketName="$PROVIDER_CODE_BUCKET" ossObjectName="$PROVIDER_CODE_OBJECT" \
+            --region cn-hangzhou \
+            --quiet
+
+      - name: Verify provider function code
+        run: |
+          aliyun fc get-function \
+            --function-name "$PROVIDER_FUNCTION_NAME" \
+            --region cn-hangzhou \
+            --cli-query '{functionName:functionName,lastModifiedTime:lastModifiedTime,codeChecksum:codeChecksum,codeSize:codeSize}'

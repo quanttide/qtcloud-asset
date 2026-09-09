@@ -37,7 +37,7 @@ module "fc" {
   source = "./modules/fc"
 
   service_name  = "${var.project_name}-service"
-  function_name = "provider-package"
+  function_name = "qtcloud-asset-provider"
   region        = var.region
   code_bucket   = var.provider_code_bucket_name
   code_object   = var.provider_code_object
