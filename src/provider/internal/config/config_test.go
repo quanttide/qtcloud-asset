@@ -11,11 +11,15 @@ func testAppSecretKey() string {
 
 func TestLoadReadsAppSecretKey(t *testing.T) {
 	t.Setenv("APP_SECRET_KEY", testAppSecretKey())
+	t.Setenv("AUTH_JWT_PUBLIC_JWK", `{"kty":"RSA","n":"modulus","e":"AQAB"}`)
 
 	cfg := Load()
 
 	if cfg.AppSecretKey != testAppSecretKey() {
 		t.Fatal("expected application secret key to load")
+	}
+	if cfg.AuthJWTPublicJWK != `{"kty":"RSA","n":"modulus","e":"AQAB"}` {
+		t.Fatal("expected account JWT public JWK to load")
 	}
 }
 
@@ -45,6 +49,17 @@ func TestValidateAccepts32ByteAppSecretKey(t *testing.T) {
 
 	if err := cfg.Validate(); err != nil {
 		t.Fatalf("expected valid application secret key, got %v", err)
+	}
+}
+
+func TestValidateRejectsMalformedAccountJWTPublicJWK(t *testing.T) {
+	cfg := &Config{
+		AppSecretKey:     testAppSecretKey(),
+		AuthJWTPublicJWK: `{"kty":"EC"}`,
+	}
+
+	if err := cfg.Validate(); err == nil {
+		t.Fatal("expected malformed account JWT public JWK to fail validation")
 	}
 }
 

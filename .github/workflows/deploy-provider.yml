@@ -26,6 +26,12 @@ jobs:
         with:
           go-version: "1.25"
 
+      - name: Test provider
+        working-directory: src/provider
+        run: |
+          go test ./...
+          go vet ./...
+
       - name: Build provider package
         run: |
           mkdir -p build/provider
@@ -54,14 +60,32 @@ jobs:
           path: build
 
       - name: Set env vars
+        env:
+          ALIBABA_CLOUD_ACCESS_KEY_ID: ${{ secrets.ALIYUN_ACCESS_KEY_ID }}
+          ALIBABA_CLOUD_ACCESS_KEY_SECRET: ${{ secrets.ALIYUN_ACCESS_KEY_SECRET }}
+          APP_SECRET_KEY: ${{ secrets.APP_SECRET_KEY }}
+          AUTH_JWT_PUBLIC_JWK: ${{ secrets.AUTH_JWT_PUBLIC_JWK }}
         run: |
-          echo "ALIBABA_CLOUD_ACCESS_KEY_ID=${{ secrets.ALIYUN_ACCESS_KEY_ID }}" >> $GITHUB_ENV
-          echo "ALIBABA_CLOUD_ACCESS_KEY_SECRET=${{ secrets.ALIYUN_ACCESS_KEY_SECRET }}" >> $GITHUB_ENV
-          echo "PROVIDER_FUNCTION_NAME=qtcloud-asset-provider" >> $GITHUB_ENV
-          echo "PROVIDER_CODE_BUCKET=qtcloud-asset" >> $GITHUB_ENV
-          echo "PROVIDER_CODE_OBJECT=provider/qtcloud-asset-provider-go-linux-amd64.zip" >> $GITHUB_ENV
-          echo "ALIYUN_CLI_VERSION=3.4.11" >> $GITHUB_ENV
-          echo "ALIYUN_FC_PLUGIN_VERSION=0.7.2" >> $GITHUB_ENV
+          set -euo pipefail
+          test -n "$ALIBABA_CLOUD_ACCESS_KEY_ID"
+          test -n "$ALIBABA_CLOUD_ACCESS_KEY_SECRET"
+          test -n "$APP_SECRET_KEY"
+          test -n "$AUTH_JWT_PUBLIC_JWK"
+          {
+            printf 'ALIBABA_CLOUD_ACCESS_KEY_ID=%s\n' "$ALIBABA_CLOUD_ACCESS_KEY_ID"
+            printf 'ALIBABA_CLOUD_ACCESS_KEY_SECRET=%s\n' "$ALIBABA_CLOUD_ACCESS_KEY_SECRET"
+            echo "APP_SECRET_KEY<<EOF"
+            printf '%s\n' "$APP_SECRET_KEY"
+            echo "EOF"
+            echo "AUTH_JWT_PUBLIC_JWK<<EOF"
+            printf '%s\n' "$AUTH_JWT_PUBLIC_JWK"
+            echo "EOF"
+            echo "PROVIDER_FUNCTION_NAME=qtcloud-asset-provider"
+            echo "PROVIDER_CODE_BUCKET=qtcloud-asset"
+            echo "PROVIDER_CODE_OBJECT=provider/qtcloud-asset-provider-go-linux-amd64.zip"
+            echo "ALIYUN_CLI_VERSION=3.4.11"
+            echo "ALIYUN_FC_PLUGIN_VERSION=0.7.2"
+          } >> "$GITHUB_ENV"
 
       - name: Setup Alibaba Cloud CLI
         run: |
@@ -87,6 +111,24 @@ jobs:
           aliyun fc update-function \
             --function-name "$PROVIDER_FUNCTION_NAME" \
             --code ossBucketName="$PROVIDER_CODE_BUCKET" ossObjectName="$PROVIDER_CODE_OBJECT" \
+            --region cn-hangzhou \
+            --quiet
+
+      - name: Update provider security environment
+        run: |
+          set -euo pipefail
+          CURRENT_ENV="$(aliyun fc get-function \
+            --function-name "$PROVIDER_FUNCTION_NAME" \
+            --region cn-hangzhou \
+            --cli-query 'environmentVariables')"
+          UPDATED_ENV="$(jq \
+            --arg app_secret_key "$APP_SECRET_KEY" \
+            --arg auth_jwt_public_jwk "$AUTH_JWT_PUBLIC_JWK" \
+            '(. // {}) + {APP_SECRET_KEY: $app_secret_key, AUTH_JWT_PUBLIC_JWK: $auth_jwt_public_jwk}' \
+            <<< "$CURRENT_ENV")"
+          aliyun fc update-function \
+            --function-name "$PROVIDER_FUNCTION_NAME" \
+            --environment-variables "$UPDATED_ENV" \
             --region cn-hangzhou \
             --quiet
 

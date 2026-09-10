@@ -63,6 +63,7 @@ Provider 需要以下环境变量：
 | 环境变量 | 说明 |
 |---------|------|
 | `APP_SECRET_KEY` | Provider 应用级密钥；必须是标准 Base64 编码的 32 字节随机值，仅服务端使用 |
+| `AUTH_JWT_PUBLIC_JWK` | 账号系统 RSA 公钥 JWK 或 JWKS；配置后启用 RS256 Bearer JWT，角色和状态仍由 Provider 用户存储决定 |
 | `OSS_ACCESS_KEY_ID` | 阿里云 AccessKey ID |
 | `OSS_ACCESS_KEY_SECRET` | 阿里云 AccessKey Secret |
 | `OSS_ENDPOINT` | OSS 端点，默认 `https://oss-cn-hangzhou.aliyuncs.com` |
@@ -71,7 +72,7 @@ Provider 需要以下环境变量：
 | `LOCAL_AUTH_EMAIL` | 兼容旧配置的邮箱字段，可为空 |
 | `LOCAL_AUTH_PASSWORD_HASH` | PBKDF2-SHA256 密码哈希，不写入明文密码 |
 
-`APP_SECRET_KEY` 不得注入 Flutter Web，也不得提交到仓库。生产环境配置在函数计算运行时环境变量中；GitHub Secret 可以用于部署流程管理，但当前 Provider workflow 只上传发布包，不会自动修改函数计算环境变量。
+`APP_SECRET_KEY` 不得注入 Flutter Web，也不得提交到仓库。生产环境配置在函数计算运行时环境变量中；GitHub Actions 使用 GitHub Secrets，并在发布 Provider 代码后合并更新 `APP_SECRET_KEY` 和 `AUTH_JWT_PUBLIC_JWK`，不会覆盖现有的其他函数环境变量。
 
 ### CLI 工具
 

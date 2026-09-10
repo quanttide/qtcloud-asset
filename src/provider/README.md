@@ -68,7 +68,7 @@ docker run -p 9000:9000 qtcloud-asset-provider
 | `/shares/{token}/download` | GET | 公开将分享范围内的文件打包为 ZIP 下载；无须登录 |
 | `/shares/{token}` | DELETE | 创建者或管理员撤销分享；需要登录 |
 
-认证状态使用服务端会话，浏览器只保存 `HttpOnly` Cookie。当前默认 SSO 身份源是未配置占位实现，未接入平台 SSO 时 `GET /auth/login` 会返回 503，避免误开放登录入口。内测可启用 `AUTH_MODE=local` 使用单管理员账号密码登录；管理员在用户管理页邀请新用户时必须填写初始密码，Provider 只保存 PBKDF2-SHA256 哈希值，用户列表和接口响应不回显密码材料。
+认证状态默认使用服务端会话，浏览器只保存 `HttpOnly` Cookie。配置 `AUTH_JWT_PUBLIC_JWK` 后，Provider 也接受账号系统签发的 `Authorization: Bearer <RS256 JWT>`；JWT 只用于验证签名后的 `sub` 身份，Provider 用户存储继续决定角色和禁用状态，带有无效 Bearer 的请求不会回退到 Cookie 会话。当前默认 SSO 身份源是未配置占位实现，未接入平台 SSO 时 `GET /auth/login` 会返回 503，避免误开放登录入口。内测可启用 `AUTH_MODE=local` 使用单管理员账号密码登录；管理员在用户管理页邀请新用户时必须填写初始密码，Provider 只保存 PBKDF2-SHA256 哈希值，用户列表和接口响应不回显密码材料。
 
 账号记录使用平台共享 RDS 的 `users` 表，默认 `USER_STORE=rds`；只有本地开发或测试才应显式设置 `USER_STORE=memory`，否则 Provider 重启后用户管理记录会丢失。生产 PostgreSQL 用户迁移脚本位于 `internal/storage/auth_users_postgres.sql`，分享记录使用同一个 RDS 的 `folder_shares` 表，分享迁移脚本位于 `internal/storage/folder_shares_postgres.sql`。Provider 正常启动时只连接并检查 RDS，不会自动执行迁移；仅在受控上线时分别显式设置一次 `USER_MIGRATION=users-postgres-v1` 和 `SHARE_MIGRATION=folder-shares-postgres-v1`，才会执行对应的固定幂等 PostgreSQL DDL，成功后应移除这两个一次性变量。Provider 默认同时写入内存审计存储和结构化 stdout JSON，事件名为 `qtcloud_asset_audit`；生产函数计算通过 FC `logConfig` 将 stdout 持久化到 SLS。历史 MySQL 认证草案位于 `internal/storage/auth_audit_schema.sql`，不作为当前生产迁移入口。
 
@@ -84,6 +84,7 @@ docker run -p 9000:9000 qtcloud-asset-provider
 | `PROVIDER_BASE_URL` | `https://api.quanttide.com/qtcloud-asset` | 服务基础 URL |
 | `STUDIO_ORIGIN` | `https://asset.cloud.quanttide.com` | 正式 Studio 来源；默认 CORS 白名单同时保留 `https://asset.quanttide.com` |
 | `APP_SECRET_KEY` | （无默认值） | 必填；标准 Base64 编码的 32 字节应用密钥，仅 Provider 服务端使用，用于会话签名 |
+| `AUTH_JWT_PUBLIC_JWK` | （空） | 账号系统 RSA 公钥 JWK 或 JWKS；配置后启用 RS256 Bearer JWT，`sub` 映射为外部身份；角色和状态不读取 token 字段 |
 | `AUTH_MODE` | `sso` | 认证模式；内测账号密码登录设为 `local` |
 | `LOCAL_AUTH_ACCOUNT` | （空） | 本地登录账号 |
 | `LOCAL_AUTH_EMAIL` | （空） | 兼容旧配置的邮箱字段，可为空 |
@@ -104,7 +105,7 @@ docker run -p 9000:9000 qtcloud-asset-provider
 | `SHARE_TOKEN_ENCRYPTION_KEY` | （空） | 32 字节 AES-256 密钥的 base64 值；生产分享功能必填 |
 | `SHAREABLE_BUCKETS` | `qtcloud-asset-studio` | 允许创建分享的 OSS 桶名逗号分隔白名单 |
 
-`APP_SECRET_KEY` 不得写入源码、Flutter Web 构建产物、日志、普通文档或 Git 历史。开发环境应通过当前 shell 的环境变量注入；生产环境应配置为阿里云函数计算的函数环境变量。GitHub Actions 中的同名 Secret 只作为部署流程的密钥来源，当前 Provider workflow 不会自动更新 FC 函数环境变量，因此首次配置或轮换时必须同步更新 FC 运行时配置。更换该密钥会使已有登录会话失效，用户需要重新登录。
+`APP_SECRET_KEY` 不得写入源码、Flutter Web 构建产物、日志、普通文档或 Git 历史。开发环境应通过当前 shell 的环境变量注入；生产环境应配置为阿里云函数计算的函数环境变量。GitHub Actions 使用同名 Secret，并在发布函数代码后保留现有 FC 环境变量，只合并更新 `APP_SECRET_KEY` 和 `AUTH_JWT_PUBLIC_JWK`。更换 `APP_SECRET_KEY` 会使已有登录会话失效，用户需要重新登录。`AUTH_JWT_PUBLIC_JWK` 支持单个 RSA JWK 或 JWK Set；当前只接受 RS256，并校验 `sub`、`exp`、`nbf` 和签名，不从 JWT 读取角色。当前账号系统契约未提供固定的 `iss`/`aud` 值，因此实现暂不校验这两个字段；后续契约确定后应补充发行方和受众校验。
 
 生成 32 字节随机密钥并编码为 Base64 的 PowerShell 示例：
 

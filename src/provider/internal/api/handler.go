@@ -79,6 +79,7 @@ type Handler struct {
 	buckets               *service.BucketService
 	shares                share.Store
 	sessions              *auth.Manager
+	jwtVerifier           *auth.JWTVerifier
 	identity              auth.IdentityProvider
 	localAuthenticator    auth.LocalAuthenticator
 	users                 auth.UserStore
@@ -164,11 +165,20 @@ func NewWithStoresAndShares(cfg *config.Config, buckets *service.BucketService, 
 	if shares == nil {
 		shares = share.NewMemoryStore()
 	}
+	var jwtVerifier *auth.JWTVerifier
+	if cfg != nil && strings.TrimSpace(cfg.AuthJWTPublicJWK) != "" {
+		var err error
+		jwtVerifier, err = auth.NewJWTVerifier(cfg.AuthJWTPublicJWK)
+		if err != nil {
+			log.Printf("account JWT verifier is unavailable: %v", err)
+		}
+	}
 	return &Handler{
 		cfg:                   cfg,
 		buckets:               buckets,
 		shares:                shares,
 		sessions:              sessions,
+		jwtVerifier:           jwtVerifier,
 		identity:              identity,
 		localAuthenticator:    localAuthenticatorFromConfig(cfg),
 		users:                 users,
@@ -278,7 +288,13 @@ func rateLimitKey(r *http.Request) string {
 func (h *Handler) requireAuth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		now := time.Now()
-		user, _, ok := h.sessions.Authenticate(r, now)
+		user, ok, err := h.authenticateRequest(r, now)
+		if err != nil {
+			log.Printf("authenticate request error: %v", err)
+			h.recordAudit("", auth.AuditActionAuthFailed, auth.AuditResultFailure, r, now)
+			respondError(w, http.StatusServiceUnavailable, "user store is unavailable")
+			return
+		}
 		if !ok {
 			h.recordAudit("", auth.AuditActionAuthFailed, auth.AuditResultDenied, r, now)
 			respondError(w, http.StatusUnauthorized, "authentication required")
@@ -311,6 +327,43 @@ func (h *Handler) requireAuth(next http.Handler) http.Handler {
 		ctx := context.WithValue(r.Context(), userContextKey, user)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
+}
+
+func (h *Handler) authenticateRequest(r *http.Request, now time.Time) (auth.User, bool, error) {
+	authorization := strings.TrimSpace(r.Header.Get("Authorization"))
+	if authorization != "" {
+		token, ok := bearerToken(authorization)
+		if !ok || h.jwtVerifier == nil {
+			return auth.User{}, false, nil
+		}
+		claims, err := h.jwtVerifier.Verify(token, now)
+		if err != nil {
+			return auth.User{}, false, nil
+		}
+		user, err := h.users.UpsertFromIdentity(auth.User{
+			ExternalID: claims.Subject,
+			Account:    firstRequestValue(claims.Email, claims.Subject),
+			Email:      claims.Email,
+			Name:       firstRequestValue(claims.Name, claims.Email, claims.Subject),
+			Role:       auth.RoleViewer,
+			Status:     auth.UserStatusActive,
+		}, now)
+		if err != nil {
+			return auth.User{}, false, err
+		}
+		return user, true, nil
+	}
+
+	user, _, ok := h.sessions.Authenticate(r, now)
+	return user, ok, nil
+}
+
+func bearerToken(authorization string) (string, bool) {
+	parts := strings.Fields(authorization)
+	if len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") || parts[1] == "" {
+		return "", false
+	}
+	return parts[1], true
 }
 
 func (h *Handler) requireAdmin(next http.Handler) http.Handler {

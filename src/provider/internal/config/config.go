@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"os"
 	"strings"
+
+	"github.com/quanttide/qtcloud-asset/provider/internal/auth"
 )
 
 const appSecretKeySize = 32
@@ -17,6 +19,7 @@ type Config struct {
 	StudioOrigin            string
 	StudioOrigins           []string
 	AppSecretKey            string
+	AuthJWTPublicJWK        string
 	AuthMode                string
 	LocalAuthAccount        string
 	LocalAuthEmail          string
@@ -77,6 +80,7 @@ func Load() *Config {
 		StudioOrigin:            studioOrigin,
 		StudioOrigins:           studioOrigins,
 		AppSecretKey:            getEnv("APP_SECRET_KEY", ""),
+		AuthJWTPublicJWK:        getEnv("AUTH_JWT_PUBLIC_JWK", ""),
 		AuthMode:                strings.ToLower(getEnv("AUTH_MODE", "sso")),
 		LocalAuthAccount:        getEnv("LOCAL_AUTH_ACCOUNT", getEnv("LOCAL_AUTH_EMAIL", "")),
 		LocalAuthEmail:          getEnv("LOCAL_AUTH_EMAIL", ""),
@@ -104,7 +108,15 @@ func (c *Config) Validate() error {
 		return errors.New("provider config is missing")
 	}
 	_, err := ParseAppSecretKey(c.AppSecretKey)
-	return err
+	if err != nil {
+		return err
+	}
+	if c.AuthJWTPublicJWK != "" {
+		if _, err := auth.NewJWTVerifier(c.AuthJWTPublicJWK); err != nil {
+			return fmt.Errorf("invalid AUTH_JWT_PUBLIC_JWK: %w", err)
+		}
+	}
+	return nil
 }
 
 // ParseAppSecretKey decodes and validates the application secret key.

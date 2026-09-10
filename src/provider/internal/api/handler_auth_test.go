@@ -2,6 +2,10 @@ package api
 
 import (
 	"context"
+	"crypto"
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
 	"net/http"
@@ -58,6 +62,137 @@ func TestSessionSigningKeyUsesAppSecretKey(t *testing.T) {
 	third := sessionSigningKeyForConfig(cfg)
 	if string(first) == string(third) {
 		t.Fatal("different application secret keys must produce different session signing keys")
+	}
+}
+
+func TestBearerJWTAuthenticatesAndPreservesPersistedRole(t *testing.T) {
+	privateKey, jwk := newAPIJWTTestKey(t)
+	cfg := &config.Config{
+		StudioOrigin:     "https://asset.cloud.quanttide.com",
+		StudioOrigins:    []string{"https://asset.cloud.quanttide.com"},
+		AuthJWTPublicJWK: jwk,
+		BaseURL:          "https://api.quanttide.com/qtcloud-asset",
+	}
+	users := auth.NewMemoryUserStore()
+	now := time.Now().UTC()
+	if _, err := users.UpsertManaged(auth.User{
+		ID:         "asset-user-1",
+		ExternalID: "user-uuid",
+		Account:    "managed-user",
+		Name:       "Managed User",
+		Role:       auth.RoleAdmin,
+		Status:     auth.UserStatusActive,
+	}, now); err != nil {
+		t.Fatalf("seed managed user: %v", err)
+	}
+	handler := NewWithStores(cfg, nil, nil, fakeIdentityProvider{}, users, auth.NewMemoryAuditLogStore())
+	mux := http.NewServeMux()
+	handler.RegisterRoutes(mux)
+
+	token := signAPIJWTTestToken(t, privateKey, map[string]any{
+		"sub":   "user-uuid",
+		"email": "token@example.com",
+		"name":  "Token User",
+		"role":  "viewer",
+		"exp":   now.Add(time.Hour).Unix(),
+	})
+	req := httptest.NewRequest(http.MethodGet, "/admin/users", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	res := httptest.NewRecorder()
+
+	mux.ServeHTTP(res, req)
+
+	if res.Code != http.StatusOK {
+		t.Fatalf("expected persisted admin role to authorize JWT request, got %d: %s", res.Code, res.Body.String())
+	}
+	saved, ok := users.GetByID("asset-user-1")
+	if !ok {
+		t.Fatal("expected JWT subject to map to a persisted user")
+	}
+	if saved.Role != auth.RoleAdmin {
+		t.Fatalf("JWT claims must not overwrite persisted role, got %q", saved.Role)
+	}
+	if saved.Email != "token@example.com" || saved.Name != "Token User" {
+		t.Fatalf("expected identity claims to refresh profile fields, got %+v", saved)
+	}
+}
+
+func TestBearerJWTNewIdentityDefaultsToViewer(t *testing.T) {
+	privateKey, jwk := newAPIJWTTestKey(t)
+	cfg := &config.Config{
+		StudioOrigin:     "https://asset.cloud.quanttide.com",
+		StudioOrigins:    []string{"https://asset.cloud.quanttide.com"},
+		AuthJWTPublicJWK: jwk,
+	}
+	users := auth.NewMemoryUserStore()
+	handler := NewWithStores(cfg, nil, nil, fakeIdentityProvider{}, users, auth.NewMemoryAuditLogStore())
+	mux := http.NewServeMux()
+	handler.RegisterRoutes(mux)
+
+	token := signAPIJWTTestToken(t, privateKey, map[string]any{
+		"sub":   "new-user-uuid",
+		"email": "new-user@example.com",
+		"role":  "admin",
+		"exp":   time.Now().Add(time.Hour).Unix(),
+	})
+	req := httptest.NewRequest(http.MethodGet, "/admin/users", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	res := httptest.NewRecorder()
+
+	mux.ServeHTTP(res, req)
+
+	if res.Code != http.StatusForbidden {
+		t.Fatalf("expected token role claim not to grant admin access, got %d: %s", res.Code, res.Body.String())
+	}
+	saved, ok := users.GetByAccount("new-user@example.com")
+	if !ok {
+		t.Fatal("expected new JWT identity to be persisted")
+	}
+	if saved.Role != auth.RoleViewer {
+		t.Fatalf("new JWT identities must default to viewer, got %q", saved.Role)
+	}
+}
+
+func TestInvalidBearerJWTDoesNotFallBackToCookieSession(t *testing.T) {
+	_, jwk := newAPIJWTTestKey(t)
+	cfg := &config.Config{
+		StudioOrigin:     "https://asset.cloud.quanttide.com",
+		StudioOrigins:    []string{"https://asset.cloud.quanttide.com"},
+		AuthJWTPublicJWK: jwk,
+	}
+	users := auth.NewMemoryUserStore()
+	now := time.Now().UTC()
+	user, err := users.UpsertManaged(auth.User{
+		ExternalID: "cookie-user",
+		Account:    "cookie-user",
+		Name:       "Cookie User",
+		Role:       auth.RoleViewer,
+		Status:     auth.UserStatusActive,
+	}, now)
+	if err != nil {
+		t.Fatalf("seed cookie user: %v", err)
+	}
+	sessions := auth.NewManager(auth.ManagerOptions{
+		Store:        auth.NewMemorySessionStore(),
+		SessionTTL:   time.Hour,
+		CookieSecure: true,
+	})
+	cookie, err := sessions.CreateSession(user, now)
+	if err != nil {
+		t.Fatalf("create cookie session: %v", err)
+	}
+	handler := NewWithStores(cfg, nil, sessions, fakeIdentityProvider{}, users, auth.NewMemoryAuditLogStore())
+	mux := http.NewServeMux()
+	handler.RegisterRoutes(mux)
+	req := httptest.NewRequest(http.MethodGet, "/buckets", nil)
+	req.Header.Set("Authorization", "Bearer invalid-token")
+	req.AddCookie(cookie)
+	res := httptest.NewRecorder()
+
+	mux.ServeHTTP(res, req)
+
+	if res.Code != http.StatusUnauthorized {
+		t.Fatalf("expected invalid bearer JWT to be rejected, got %d", res.Code)
 	}
 }
 
@@ -598,4 +733,42 @@ func findCookie(t *testing.T, cookies []*http.Cookie, name string) *http.Cookie 
 	}
 	t.Fatalf("cookie %q was not set", name)
 	return nil
+}
+
+func newAPIJWTTestKey(t *testing.T) (*rsa.PrivateKey, string) {
+	t.Helper()
+	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatalf("generate RSA test key: %v", err)
+	}
+	modulus := base64.RawURLEncoding.EncodeToString(privateKey.PublicKey.N.Bytes())
+	jwk, err := json.Marshal(map[string]string{
+		"kty": "RSA",
+		"n":   modulus,
+		"e":   "AQAB",
+		"alg": "RS256",
+		"use": "sig",
+	})
+	if err != nil {
+		t.Fatalf("marshal JWK: %v", err)
+	}
+	return privateKey, string(jwk)
+}
+
+func signAPIJWTTestToken(t *testing.T, privateKey *rsa.PrivateKey, payload map[string]any) string {
+	t.Helper()
+	encode := func(value any) string {
+		raw, err := json.Marshal(value)
+		if err != nil {
+			t.Fatalf("marshal JWT part: %v", err)
+		}
+		return base64.RawURLEncoding.EncodeToString(raw)
+	}
+	signingInput := encode(map[string]any{"alg": "RS256", "typ": "JWT"}) + "." + encode(payload)
+	digest := sha256.Sum256([]byte(signingInput))
+	signature, err := rsa.SignPKCS1v15(rand.Reader, privateKey, crypto.SHA256, digest[:])
+	if err != nil {
+		t.Fatalf("sign JWT: %v", err)
+	}
+	return signingInput + "." + base64.RawURLEncoding.EncodeToString(signature)
 }
