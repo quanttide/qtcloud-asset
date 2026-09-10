@@ -70,7 +70,6 @@ jobs:
           test -n "$ALIBABA_CLOUD_ACCESS_KEY_ID"
           test -n "$ALIBABA_CLOUD_ACCESS_KEY_SECRET"
           test -n "$APP_SECRET_KEY"
-          test -n "$AUTH_JWT_PUBLIC_JWK"
           {
             printf 'ALIBABA_CLOUD_ACCESS_KEY_ID=%s\n' "$ALIBABA_CLOUD_ACCESS_KEY_ID"
             printf 'ALIBABA_CLOUD_ACCESS_KEY_SECRET=%s\n' "$ALIBABA_CLOUD_ACCESS_KEY_SECRET"
@@ -121,11 +120,18 @@ jobs:
             --function-name "$PROVIDER_FUNCTION_NAME" \
             --region cn-hangzhou \
             --cli-query 'environmentVariables')"
-          UPDATED_ENV="$(jq \
-            --arg app_secret_key "$APP_SECRET_KEY" \
-            --arg auth_jwt_public_jwk "$AUTH_JWT_PUBLIC_JWK" \
-            '(. // {}) + {APP_SECRET_KEY: $app_secret_key, AUTH_JWT_PUBLIC_JWK: $auth_jwt_public_jwk}' \
-            <<< "$CURRENT_ENV")"
+          if [ -n "$AUTH_JWT_PUBLIC_JWK" ]; then
+            UPDATED_ENV="$(jq \
+              --arg app_secret_key "$APP_SECRET_KEY" \
+              --arg auth_jwt_public_jwk "$AUTH_JWT_PUBLIC_JWK" \
+              '(. // {}) + {APP_SECRET_KEY: $app_secret_key, AUTH_JWT_PUBLIC_JWK: $auth_jwt_public_jwk}' \
+              <<< "$CURRENT_ENV")"
+          else
+            UPDATED_ENV="$(jq \
+              --arg app_secret_key "$APP_SECRET_KEY" \
+              '(. // {}) + {APP_SECRET_KEY: $app_secret_key}' \
+              <<< "$CURRENT_ENV")"
+          fi
           aliyun fc update-function \
             --function-name "$PROVIDER_FUNCTION_NAME" \
             --environment-variables "$UPDATED_ENV" \
