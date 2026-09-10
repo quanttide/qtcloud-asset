@@ -208,16 +208,18 @@ type SessionStore interface {
 // MemoryUserStore is an in-process user store used by tests and explicit local
 // development mode.
 type MemoryUserStore struct {
-	mu        sync.RWMutex
-	users     map[string]User
-	byAccount map[string]string
+	mu           sync.RWMutex
+	users        map[string]User
+	byAccount    map[string]string
+	byExternalID map[string]string
 }
 
 // NewMemoryUserStore creates an empty memory user store.
 func NewMemoryUserStore() *MemoryUserStore {
 	return &MemoryUserStore{
-		users:     make(map[string]User),
-		byAccount: make(map[string]string),
+		users:        make(map[string]User),
+		byAccount:    make(map[string]string),
+		byExternalID: make(map[string]string),
 	}
 }
 
@@ -296,6 +298,9 @@ func (s *MemoryUserStore) upsertLocked(user User, now time.Time, markLogin bool)
 	}
 
 	id := user.ID
+	if id == "" && user.ExternalID != "" {
+		id = s.byExternalID[user.ExternalID]
+	}
 	if id == "" && normalizedAccount != "" {
 		id = s.byAccount[normalizedAccount]
 	}
@@ -308,6 +313,7 @@ func (s *MemoryUserStore) upsertLocked(user User, now time.Time, markLogin bool)
 	}
 
 	existing, exists := s.users[id]
+	previousExternalID := existing.ExternalID
 	if existing.CreatedAt.IsZero() {
 		existing.CreatedAt = now
 	}
@@ -356,6 +362,12 @@ func (s *MemoryUserStore) upsertLocked(user User, now time.Time, markLogin bool)
 	s.users[id] = existing
 	if existing.Account != "" {
 		s.byAccount[existing.Account] = id
+	}
+	if previousExternalID != "" && previousExternalID != existing.ExternalID {
+		delete(s.byExternalID, previousExternalID)
+	}
+	if existing.ExternalID != "" {
+		s.byExternalID[existing.ExternalID] = id
 	}
 	return existing, nil
 }
