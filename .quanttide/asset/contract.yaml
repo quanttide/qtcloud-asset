@@ -51,27 +51,27 @@ assets:
     type: docs
     category: user
     path: docs/user
-    description: 安装、快速开始、配置参考、归档命令详解
+    description: 页面使用说明、登录、桶与对象浏览、分享和用户管理
 
   # CLI 设计文档
   cli_docs:
     title: CLI 设计文档
     type: docs
     category: cli_docs
-    path: src/cli/docs
-    description: cli.py、planner.py、file_operator.py 的设计文档
+    path: src/cli
+    description: Rust CLI 的 README、状态报告和使用说明
 
   # CLI 实现代码
   cli_code:
     title: CLI 实现代码
     type: code
     category: cli
-    path: src/cli/app
+    path: src/cli/src
     description: >
-      三层解耦架构：
-      - cli.py（入口层）
-      - planner.py（配置层）
-      - file_operator.py（操作层）
+      Rust CLI 实现：
+      - main.rs（入口层）
+      - workflow.rs、scanner.rs、validate.rs（业务能力）
+      - oss.rs、oss_cmd.rs（Provider OSS 客户端）
 
   # CLI 测试
   cli_tests:
@@ -79,7 +79,7 @@ assets:
     type: code
     category: cli_tests
     path: src/cli/tests
-    description: planner 和 file_operator 的单元测试
+    description: Rust CLI 集成测试
 
   # Studio 客户端
   studio:
@@ -103,7 +103,7 @@ assets:
     type: config
     category: docker
     path: manifests/docker
-    description: Studio 和 Provider 的 Dockerfile 及 docker-compose 编排
+    description: Studio 和 Provider 的历史 Dockerfile 及 docker-compose 配置
 
   # 集成测试 fixtures
   fixtures:
@@ -119,10 +119,7 @@ assets:
     type: experiment
     category: examples
     path: examples
-    description: >
-      归档流程验证（examples/archive/）
-      AI 路线图生成验证（examples/roadmap/）
-      文档工作流可视化（examples/studio/）
+    description: 示例项目、工作流和原型验证，具体内容以 examples/README.md 为准
 
   # 根文档
   root_docs:
@@ -140,14 +137,14 @@ assets:
     path: manifests/iac
     description: 函数计算（FC）、OSS、VPC、触发器等基础设施定义
 
-  # 对象存储资产（只读发现试点，详见 docs/prd/oss-integration.md）
+  # 对象存储资产与只读发现（详见 docs/prd/oss-integration.md）
   oss_buckets:
     title: 对象存储桶
     type: asset
     category: oss
     path: oss://
     description: >
-      阿里云 OSS 对象存储桶，共 40 个，region 均为 oss-cn-hangzhou。
+      阿里云 OSS 对象存储桶，契约显式登记 35 个，region 均为 oss-cn-hangzhou。
       命名规律 {产品线}-{用途}，用途四类：
       -studio（前端静态站点 18 个）、-private（私密数据 6 个）、
       -site（站点 6 个）、-provider（后端 1 个）、

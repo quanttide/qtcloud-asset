@@ -1,5 +1,7 @@
 # 快速开始
 
+> 历史文档：本文针对旧版 Python CLI 归档流程。当前主 CLI 使用 Rust/Cargo，详见 [`src/cli/README.md`](../../src/cli/README.md)。
+
 ## 目标
 
 将示例文件从 journal 目录归档到 archive 目录。

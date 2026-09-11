@@ -2,7 +2,7 @@
 
 > 验证日期：2026-08-28
 >
-> 状态：已完成
+> 状态：功能已发布；完整管理员生命周期验收待补
 > 正式入口：`https://asset.cloud.quanttide.com`
 > API 入口：`https://api.quanttide.com/qtcloud-asset`
 

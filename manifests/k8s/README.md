@@ -1,7 +1,9 @@
-# Kubernetes Deployment
+# Kubernetes 部署历史参考
 
-This directory deploys the FastAPI provider behind an Ingress for
-`api.asset.quanttide.com`.
+> 本目录仅保留历史 Kubernetes 配置，不属于当前生产部署路径。当前 Provider 使用 Go Custom Runtime 发布到阿里云函数计算，生产 API 入口为 `https://api.quanttide.com/qtcloud-asset`；仓库当前没有 Kubernetes 部署工作流。
+
+The following instructions describe the legacy FastAPI/Kubernetes route and
+the historical `api.asset.quanttide.com` endpoint.
 
 ## Build the provider image
 

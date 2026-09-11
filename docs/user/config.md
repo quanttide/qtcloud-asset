@@ -1,5 +1,7 @@
 # 配置参考
 
+> 历史文档：本文针对旧版 Python CLI 的 `contracts.yaml` 配置，不代表当前 Rust CLI 的配置方式。
+
 CLI 使用 `contracts.yaml` 文件定义归档规则。
 
 ## 文件位置

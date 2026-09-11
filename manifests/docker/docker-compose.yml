@@ -1,5 +1,6 @@
 version: "3.8"
 
+# 历史本地参考配置，不属于当前生产发布路径。
 services:
   # 客户端 - Flutter Web 应用
   studio:
@@ -10,7 +11,7 @@ services:
       - "8080:8080"
     restart: unless-stopped
 
-  # 服务端 - FastAPI
+  # 服务端 - Go Provider（历史参考）
   provider:
     build:
       context: ..
