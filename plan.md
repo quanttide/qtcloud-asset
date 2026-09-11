@@ -1,5 +1,13 @@
 # 量潮资产云站点规范化迁移计划
 
+## 当前状态
+
+> 更新日期：2026-09-11
+
+阶段一至阶段四的迁移工作已完成。阶段五的原始记录保留了 `2026-08-24` 当日的阻断快照，后续 [`docs/qa/phase-five-online-acceptance.md`](docs/qa/phase-five-online-acceptance.md) 已于 `2026-08-26` 记录覆盖率和网关 CORS 通过。阶段六的正式入口、回滚证据和旧桶清单已完成。
+
+阶段七的文件夹分享功能已发布，接口、Studio 分享页面和分享下载已有 QA 记录；管理员创建分享、浏览和撤销的完整线上生命周期仍待真实会话验收。
+
 ## 背景
 
 量潮云产品矩阵中的前端控制台域名通常使用 `{产品}.cloud.quanttide.com`，静态站点桶通常使用 `*-studio` 或 `*-site` 后缀。量潮资产云当前线上入口为 `asset.quanttide.com`，静态前端和 Provider 发布包主要混放在 `qtcloud-asset` 桶中。
@@ -208,8 +216,8 @@ Provider 发布包暂不放入 Studio 桶。
 
 ## 阶段五 线上验收
 
-> **状态：阻断（2026-08-24）**  
-> 结论：新域名、HTTPS、首页、Provider 健康检查和私密桶后端限制已验证；仓库侧已补齐排序状态、对象续页和 URL 编码修复，并已重新发布到 `qtcloud-asset-studio`，当前正式域名 `main.dart.js` ETag 为 `E144C4197AF464B2D85599A0B3CEB8DD`。当前 Studio 覆盖率约 `52.95%`，仍低于契约要求的 `80%`。线上网关仍返回 `Access-Control-Allow-Origin: *`，需要平台侧按已登记来源收口。
+> **状态：历史快照（2026-08-24）**
+> 结论（当日）：新域名、HTTPS、首页、Provider 健康检查和私密桶后端限制已验证；仓库侧已补齐排序状态、对象续页和 URL 编码修复，并已重新发布到 `qtcloud-asset-studio`，当时记录的 Studio 覆盖率约为 `52.95%`，线上网关 CORS 仍待收口。
 
 目标是确认新域名完整链路可用。
 
@@ -232,6 +240,8 @@ Provider 发布包暂不放入 Studio 桶。
 - [通过] 线上 JS 已使用生产 API 地址，并未发现本地地址、内部函数地址或凭证标记。
 - [阻断] 线上 API 网关仍返回 `Access-Control-Allow-Origin: *`，未与 Provider 的精确来源白名单保持一致。
 
+后续复核见 [`docs/qa/phase-five-online-acceptance.md`](docs/qa/phase-five-online-acceptance.md)：覆盖率达到 `90.01%`，正式来源 CORS 已收口，阶段五原始阻断项已被后续验收覆盖。
+
 ## 阶段六 清理和回滚准备
 
 目标是完成迁移后的资产边界收敛，并保留可回滚方案。
@@ -250,6 +260,12 @@ Provider 发布包暂不放入 Studio 桶。
 1. DNS 或 CDN 回退到 `asset.quanttide.com` 当前可用入口。
 2. Studio 发布目标临时回退到 `qtcloud-asset`。
 3. 使用上一版 `main.dart.js`、`index.html` 和 `manifest.json` 的 ETag 进行对象级核对。
+
+## 阶段七 文件夹分享
+
+> **状态：功能已发布；完整生命周期验收待补（2026-08-28）**
+
+文件夹分享、单文件分享、公开分享浏览、对象链接、ZIP 下载和撤销接口已发布到 Provider，Studio 也已包含对应页面和下载能力。当前未闭合项是使用真实管理员会话完成创建、浏览、撤销并确认撤销后失效的线上生命周期验收，详见 [`docs/qa/phase-seven-folder-sharing.md`](docs/qa/phase-seven-folder-sharing.md)。
 
 ## 风险和待确认项
 

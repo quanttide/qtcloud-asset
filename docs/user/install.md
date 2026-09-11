@@ -1,5 +1,7 @@
 # 安装指南
 
+> 历史文档：本文针对旧版 Python CLI。当前主 CLI 使用 Rust/Cargo，详见 [`src/cli/README.md`](../../src/cli/README.md)。
+
 ## 环境要求
 
 - Python 3.12 或更高版本

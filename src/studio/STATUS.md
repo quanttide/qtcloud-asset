@@ -1,25 +1,32 @@
 # Studio 状态报告
 
-> 更新日期：2026-08-16
+> 更新日期：2026-09-11
 > 位置：`src/studio/`
-> 技术栈：Flutter (Dart)
-> 最新版本：无 tag
-
-## 版本历史
-
-| 版本 | 日期 | 内容 |
-|------|------|------|
-| — | 2026-04-17 | 随 v0.0.1 发布：Flutter Web 应用骨架 |
+> 技术栈：Flutter Web、Dart
+> CI Flutter 版本：3.41.9
 
 ## 当前状态
 
-- 骨架：`main.dart`（导航栏）+ `screens/asset_contract_screen.dart`（数字资产契约页）
-- 资产契约页按约束力层级（宪法层/法律层/法理层）分类展示资产，与 `.gitmodules` 对齐
-- 基础 widget 测试存在（`test/widget_test.dart`）
+Studio 已从初始骨架发展为可用的资产浏览界面，当前支持：
 
-## 规划进度
+- 账号密码登录、登录态展示和退出登录
+- 按分类查看、搜索、排序和分页浏览 OSS 桶
+- 文件夹下钻、文件搜索、日期/大小排序和对象分页
+- 公开桶对象链接复制
+- 文件或文件夹分享、分享列表、分享撤销
+- 公开分享页浏览、单文件下载和分享内容 ZIP 下载
+- 管理员用户管理入口
 
-见根 `ROADMAP.md` 目标 3（Studio：资产浏览，参照 qtfounder asset 页模式）：
+Provider 地址通过 `PROVIDER_BASE_URL` 构建参数注入。生产 CI 使用 `https://api.quanttide.com/qtcloud-asset`，本地开发默认使用 `http://127.0.0.1:9000`。
 
-- 资产契约落地、资产目录引擎、通用资产页面、只读浏览、现有页面升级——均未开始
-- `asset_contract_screen.dart` 待按契约驱动重构，与目标 1（契约解析器）衔接
+## 当前发布入口
+
+- 正式入口：`https://asset.cloud.quanttide.com`
+- 发布桶：`qtcloud-asset-studio`
+- 兼容入口：`https://asset.quanttide.com`
+
+## 未闭合事项
+
+- 平台真实 SSO 登录回调尚未接入。
+- 阶段七的完整管理员分享生命周期仍需补做线上验收。
+- 继续保持私密桶和 Terraform 状态桶不暴露对象访问链接。

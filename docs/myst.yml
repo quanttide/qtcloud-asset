@@ -33,10 +33,6 @@ project:
     - title: User（用户文档）
       children:
         - file: user/index.md
-        - file: user/install.md
-        - file: user/quickstart.md
-        - file: user/archive.md
-        - file: user/config.md
-        - file: user/contract.md
+        - file: user/资产云页面使用说明.md
 site:
   template: book-theme

@@ -26,9 +26,9 @@ standards:
 
 dependencies:
   studio:
-    framework: flutter 3.24.5
-    state_management: riverpod
-    routing: go_router
+    framework: flutter 3.41.9
+    state_management: Flutter local state
+    routing: Flutter Navigator and hash routes
 
   provider:
     framework: net/http
@@ -45,7 +45,7 @@ dependencies:
 call_graph:
   studio → provider: HTTP REST API
   cli → provider: HTTP REST API
-  provider → aliyun: FC, OSS, VPC
+  provider → aliyun: FC, OSS, VPC, RDS
 
 # ── 质量门禁 ──────────────────────────────────────────
 

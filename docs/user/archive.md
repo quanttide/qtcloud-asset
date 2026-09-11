@@ -1,5 +1,7 @@
 # 归档命令
 
+> 历史文档：本文针对旧版 Python CLI。当前主 CLI 的入口和命令见 [`src/cli/README.md`](../../src/cli/README.md)。
+
 将产品日志从 journal 目录移动到 archive 目录，保持工作区整洁。
 
 ## 基本用法

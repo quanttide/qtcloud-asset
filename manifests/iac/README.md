@@ -45,11 +45,9 @@ terraform import alicloud_oss_bucket.studio qtcloud-asset-studio
 
 ## 环境说明
 
-| 环境 | 用途 | 配置文件 |
-|------|------|----------|
-| dev | 开发测试 | `environments/dev/` |
-| staging | 预发布验证 | `environments/staging/` |
-| prod | 生产环境 | `environments/prod/` |
+当前仓库没有 `environments/dev/`、`environments/staging/` 或
+`environments/prod/` 子目录。环境差异通过 Terraform 变量、工作目录和
+CI/CD 配置注入；执行前应确认当前变量文件和目标账号。
 
 ## 模块
 
