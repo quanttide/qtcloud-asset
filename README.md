@@ -159,4 +159,4 @@ terraform plan
 - [质量保证](docs/qa/) - 质量决策和记录
 - [用户文档](docs/user/) - 安装和使用指南
 
-路线图见 [ROADMAP.md](ROADMAP.md)，发布记录见 [CHANGELOG.md](CHANGELOG.md)。`TODO.md` 已于 2026-10-21 撤除（内容过时），原列未完成项的处置记在 `CHANGELOG.md` 的「未发布」段。
+路线图见 [ROADMAP.md](docs/dev-guide/roadmap.md)，发布记录见 [CHANGELOG.md](CHANGELOG.md)。`TODO.md` 已于 2026-10-21 撤除（内容过时），原列未完成项的处置记在 `CHANGELOG.md` 的「未发布」段。
