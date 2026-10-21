@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 ### Changed
+- 删除 `TODO.md`（2026-10-21 复核判定内容过时）。原列未完成项的处置：0.1.2 未发布（最新 tag `v0.1.1`，本段即其变更来源）；`GET /auth/login` 仍是未配置占位，平台 SSO 未接入；`tmp-playwright/` 已不存在，其验收意图由 `docs/qa/phase-five-online-acceptance.md` 承载；制品迁移评估、域名策略、凭证迁移（RAM 角色/KMS）三项随文件撤下，需要时按新条目重提
 - 本地登录和管理员邀请从邮箱主键改为账号主键，保留旧 `email` 请求体和 `LOCAL_AUTH_EMAIL` 作为兼容 fallback
 - 明确对象链接仅支持公开桶；私密桶和 `quanttide-terraform-state` 不生成访问链接
 
