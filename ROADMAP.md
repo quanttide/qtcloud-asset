@@ -47,7 +47,6 @@
 - [ ] 接入平台 SSO 或真实身份源，替换默认 SSO 占位实现
 - [ ] 将线上登录后浏览器验收脚本固化为可重复执行的 smoke test
 - [ ] 补齐 GitHub Flow 发布记录：PR、CI、release audit、tag 和 GitHub Release
-- [ ] PR 检查确认不包含 `plan.md`、`plans.md` 或 `plan-a.md`
 
 ### Changed
 - [x] 本地登录和管理员邀请从邮箱主键改为账号主键，保留旧邮箱配置兼容 fallback
